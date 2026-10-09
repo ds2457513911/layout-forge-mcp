@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "layout-forge-mcp"
+version = "0.1.0"
+description = "Allegro footprint generation MCP server (padstacks, pins, silkscreen, package symbols via SKILL)"
+# 说明：原本写的是 ">=3.10,<3.13"（从 layout-check-mcp 复制时带过来的历史上限，
+# 并非真实需求）。本项目代码与依赖均无 <3.13 的约束，故放开上限，
+# 允许用 managed Python 3.13 建环境。实测 3.10 与 3.13 均可运行。
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    {name = "ds2457513911", email = "ds2457513911@163.com"},
+]
+dependencies = [
+    "fastmcp",
+    "skillbridge",
+    "PyMuPDF",
+    "pdfplumber",
+]
+
+[project.scripts]
+layout-forge-mcp = "mcp_server.server:main"
+
+# 关键：明确告诉 setuptools 只打包这三个包，排除 Tools
+[tool.setuptools.packages.find]
+include = ["mcp_server*", "services*", "shared*"]
+exclude = ["Tools*", "skills*", ".trae*"]

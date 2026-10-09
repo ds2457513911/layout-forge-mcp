@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>layout-forge-mcp-SOP</title>
+<style>
+@page { size: A4; margin: 17mm 15mm; }
+* { box-sizing: border-box; }
+body {
+    font-family: "Microsoft YaHei", "微软雅黑", "PingFang SC", "Segoe UI", sans-serif;
+    font-size: 10.5pt; line-height: 1.7; color: #1a1a1a;
+}
+h1 { font-size: 20pt; margin: 0 0 6mm 0; padding-bottom: 3mm;
+     border-bottom: 2px solid #2f5fa8; color: #16386e; }
+h2 { font-size: 14pt; margin: 7mm 0 3mm 0; padding: 1.5mm 3mm;
+     background: #eef3fb; border-left: 4px solid #2f5fa8; color: #16386e;
+     page-break-after: avoid; }
+h3 { font-size: 11.5pt; margin: 5mm 0 2mm 0; color: #24487f;
+     page-break-after: avoid; }
+p  { margin: 0 0 2.5mm 0; }
+ul, ol { margin: 0 0 3mm 0; padding-left: 6mm; }
+li { margin-bottom: 1mm; }
+table { border-collapse: collapse; width: 100%; margin: 2mm 0 4mm 0;
+        font-size: 9.5pt; page-break-inside: avoid; }
+th { background: #eef3fb; border: 1px solid #b9c9e2; padding: 2mm 2.5mm;
+     text-align: left; font-weight: 600; color: #16386e; }
+td { border: 1px solid #ccd6e6; padding: 2mm 2.5mm; vertical-align: top; }
+tr:nth-child(even) td { background: #fafcff; }
+blockquote {
+    margin: 2mm 0 4mm 0; padding: 2.5mm 4mm; background: #f7f9fc;
+    border-left: 3px solid #9fb6d8; color: #33415c; font-size: 10pt;
+}
+blockquote p { margin: 0 0 1.5mm 0; }
+blockquote p:last-child { margin: 0; }
+pre {
+    background: #f5f7fa; border: 1px solid #dde4ee; border-radius: 2px;
+    padding: 3mm; font-size: 8.5pt; line-height: 1.5; white-space: pre-wrap;
+    word-wrap: break-word; font-family: Consolas, "Courier New", monospace;
+    page-break-inside: avoid; margin: 2mm 0 4mm 0;
+}
+code { font-family: Consolas, "Courier New", monospace; background: #eef1f6;
+       padding: 0 1mm; border-radius: 2px; font-size: 9pt; }
+strong { color: #16386e; }
+hr { border: none; border-top: 1px solid #d8e0ee; margin: 5mm 0; }
+</style>
+</head>
+<body>
+<h1>封装自动生成工具 —— 使用说明与效果汇报</h1>
+<blockquote><p>用途：给它一份规格书 PDF，自动算出尺寸并在 Allegro 里把封装画出来，产出可直接使用的封装文件。 面向汇报与使用；每一步的失败处理、排障、改代码的方法见 <code>docs\SOP-封装生成作业流程.md</code>。</p></blockquote>
+<hr>
+<h2>一、工具背景</h2>
+<h3>1.1 以前怎么做</h3>
+<p>工程师在 Allegro 里手工建封装：查规格书找尺寸 → 算焊盘大小 → 算每个脚的坐标 → 一个焊盘一个焊盘建、摆、改 padstack → 画丝印、画本体、画占位框 → 编译 → 再自查一遍。</p>
+<p><strong>三个老问题</strong>：</p>
+<table>
+<thead><tr><th>问题</th><th>表现</th></tr></thead>
+<tbody>
+<tr><td>慢</td><td>一个器件几十步手工操作，引脚越多越久</td></tr>
+<tr><td>易错</td><td>坐标算错、padstack 尺寸填错，肉眼很难发现</td></tr>
+<tr><td>难复用</td><td>换个人做，尺寸口径、命名习惯都不一样</td></tr>
+</tbody></table>
+<h3>1.2 现在怎么做</h3>
+<p>把规格书 PDF 放好，<strong>在对话框里说一句话</strong>就行：</p>
+<pre>帮我根据这份规格书建立封装：&lt;规格书路径或文件夹&gt;</pre>
+<p>剩下的事 AI 自己做：定位尺寸页 → 读参数 → 算几何 → 驱动 Allegro 画出封装 → 编译出成品 → 归档。 <strong>日常使用不需要敲任何命令。</strong></p>
+<blockquote><p><strong>输入</strong>：一份规格书 PDF； <strong>输出</strong>：封装三件套（<code>.dra</code> 图纸 / <code>.psm</code> 成品 / <code>.pad</code> 焊盘），可直接进检查工具验收。</p></blockquote>
+<h3>1.3 和"封装自动检查"怎么接力</h3>
+<p>公司里还有一个"封装自动检查"工具（比对规格书与封装，出判定报告）。两个工具是一前一后的关系：</p>
+<pre>规格书 ──▶【自动生成】──▶ 封装文件 ──▶【自动检查】──▶ 判定报告
+                              ▲                            │
+                              └──────── 不合格？改了再查 ─────┘</pre>
+<p>生成工具负责"做出来"，检查工具负责"验一遍"。<strong>生成的封装不需要人工先过目，可以直接丢给检查工具验收。</strong></p>
+<hr>
+<h2>二、工具效果</h2>
+<blockquote><p>说明：以下数据均来自实际生成记录，出处标在表下方；没有实测过的数字不写。</p></blockquote>
+<h3>2.1 案例器件</h3>
+<p><strong>3S48000163 无源晶振</strong>（SMD，本体 3.2 × 2.5 mm，4 个焊盘）——库里有人工做的标准件可以逐值对照。</p>
+<h3>2.2 产出了什么</h3>
+<p>一个归档文件夹，里面封装三件套 + 规格书 + 校验记录：</p>
+<pre>&lt;规格书所在目录&gt;\NB_XTAL4_3D2X2D5X0D7\
+├── NB_XTAL4_3D2X2D5X0D7.dra     ← 封装图纸（可编辑）
+├── nb_xtal4_3d2x2d5x0d7.psm     ← 成品（画板子时真正调用的）
+├── r1d4x1d2.pad                 ← 焊盘定义
+├── &lt;规格书&gt;.pdf                 ← 同型号规格书，跟封装放在一起
+└── README.md                    ← 清单 + 校验值 + 尺寸出处</pre>
+<h3>2.3 和人工做的对比（这是最硬的一条）</h3>
+<p>该器件库里有人工做的标准件，把工具算出来的几何和它<strong>逐值对拍</strong>：</p>
+<table>
+<thead><tr><th>对拍项</th><th>结果</th></tr></thead>
+<tbody>
+<tr><td>几何参数逐值对拍（焊盘尺寸 / 坐标 / 本体 / 占位框 / 位号）</td><td><strong>164 / 164 全部对上</strong></td></tr>
+<tr><td>Allegro 内建模步骤</td><td><strong>35 步全部成功</strong>，0 步失败</td></tr>
+<tr><td>编译出成品 <code>.psm</code></td><td><strong>连续 3 次成功</strong>，每次 0.6\~0.7 秒，全程零人工点击，产物 8644 字节</td></tr>
+</tbody></table>
+<blockquote><p>出处：<code>docs\全自动封装可行性与攻坚清单.md</code>（2026-09-29 在线实测记录）。 说明：164/164 是"算出来的几何"与人工标准件的对拍，不含"读图取参"这一步的准确率。</p></blockquote>
+<h3>2.4 质量检查结论</h3>
+<p>生成的封装可以直接交给检查工具（19 项自动检查）验收。</p>
+<p>说明：目前生成和检查是<strong>两个工具分开跑</strong>，还没有自动串成一条流水线。</p>
+<hr>
+<h2>三、操作方法</h2>
+<blockquote><p>每步统一两件事：<strong>做什么</strong> / <strong>看到什么就算成功</strong>。</p><p><strong>部署方式</strong>：当前处于<strong>本地测试阶段</strong>，服务装在使用者自己的电脑上； 后续会安排服务器部署，改为远程调用服务——<strong>使用方式不变</strong>。</p></blockquote>
+<h3>3.1 现在的装法：只在作者本机手工配好了</h3>
+<p><strong>现状</strong>：这台工具目前<strong>没有做迁移化重构</strong>，只在作者本机手工配好了，别人要用得手工照抄一遍：</p>
+<table>
+<thead><tr><th>要配的东西</th><th>现在的实际情况</th></tr></thead>
+<tbody>
+<tr><td>MCP 服务</td><td>名 <code>layout-forge-mcp</code>，配置里<strong>写死指向作者本机的项目路径</strong>（<code>...\Layout\layout-forge-mcp</code>）</td></tr>
+<tr><td>配套技能</td><td><code>allegro-skillbridge-ops</code>，装在作者本机的 <code>C:\Users\ds245\.workbuddy\skills\</code>，<strong>不在项目里，不能随项目走</strong></td></tr>
+<tr><td>部署脚本</td><td><code>deploy\deploy.bat</code> 是从检查工具<strong>复制过来的</strong>，里面的仓库名、技能名还指向检查工具，<strong>直接跑会装错东西</strong>，目前没有对外可用的一键部署</td></tr>
+</tbody></table>
+<blockquote><p>一句话：<strong>能用，但还搬不到别人电脑上</strong>——换台机器得人工把上面三样重新配一遍， 还得知道路径怎么填、技能放哪。这就是"还没做迁移化重构"的具体含义。</p></blockquote>
+<h3>3.2 重构之后会是什么样（照检查工具的流程抄）</h3>
+<p>检查工具已经做完这一步，它的做法是：<strong>新建一个空文件夹 → 跑一条命令 → 把打印出来的两段配置接进 AI 工具</strong>。 生成工具照抄同一套，重构后的差别是：</p>
+<table>
+<thead><tr><th>项目</th><th>现在（重构前）</th><th>重构后（照检查工具的流程）</th></tr></thead>
+<tbody>
+<tr><td>装服务</td><td>手工填路径、手工改配置</td><td>一条命令：<code>curl -L -o deploy.bat &lt;脚本地址&gt; &amp;&amp; deploy.bat</code></td></tr>
+<tr><td>装依赖</td><td>手工装 Python 环境和依赖包</td><td>脚本自动装（缺 uv / git 会自己下载）</td></tr>
+<tr><td>MCP 配置</td><td>手工照着写一段 JSON</td><td>脚本自动生成并打印，直接粘</td></tr>
+<tr><td>技能</td><td>从作者本机目录手工拷</td><td>技能随项目走，脚本直接给出路径</td></tr>
+<tr><td>换台电脑的成本</td><td>得懂路径和目录结构，半小时起</td><td>不懂也能装，几分钟</td></tr>
+<tr><td>日常使用（说话）</td><td>不变</td><td><strong>完全不变</strong></td></tr>
+</tbody></table>
+<blockquote><p>重构只改"装"这一段，<strong>用法一个字都不用改</strong>——3.3 开始的操作流程，重构前后完全一样。</p></blockquote>
+<h3>3.3 确认 Allegro 在跑</h3>
+<p><strong>做什么</strong>：打开 Allegro PCB Editor（也可以直接让 AI 帮你启动，技能里有启动方法）。</p>
+<p><strong>看到什么就算成功</strong>：命令行 <code>netstat -ano | findstr 7777</code> 能看到端口在监听，或 AI 回你"通道已就绪"。</p>
+<blockquote><p>这一步<strong>必须做</strong>——封装只能在 Allegro 里面生成，工具的作用是"驱动它画"，不是替代它。</p></blockquote>
+<h3>3.4 说一句话</h3>
+<p><strong>做什么</strong>：在对话框里说（给规格书路径，或给装着规格书的文件夹）：</p>
+<pre>帮我根据这份规格书建立封装：&lt;规格书路径&gt;</pre>
+<p><strong>看到什么就算成功</strong>：AI 自动跑完整个链路，回报"成功"，并列出产出的文件和归档位置。</p>
+<p><strong>它中间会自己干这些事（你不用管，但报告里能看到）</strong>：</p>
+<table>
+<thead><tr><th>阶段</th><th>干什么</th></tr></thead>
+<tbody>
+<tr><td>① 找尺寸页</td><td>在规格书里定位"推荐焊盘图"那一页，渲染出来读参数</td></tr>
+<tr><td>② 离线对拍</td><td>先算出几何并打印对拍表，<strong>每个数都要在规格书上有出处</strong></td></tr>
+<tr><td>③ 建模</td><td>驱动 Allegro 建焊盘 → 放引脚 → 画丝印 → 画本体 → 画占位框 → 写位号 → 存盘</td></tr>
+<tr><td>④ 编译</td><td>编译出 <code>.psm</code> 成品</td></tr>
+<tr><td>⑤ 验证</td><td>编译日志 + 规则检查 + 回读复核，三重都对才算完</td></tr>
+<tr><td>⑥ 归档</td><td>三件套 + 规格书放进<strong>与封装同名的文件夹</strong></td></tr>
+</tbody></table>
+<blockquote><p>★ 任何一步失败会<strong>立即停下</strong>并给出中文原因（如"缺位号"、"引脚编号重复"），不会硬着头皮画出一个半成品。</p></blockquote>
+<h3>3.5 取出产物</h3>
+<p><strong>做什么</strong>：到归档目录（<strong>规格书所在目录下、与封装同名的文件夹</strong>）取三件套。</p>
+<p><strong>看到什么就算成功</strong>：目录里 <code>.dra</code> + <code>.psm</code> + <code>.pad</code> 三样齐全，且 <code>.pad</code> 与 <code>.dra</code> 在同一目录。</p>
+<hr>
+<p><strong>文档版本</strong>：v2.0（2026-10-08） <strong>工程细节</strong>（每步失败怎么处理、红线清单、命令速查）：见 <code>docs\SOP-封装生成作业流程.md</code>。</p>
+</body>
+</html>

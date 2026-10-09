@@ -1,0 +1,55 @@
+# ============================================================
+# layout-check-mcp .gitignore
+# ============================================================
+
+# ---------- Python 构建产物 ----------
+build/
+dist/
+*.egg-info/
+__pycache__/
+*.py[cod]
+
+# ---------- 虚拟环境 ----------
+.venv/
+venv/
+
+# ---------- 测试 / 缓存 / 日志 ----------
+marker_out/
+*.log
+*.log,*
+.trash
+mcp_timing.log
+mcp-config.json
+extract.log*
+
+# ---------- 临时调试产物 ----------
+_extracta_debug/
+_*_out.json
+
+# ---------- 调试脚本（本地开发用，不进仓库） ----------
+Tools/debug/
+
+# ---------- 备份 ----------
+.cleanup_backup/
+
+# ---------- Allegro 生成物 ----------
+signoise.run/
+*.dra.orig
+*.dra.orig.*
+*.lck
+AUTOSAVE.*
+allegro.jrl*
+master.tag
+devices.dml
+dbdoctor.log
+padstack_editor.jrl
+
+# ---------- 客户资料（禁止上传） ----------
+Data/
+Tools/
+
+# ---------- IDE / 系统 ----------
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

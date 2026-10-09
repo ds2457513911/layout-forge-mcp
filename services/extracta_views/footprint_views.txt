@@ -1,0 +1,75 @@
+# ============================================================
+# extracta 视图定义：一个 .dra → pins + pads + geometry + ref_des
+# ============================================================
+# 四个视图对应四个输出文件，命令行按顺序对应：
+#   extracta <dra> footprint_views.txt pins.txt pads.txt geom.txt refdes.txt
+#
+# 重要：PAD_DEF 视图不接受字段声明（见 pad_rep.txt 的注释），
+#       只写视图名 + END，它会自动输出固定列（PAD_NAME / REC_NUMBER /
+#       LAYER / ... / APADSHAPENAME）
+#
+# ★ 为什么要单独一个 REF DES 视图（2026-09-29 实测）：
+#   FULL_GEOMETRY 的 `CLASS = "..."` 是**过滤器**，不是"顺带多读一层"。
+#   视图 3 只取 PACKAGE GEOMETRY，所以位号（CLASS = REF DES）读不到 ——
+#   表现为 texts 里只有 PIN_NUMBER、没有 #REF，而且**不报错**（静默缺口）。
+#   实测把过滤条件换成 CLASS = "REF DES" 立刻读出
+#   `REF DES/ASSEMBLY_TOP = "#REF" @ (-0.15, 0.04)`，所以是**视图没配**，
+#   不是 extracta 没这个能力。
+#   实测 extracta 支持 4 路输出（每条 FULL_GEOMETRY 视图对应一个文件），
+#   所以几何视图保持原样不动，位号另开一路，互不污染。
+# ============================================================
+
+# ---- 视图 1：引脚坐标 ----
+COMPOSITE_PAD
+PIN_NUMBER
+SYM_NAME
+PAD_STACK_NAME
+PIN_X
+PIN_Y
+END
+
+# ---- 视图 2：焊盘逐层定义（字段名不写！PAD_DEF 自动输出全部列） ----
+PAD_DEF
+END
+
+# ---- 视图 3：PACKAGE GEOMETRY 全层图形元素 ----
+FULL_GEOMETRY
+CLASS = "PACKAGE GEOMETRY"
+CLASS
+SUBCLASS
+RECORD_TAG
+GRAPHIC_DATA_NAME
+GRAPHIC_DATA_NUMBER
+GRAPHIC_DATA_1
+GRAPHIC_DATA_2
+GRAPHIC_DATA_3
+GRAPHIC_DATA_4
+GRAPHIC_DATA_5
+GRAPHIC_DATA_6
+GRAPHIC_DATA_7
+GRAPHIC_DATA_8
+GRAPHIC_DATA_9
+GRAPHIC_DATA_10
+END
+
+# ---- 视图 4：REF DES 层文字（位号 #REF）----
+# 字段与视图 3 完全相同（同一个 FULL_GEOMETRY 模板），只有 CLASS 过滤不同。
+# 无位号的图纸会输出 0 行 S! —— 这是**正常**的，不是失败。
+FULL_GEOMETRY
+CLASS = "REF DES"
+CLASS
+SUBCLASS
+RECORD_TAG
+GRAPHIC_DATA_NAME
+GRAPHIC_DATA_NUMBER
+GRAPHIC_DATA_1
+GRAPHIC_DATA_2
+GRAPHIC_DATA_3
+GRAPHIC_DATA_4
+GRAPHIC_DATA_5
+GRAPHIC_DATA_6
+GRAPHIC_DATA_7
+GRAPHIC_DATA_8
+GRAPHIC_DATA_9
+GRAPHIC_DATA_10
+END
