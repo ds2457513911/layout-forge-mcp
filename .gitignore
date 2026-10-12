@@ -54,6 +54,7 @@ Tools/*
 !Tools/install_skillbridge.py
 !Tools/selfcheck_geometry.py
 !Tools/selfcheck_skill_syntax.py
+!Tools/benchmark_golden.py
 
 # 含客户料号 / 本机绝对路径，明确排除
 Tools/e2e_*.py
