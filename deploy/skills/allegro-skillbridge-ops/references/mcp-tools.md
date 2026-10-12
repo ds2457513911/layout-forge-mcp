@@ -81,7 +81,7 @@ install_shadow_library(
 |--|--|--|
 | `solve_footprint_geometry` | ✅ **2026-10-09 已补齐**：`body_center` / `place_bound_expand_mm` / `pins_override` / `pin_names` / `pin1_mark_axis` / `extra_padstacks` / `symbol_name` / `symbol_name_hint` 均已进签名；另加 `extra_spec` 逃生舱（dict 原样透传，显式参数优先）。已用 CSTJ-421 对拍：与 solver 直连结果**逐字段一致** | 连接器类件现在可走 MCP 直算。solver 以后新加字段，用 `extra_spec` 传即可，**不用改工具签名** |
 | `add_footprint_pin` / `build_footprint_from_params` | ✅ **2026-10-09 已修（共享层 `skill_snippets.build_pin_text`）**：原实现用 `make_axlPinText` 简化写法 `?text "N"`，**数字串被 Allegro 当成字块号** → 引脚号字号随脚号递增（CSTJ-421 实测 1→block1 … 6→block6）。现强制结构体形式，默认 `textBlock "1"` + `justify "center"`（人工件口径） | 修复后 MCP server 进程若还缓存旧代码，需重启客户端连接器才生效；CLI 即时生效。回读校验走 extracta（`design->text` 看不到引脚号），标准：6 脚字块一致且与 #REF 同字块 |
-| `install_shadow_library` | `lib_root` 默认 `Data\footprint\` → 落 `<料号>/` 根目录，**不符合归档口径** | 显式传 `lib_root=<规格书所在目录>`、`pn=<符号名>`（见上面第 2 节） |
+| `install_shadow_library` | `lib_root` 默认 `Data\footprint\` → 落 `<料号>/` 根目录，**不符合归档口径**。✅ 2026-10-12 已修误卷：自动扫到的 .pad 现按 `.dra` 二进制里实际引用的 padstack 名过滤（XTAL/FPC 无关残留不再被卷入），`dry_run` 会输出核对提醒 | 显式传 `lib_root=<规格书所在目录>`、`pn=<符号名>`（见上面第 2 节）；`pad_names=` 仍是最可靠的显式指定方式 |
 | `new_symbol_drawing` | 相对名**默认落 `Tools/test/`**；`overwrite` 默认 **True**（会 `os.remove` 目标） | 目标名别指向人工件 / 金标准；最终落点靠第 2 节归档 |
 | `change_drawing_extents` | **docstring 是旧口径**（仍写"无条件并集"）；底层已修为「精确设定失败才并集」，行为正确。实测 extents 仍是硬边界：±2 范围内画 ±10 矩形 → 返回 nil | 信行为不信 docstring；**先扩范围再画图元**，与 CLI 完全一样 |
 | `check_footprint_by_rules` | `save_report` 默认 True → 会写报告文件到磁盘 | 只要结论时传 `save_report=False` |

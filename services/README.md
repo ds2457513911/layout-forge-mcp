@@ -29,7 +29,7 @@
 | `extracta_views/footprint_views.txt` | 上面 4 路视图的**定义文件**（一视图 → 一输出文件） | 删掉第 4 路 = 位号静默缺口回归（有自检守） |
 | `skillbridge_reader.py` | SkillBridge 版读取（保底路径） | ✅ 需要 Allegro；与 extracta 输出结构**必须一致** |
 | `footprint_extractor.py` | 读取**分发器**：extracta 优先 → SkillBridge 回退；`_extracta_gaps()` 显式上报缺口 | 缺口**不阻断**几何判据（缺位号回退也白搭） |
-| `library_install.py` | ★ **影子库落位**：把产物按约定拷进 `..\Data\footprint\<PN>\`；`verify_colocation()` 同目录守卫 | `overwrite` **默认 False**（库里可能是人工金标准！）；**不碰 padpath** |
+| `library_install.py` | ★ **影子库落位**：把产物按约定拷进 `..\Data\footprint\<PN>\`；`verify_colocation()` 同目录守卫；自动扫 .pad 时**按 .dra 实际引用过滤**（`_pad_referenced_by_dra`，2026-10-12 加，XTAL/FPC 误卷根治） | `overwrite` **默认 False**（库里可能是人工金标准！）；**不碰 padpath** |
 | `rule_checker.py` | 19 项封装规则复核（从 layout-check 继承） | 与 `Data/checklist/PCB_Footprint建库规范.xlsx` 同源 |
 | `report_renderer.py` | 把检查结果渲染成报告 | 只读输入，不写 `.dra` |
 | `cdsroot_locator.py` | 定位 Cadence `CDSROOT` / `extracta.exe` | extracta 与 Allegro 都要它 |

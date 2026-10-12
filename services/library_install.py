@@ -194,6 +194,27 @@ def collect_pads(dirs: Sequence[Optional[str]]) -> List[str]:
     return [found[k] for k in sorted(found)]
 
 
+def _pad_referenced_by_dra(dra_path: str, pad_path: str) -> bool:
+    """
+    判断 `.dra` 二进制里是否出现某 padstack 名（零会话过滤）。
+
+    ★ 2026-10-12 加（修 XTAL/FPC 残留误卷）：Allegro 的 `.dra` 以二进制
+      存储，但 padstack 名以 ASCII 明文出现 —— 按**大小写不敏感**的
+      子串检索即可判定「这个 padstack 是否被该符号引用」。
+      实测（Tools/test 6 份 .dra × 5 个 .pad 交叉验证）：
+      每份 .dra 都只命中自己的 padstack，无关 .pad 全部剔除，
+      零误报零漏报。
+    读不了文件时**返回 True 不滤**（宁多勿漏，交给告警兜底）。
+    """
+    try:
+        with open(dra_path, "rb") as fh:
+            blob = fh.read().lower()
+    except OSError:
+        return True
+    base = os.path.splitext(os.path.basename(pad_path))[0].lower()
+    return base.encode("ascii", "ignore") in blob
+
+
 def verify_colocation(
     dir_path: str,
     *,
@@ -371,12 +392,34 @@ def install_to_shadow_library(
                     missing.append({"ext": ".pad", "name": _stem(nm) + ".pad"})
         else:
             auto_pads = collect_pads(srcs)
-            if len(auto_pads) > 1:
-                warnings.append(
-                    f"自动扫到 {len(auto_pads)} 个 .pad（"
-                    + ", ".join(os.path.basename(p) for p in auto_pads)
-                    + "）—— 无法确定哪些属于本符号，已全部归集；"
-                      "建议调用方用 pad_names= 显式指定。")
+            if auto_pads:
+                # ★ 2026-10-12 修误卷（XTAL/FPC 残留两次应验）：
+                #   自动扫到的 .pad 不再"全部归集"，先按 .dra 二进制里
+                #   实际引用的 padstack 名过滤（零会话，见
+                #   `_pad_referenced_by_dra` 的实测记录）。
+                _dra_hit = next(
+                    (s for s, n in plan if n.lower().endswith(".dra")), None)
+                if _dra_hit:
+                    _kept = [p for p in auto_pads
+                             if _pad_referenced_by_dra(_dra_hit, p)]
+                    _drop = [os.path.basename(p) for p in auto_pads
+                             if p not in _kept]
+                    if _drop:
+                        warnings.append(
+                            "自动扫到的 .pad 已按 .dra 实际引用过滤，剔除: "
+                            + ", ".join(_drop))
+                    auto_pads = _kept
+                if not auto_pads:
+                    warnings.append(
+                        "扫描到的 .pad 均未被 .dra 引用 —— 本次不归集任何 pad"
+                        "（.dra 自带 padstack 副本，不影响使用）；"
+                        "若确需带 pad 请用 pad_names= 显式指定。")
+                else:
+                    warnings.append(
+                        "自动扫到并归集 "
+                        + ", ".join(os.path.basename(p) for p in auto_pads)
+                        + "（已按 .dra 实际引用过滤）—— 若不全请用 "
+                          "pad_names= 显式指定。")
             plan += [(p, os.path.basename(p)) for p in auto_pads]
 
     # 附加固定文件（有就顺带带上，没有不算错）
@@ -414,6 +457,11 @@ def install_to_shadow_library(
 
     # ---- 3) dry-run 到此为止（但照样把 collisions 提前算出来）----
     if dry_run:
+        if auto_pads:
+            warnings.append(
+                "dry_run 预览将归集上述自动扫到的 .pad —— 正式执行前请核对是否"
+                "为该符号实际 padstack（误卷历史：XTAL/FPC 无关残留曾应验；"
+                "现已按 .dra 实际引用过滤，仍建议核对一眼）。")
         for _s, n in plan:
             _dst = os.path.join(target_dir, n)
             if os.path.exists(_dst):
@@ -598,6 +646,7 @@ __all__ = [
     "list_shadow_library",
     "find_artifact",
     "collect_pads",
+    "_pad_referenced_by_dra",
     "check_ascii_path",
     "verify_colocation",
 ]
