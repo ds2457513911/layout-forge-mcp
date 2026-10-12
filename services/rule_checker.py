@@ -145,6 +145,9 @@ IC_KEYWORDS = [
 CHIP_KEYWORDS = [
     "r", "c", "l", "resistor", "capacitor", "0402", "0201", "0603",
     "0805", "1206", "sod", "chip_r", "chip_c",
+    # 2026-10-12 金标准对拍补：DFN/EMI 微型件金标准一律不画丝印，
+    # 按 chip 口径走 6.4 NA（emi10 2.5×1mm 9 脚也画不下丝印）
+    "dfn", "emi",
 ]
 
 
@@ -844,6 +847,22 @@ def check_place_bound(data: Dict, rules: Dict) -> List[Dict]:
         ))
         return items
 
+    # ---------- ★ 5.2a 前置：pb_bbox 退化（零面积点）→ NA ----------
+    # npth/pth 安装孔件金标准只在孔心画一个 place_bound 点（bbox 面积 0），
+    # 覆盖检查对这种件必然 FAIL —— 是机械孔惯例，不是缺陷。
+    pb_w = pb_bbox[1][0] - pb_bbox[0][0]
+    pb_h = pb_bbox[1][1] - pb_bbox[0][1]
+    if abs(pb_w) < 1e-6 or abs(pb_h) < 1e-6:
+        items.append(_item(
+            "5.2", "Place_Bound 覆盖焊盘",
+            "NA",
+            value={"pb_bbox": [[_round(x, 3) for x in pb_bbox[0]], [_round(x, 3) for x in pb_bbox[1]]]},
+            rule="Place_Bound 退化为零面积点（机械孔/基准点惯例），覆盖检查不适用",
+            detail="place_bound 是点元素，转 AI/人工确认是否为安装孔类",
+            expected=None, source="self",
+        ))
+        return items
+
     # ---------- 5.2a 覆盖检查（相对 pins bbox） ----------
     # 这个用 pins bbox 是对的：place_bound 必须覆盖所有焊盘
     # 2026-10-12 金标准校准：金标准惯例允许 place_bound 比焊盘 bbox 小
@@ -1014,6 +1033,21 @@ def check_assembly(data: Dict, rules: Dict) -> List[Dict]:
     # 几何层只要求「有外框」，≥2 的旧要求过严（39/253 假 WARN）
     min_elements = 1
 
+    # 6.1：机械孔件（npth/pth）金标准惯例不画 Assembly → NA
+    low_name = data.get("symbol_name", "").lower()
+    is_mech = bool(re.search(r"(^|_)n?pth", low_name))
+    if not asm and is_mech:
+        items.append(_item(
+            "6.1", "Assembly_Top 存在",
+            "NA",
+            value=len(asm),
+            rule="机械孔/安装件允许不画 Assembly",
+            detail="npth/pth 机械件无 Assembly 为金标准惯例",
+            expected="建议有，机械件缺省允许",
+            source="default",
+        ))
+        return items
+
     items.append(_item(
         "6.1", "Assembly_Top 存在",
         "PASS" if asm else "FAIL",
@@ -1073,15 +1107,15 @@ def check_silkscreen(data: Dict, rules: Dict) -> List[Dict]:
     comp_type = _classify_component(data.get("symbol_name", ""))
     inset = float(rules.get("silkscreen", {}).get("overlap_inset_mm", 0.10))
 
-    # 6.4：chip 类（0201/0402 等无极性件）与 ≤2 脚小件（二极管/LED/DFN
-    # 2L）金标准惯例不画丝印 → NA；其余保持 FAIL
-    if comp_type == "chip" or (pins and len(pins) <= 2):
+    # 6.4：chip 类（0201/0402 等无极性件）与 ≤3 脚小件（二极管/LED/DFN
+    # 2L/SOT-23-3）金标准惯例不画丝印或丝印有无不一 → NA；其余保持 FAIL
+    if comp_type == "chip" or (pins and len(pins) <= 3):
         items.append(_item(
             "6.4", "Silkscreen_Top 存在",
             "PASS" if silk else "NA",
             value=len(silk),
-            rule="chip 类无极性件允许不画 Silkscreen（1 脚标识无意义）",
-            detail="" if silk else "chip 类无丝印为惯例，不判失败",
+            rule="chip/≤3 脚微型件允许不画 Silkscreen（金标准丝印有无不一，交 AI 语义层）",
+            detail="" if silk else "微型件无丝印为惯例，不判失败",
             expected="建议有，缺省允许",
             source="default",
         ))
