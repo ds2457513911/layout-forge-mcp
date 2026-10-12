@@ -14,7 +14,7 @@
 | 层 | 位置 | 职责 |
 |---|---|---|
 | Agent（客户端） | WorkBuddy / Trae / Claude Desktop 等 | 承载 Skill 流程、调用 MCP 工具、**负责语义判断**（读规格书提参数、命名含义、极性标识） |
-| MCP 服务 | `mcp_server/` | 暴露 **28 个 tool** + resource + prompt，**负责数值计算**（几何求解、规则核验、PDF 渲染、归档） |
+| MCP 服务 | `mcp_server/` | 暴露 **31 个 tool** + resource + prompt，**负责数值计算**（几何求解、规则核验、PDF 渲染、归档） |
 | 业务源码 | `services/` | 求解器、建造器、extracta / SkillBridge 读写、PDF 服务、spec 库、规则表 |
 
 核心原则：**数值由代码算，语义由 AI 判断。**
@@ -29,7 +29,7 @@
 |---|---|
 | 逐字节相同 10 件 | `mcp_server/{config,prompts,resources,__init__}`、`services/{pdf_locate,rule_checker,skillbridge_reader}`、`shared/` 3 件 |
 | 本项目单方增强 3 件 | `extracta_reader` 598→646（+REF DES 第 4 路视图）、`pdf_service` 136→264（+contact sheet）、`footprint_extractor` 128→182（+缺口检测） |
-| 工具覆盖 | 本项目 28 个 ⊇ 旧版 7 个，**7/7 全覆盖** |
+| 工具覆盖 | 本项目 31 个 ⊇ 旧版 7 个，**7/7 全覆盖** |
 
 → **旧版项目不再维护**，保留在 `Layout\` 下仅作历史参考。
 → 唯一遗留风险已消除：`rule_checker.py`（1114 行）曾在两边各存一份，改规则时"改哪边"不确定；现在只认**本项目这一份**。
@@ -132,7 +132,7 @@ SkillBridge 自动加载由 `deploy\setup_agent.py` 的 C 步负责，
 
 ```bash
 # ① 离线自检（不需要 Allegro）—— 必须全绿
-.venv\Scripts\python.exe Tools\selfcheck_geometry.py       # 231/231
+.venv\Scripts\python.exe Tools\selfcheck_geometry.py       # 239/239
 .venv\Scripts\python.exe Tools\selfcheck_skill_syntax.py    # 222/222
 
 # ② MCP 工具注册数（离线，不需要 Allegro）
@@ -266,14 +266,14 @@ Tools\test\<符号名>\
 
 | 改这个文件 | 影响 | 改完必须跑 |
 |---|---|---|
-| `services/geometry_solver.py` | 所有器件的几何（焊盘/本体/丝印/外扩/原点） | `selfcheck_geometry.py`（231 项，含 3 份内置 spec 基线） |
+| `services/geometry_solver.py` | 所有器件的几何（焊盘/本体/丝印/外扩/原点） | `selfcheck_geometry.py`（239 项，含 3 份内置 spec 基线） |
 | `services/rule_checker.py` | 17 项规则判定 | `selfcheck_geometry.py` + 对一颗已知件重跑 `check_footprint_by_rules` |
 | `services/skill_snippets.py` | 发给 Allegro 的 SKILL 表达式 | `selfcheck_skill_syntax.py`（222 项）+ **实机建一颗件** |
 | `services/footprint_builder.py` | 建封装执行流程 | 实机 e2e（如 `Tools\e2e_cstj421.py`） |
 | `services/extracta_views/*.txt` | 回读视图（增删视图会改变输出文件对应关系） | 回读一颗已知 `.dra` 对拍 |
 | `services/spec_library.py` | spec 库读写 / 指纹匹配 | 冒烟：`save` → `load` → `find` round-trip |
 | `mcp_server/tools.py` | MCP 工具签名与参数透传 | 离线注册检查（工具总数）+ 改完**重连 MCP** |
-| `Data/specs/*.json` | 已存档器件的解析成果 | 对应器件的 `solve` 结果不应变化 |
+| `knowledge/specs/*.json` | 已存档器件的解析成果 | 对应器件的 `solve` 结果不应变化 |
 
 ### 7.2 发布流程
 
@@ -315,29 +315,37 @@ Tools\test\<符号名>\
 
 ## 9. 附录
 
-### 9.1 MCP 工具速查（28 个）
+### 9.1 MCP 工具速查（31 个）
 
 **建封装（22）**：`inspect_allegro_environment`、`new_footprint_drawing`、`new_symbol_drawing`、
 `clear_footprint_drawing`、`create_padstack`、`add_footprint_pin`、`add_footprint_outline`、
 `add_footprint_text`、`change_drawing_extents`、`frame_drawing_view`、`save_footprint_drawing`、
 `export_psm`、`build_footprint_from_params`、`solve_footprint_geometry`、
 `validate_land_pattern_json`、`install_shadow_library`、`list_shadow_library`、
-`render_pdf_contact_sheet`、`save_spec`、`load_spec`、`find_spec`、`list_specs`
+`render_pdf_contact_sheet`
+
+**spec / 案例库（7）**：`save_spec`、`load_spec`、`find_spec`、`list_specs`、
+`save_case`、`find_case`、`list_cases`
 
 **读 PDF / 目录（4）**：`locate_land_pattern_page`、`render_pdf_page`、`list_subfolders`、`list_folder_files`
 
 **检查（2）**：`read_full_footprint`、`check_footprint_by_rules`
 
-> 22 + 4 + 2 = 28。分类是人为划分：`list_folder_files`、`render_pdf_page` 等
+> 18 + 7 + 4 + 2 = 31。分类是人为划分：`list_folder_files`、`render_pdf_page` 等
 > 在建、查两条链路都会用到。
+>
+> ★ 阈值类参数外置在 `knowledge/rules/checker_rules.json`（2026-10-12 起），
+> 改 JSON 立即生效、不用重启 MCP；判定逻辑仍在 `rule_checker.py`。
 
 ### 9.2 目录说明
 
 | 目录 | 内容 |
 |---|---|
-| `Data/specs/` | ★ spec 库（`*.json` + `_index.json` + `README.md`） |
+| `knowledge/specs/` | ★ spec 库（`*.json` + `_index.json` + `README.md`） |
+| `knowledge/cases/` | ★ 检测案例库（指纹 + 报告摘要 + **人工裁定** + 教训），同族件自动召回 |
+| `knowledge/rules/` | ★ 规则阈值外置（`checker_rules.json`），改数字不改代码 |
 | `mcp_server/` | MCP 服务（tools / config / resources / prompts / server） |
-| `services/` | 业务源码（solver / builder / rule_checker / extracta / skillbridge / pdf / spec_library） |
+| `services/` | 业务源码（solver / builder / rule_checker / extracta / skillbridge / pdf / spec_library / case_library） |
 | `shared/` | 通用工具（json_utils / validation） |
 | `Tools/` | CLI 脚本（自检 / e2e / 启停 / 归集 / 归档） |
 | `Tools/test/` | 图纸干活区，每个符号一个子目录 |

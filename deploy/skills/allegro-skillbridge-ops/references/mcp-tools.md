@@ -101,8 +101,21 @@ install_shadow_library(
    前者纯离线、不连 Allegro、不写文件，产出给 AI 复核；后者才动 Allegro。
    两者之间用 `geometry_solver.to_build_args(solve(...))` 转。
 
-3. **改了 `tools.py` 之后**：离线自检必跑 `Tools/selfcheck_geometry.py`（231）
+3. **改了 `tools.py` 之后**：离线自检必跑 `Tools/selfcheck_geometry.py`（239）
    与 `Tools/selfcheck_skill_syntax.py`（222），**只能用项目 `.venv`**。
 
 4. **差异表要跟着代码更新**。本表 2026-10-09 实测；下次改 MCP 工具签名后
    要回来同步，否则 SKILL 会按旧参数指导出新错误。
+
+## 案例库（2026-10-12 新增，Tool 29~31）
+
+检测**前**先 `find_case(spec_json=...)`：同封装/同族案例自动召回（复用 spec 几何指纹，
+exact/family/keyword 三档）——把案例里的 `lessons` / `findings` 作为预警上下文，
+解读报告前先对照历史裁定，避免把已知误报再报一遍吓工程师。
+
+检查**后**（人工确认完哪条是真问题、哪条是误报）`save_case(...)` 存档：
+findings 每条 {"rule_id","issue","verdict":"false_positive|true_positive|needs_human","reason"}，
+lessons 写教训。**裁定一次、全族受益**。真源 `knowledge/cases/`。
+
+规则阈值外置 `knowledge/rules/checker_rules.json`：改数字立即生效（不用重启 MCP），
+判定逻辑仍在 `rule_checker.py`。

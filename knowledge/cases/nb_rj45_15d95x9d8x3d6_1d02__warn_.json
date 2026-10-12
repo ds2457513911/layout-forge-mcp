@@ -1,0 +1,45 @@
+{
+  "schema": "layout-forge-case/1",
+  "name": "nb_rj45_15d95x9d8x3d6_1d02",
+  "tag": "WARN裁定",
+  "saved_at": "2026-10-12 16:11:10",
+  "family": "RJ45",
+  "source_pdf": "Data/footprint_test/CSTR-66-033M(1)/CSTR-66-033M.pdf",
+  "fingerprint": {
+    "mount": "smd",
+    "pin_count": 10,
+    "pitch_x": 1.02,
+    "pitch_y": 1.27,
+    "body_x": 15.95,
+    "body_y": 9.8,
+    "pad_x": 1.55,
+    "pad_y": 0.7
+  },
+  "check_summary": {
+    "total": 18,
+    "pass": 15,
+    "fail": 0,
+    "warn": 3,
+    "na": 0
+  },
+  "report_path": null,
+  "findings": [
+    {
+      "rule_id": "6.5",
+      "issue": "Silkscreen 复杂 path 数 = 0 → WARN",
+      "verdict": "false_positive",
+      "reason": "layout 工程师确认没有『复杂 path』这个概念；该规则用 n_segs>=3 间接判 1 脚标，人工封装把三角拆成单线永不命中，属自造概念+假阳性"
+    },
+    {
+      "rule_id": "5.2",
+      "issue": "外扩 8.85/6.45 超出 [0.5,2.5] → WARN",
+      "verdict": "false_positive",
+      "reason": "device_size 被识别成 0.5×0.5（退化），外扩是对着错基准算的；大型连接器带固定脚外扩天然超 2.5"
+    }
+  ],
+  "lessons": [
+    "6.5『复杂 path 数』对本工具产件以外的封装易误报，解读报告时先核对工程师意见",
+    "5.2 外扩 WARN 先查 device_size 是否退化（RJ45 本体 ~16×12 却显示 0.5×0.5 即是）"
+  ],
+  "verdict": "pass_with_notes"
+}

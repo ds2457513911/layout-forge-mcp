@@ -1422,13 +1422,13 @@ def to_build_args(
 
 
 # ============================================================
-# 8. 回归样例 —— ★ 2026-10-09 起真源迁到 Data/specs/*.json
+# 8. 回归样例 —— ★ 2026-10-09 起真源迁到 knowledge/specs/*.json
 # ============================================================
 # 以前这三份 spec **硬编码在本文件**，有三个毛病：
 #   1. 加一颗料 = 改源码，还要过 selfcheck_geometry 225 项断言
 #   2. MCP 工具读不到（solve_footprint_geometry 逐字段构造 spec，与常量无关）
 #   3. 和真实库 `Data\footprint\` 两套账
-# 现在**真源是 `Data/specs/<符号名>.json`**（含 family / source_pdf / notes 方法论），
+# 现在**真源是 `knowledge/specs/<符号名>.json`**（含 family / source_pdf / notes 方法论），
 # 由 `services/spec_library.py` 读写（save_spec / load_spec / find_spec）。
 # 这里只保留**加载后的常量名**，兼容 `Tools/e2e_*.py` 与 `selfcheck_geometry` 的既有引用。
 #
@@ -1449,7 +1449,7 @@ def _load_builtin(name: str, attr: str) -> Dict[str, Any]:
     spec = spec_library.load_spec(name)
     if spec is None:
         raise RuntimeError(
-            f"内置样例 spec 缺失：Data/specs/{name.lower()}.json\n"
+            f"内置样例 spec 缺失：knowledge/specs/{name.lower()}.json\n"
             f"  真源已迁到 spec 库（services/spec_library.py 维护）。\n"
             f"  若被误删：从备份恢复，或按 JSON 的 notes 字段重跑解析。\n"
             f"  受影响常量：{attr}")

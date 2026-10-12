@@ -509,7 +509,7 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
 ## 客户端配置示例
 
 本技能与 `allegro-skillbridge-ops` 共用同一个 MCP 服务 `layout-forge-mcp`
-（28 个工具：建封装 22 + 读 PDF/目录 4 + 检查 2）。已经注册过就不用再配。
+（31 个工具：建封装 18 + spec/案例库 7 + 读 PDF/目录 4 + 检查 2）。已经注册过就不用再配。
 
 下面给的是**换机器 / 给同事**时的写法。
 
@@ -540,5 +540,5 @@ Python 都 `import skillbridge` 失败，用错解释器会直接连不上 Alleg
    （本项目 `mcp_server/config.py` **没有** `MCP_VERSION` 字段，无法靠版本号判断）
 2. 判据：重连后工具总数应为 **28**；或直接调一个新加的工具（如 `list_specs`）
    看是否报"未知工具"
-3. 改动较大时跑两套离线自检：`Tools/selfcheck_geometry.py`（231 项）+
+3. 改动较大时跑两套离线自检：`Tools/selfcheck_geometry.py`（239 项）+
    `Tools/selfcheck_skill_syntax.py`（222 项），**只能用项目 `.venv`**

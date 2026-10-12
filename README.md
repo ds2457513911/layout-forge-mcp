@@ -71,7 +71,9 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 | `Tools/test/` | ★ 测试图纸干活区（.dra / .pad / .psm） | `Tools/test/README.md` |
 | `Tools/log/` | ★ 运行痕迹归集区 | `Tools/log/README.md` |
 | `Tools/debug/` | 排障脚本（2026-10-09 从 layout-check-mcp 迁入）。★ 项目根是**上三级** | `Tools/debug/README.md` |
-| `Data/specs/` | ★ **spec 库**（2026-10-09 新增）：已解析器件的参数 JSON，同封装零读图复用 | `Data/specs/README.md` |
+| `knowledge/specs/` | ★ **spec 库**（2026-10-09 新增）：已解析器件的参数 JSON，同封装零读图复用 | `knowledge/specs/README.md` |
+| `knowledge/cases/` | ★ **检测案例库**（2026-10-12 新增）：指纹 + 报告摘要 + 人工裁定 + 教训，检查前 `find_case` 同族预警 | `knowledge/README.md` |
+| `knowledge/rules/` | ★ **规则阈值外置**（2026-10-12 新增）：`checker_rules.json`，改数字立即生效 | `knowledge/README.md` |
 | `docs/` | ★ **作业流程 SOP** + 调研与攻坚清单（决策依据都在这） | `docs/README.md` |
 | `deploy/` | ★ **一键部署**（新机器双击 `deploy.bat` 即可：装环境 / 注册 MCP / 装 Skill / 配 SkillBridge / 验收） | `deploy/README.md` |
 | `.trash/` | 隔离区（可恢复，**不要当垃圾桶删**） | `.trash/README.md` |
@@ -120,10 +122,13 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 | **`solve_footprint_geometry`** | ★ **参数 → 几何**（纯离线）：把器件参数算成 padstack/pins/silk/body/place_bound/refdes + 两个名字，带 `derivations` 审计。★ **尺寸取值口径**：图上标注了具体值 → 取标注值；图上没标需查表 → 取表 MAX（无 MAX 用 TYP + 告警）。命名永远用中值。`build_footprint_from_params` 的**前置编译器** |
 | `build_footprint_from_params` | **顶层接口**：一次调用建出完整封装。★ 支持 `fresh_symbol=True` **先自动新建干净图纸**；`silk`/`body`/`place_bound` 接受**列表**（多段轮廓） |
 | `render_pdf_contact_sheet` | ★ **整份 PDF 拼一张缩略图**（2026-10-09 新增）。`locate_land_pattern_page` 在**扫描件上会失配**（13 份实测只强命中 4 份），用它一次读图定位尺寸页 |
-| `save_spec` | ★ **spec 库**：把本次解析出的 spec 存档到 `Data/specs/<符号名>.json`（含 family / source_pdf / notes 方法论） |
+| `save_spec` | ★ **spec 库**：把本次解析出的 spec 存档到 `knowledge/specs/<符号名>.json`（含 family / source_pdf / notes 方法论） |
 | `load_spec` | 按名字取回 spec —— **同封装不同料号可零读图复用** |
 | `find_spec` | 按几何指纹（mount / pin_count / pitch / body / pad，容差 0.05）找同族 spec，返回 `exact` / `family` / `keyword` 三档 |
 | `list_specs` | 列出库里所有 spec 索引条目 |
+| **`save_case`** | ★ **案例库**（2026-10-12 新增）：检测裁定后存档（指纹 + 报告摘要 + findings 裁定 + lessons 教训） |
+| **`find_case`** | ★ 检查**前**先查：同封装/同族案例召回（exact/family/keyword 三档，复用 spec 指纹） |
+| `list_cases` | 列出案例库全部案例 |
 
 ### 检查类（继承自 layout-check-mcp，共 7 个）
 
@@ -137,7 +142,7 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 | `tools/probe_api_exists.py` | ★ 探测 AXL/SKILL 函数「文档里有、运行时有吗」 |
 | `tools/restart_skillbridge.py` | ★ 让 Allegro 自己重启 SkillBridge 服务（fire-and-forget）|
 | `tools/selfcheck_skill_syntax.py` | SKILL 表达式构造器的离线自检（不需要 Allegro）|
-| `tools/selfcheck_geometry.py` | ★ **参数→几何**求解器的离线自检（**231 项**，不需要 Allegro）|
+| `tools/selfcheck_geometry.py` | ★ **参数→几何**求解器的离线自检（**239 项**，不需要 Allegro）|
 | `tools/dump_all_footprints.py` | 批量扫 `Data/footprint` 下所有 `.dra` 出命名规则分析（2026-10-09 迁入；本项目根下无该目录时自动退回上一级真实库）|
 
 > ★ **工程维护手册（部署 / 排障 / 变更）**：项目根 `SOP-工程维护手册.md`。

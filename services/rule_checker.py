@@ -23,9 +23,16 @@ v6 已含（保留）：
 """
 from __future__ import annotations
 
+import json
+import logging
 import math
+import os
 import re
 from typing import Any, Dict, List, Optional
+
+from services import paths as P
+
+logger = logging.getLogger("layout-forge")
 
 
 DEFAULT_RULES: Dict[str, Any] = {
@@ -61,6 +68,51 @@ DEFAULT_RULES: Dict[str, Any] = {
         "size_tolerance_mm": 0.05,
     },
 }
+
+
+# ============================================================
+# 规则参数外置（knowledge/rules/checker_rules.json）
+# ============================================================
+#: ★ 阈值类参数的外置真源（2026-10-12 起）。只放**数字/开关**，
+#:   规则的判定逻辑（怎么比、比什么）仍在代码里 —— 改逻辑必须改代码。
+RULES_JSON = os.path.join(P.PROJECT_ROOT, "knowledge", "rules", "checker_rules.json")
+
+
+def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    """递归合并：override 里的标量/新键覆盖 base，嵌套 dict 继续下钻。"""
+    out = dict(base)
+    for k, v in (override or {}).items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
+def load_external_rules(path: Optional[str] = None) -> Dict[str, Any]:
+    """
+    读外置规则 JSON（深合并到 DEFAULT_RULES）。
+
+    ★ 每次 check 都现读（几 KB 的文件，代价可忽略）——
+      改 JSON **立即生效，不用重启 MCP**。
+
+    :return: 合并后的完整规则 dict；文件缺失 / JSON 损坏 → 原样返回 DEFAULT_RULES
+             （★ 宁可用内置默认也不带病运行，损坏原因会打日志）
+    """
+    p = os.path.abspath(path or RULES_JSON)
+    if not os.path.isfile(p):
+        return dict(DEFAULT_RULES)
+    try:
+        with open(p, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        logger.warning("外置规则读取失败，回退内置默认：%s（%s）", p, e)
+        return dict(DEFAULT_RULES)
+    if not isinstance(data, dict):
+        logger.warning("外置规则顶层不是 dict，回退内置默认：%s", p)
+        return dict(DEFAULT_RULES)
+    data.pop("_meta", None)  # 注释性元数据不参与合并
+    return _deep_merge(DEFAULT_RULES, data)
 
 
 # ============================================================
@@ -1025,7 +1077,7 @@ def run_numeric_checks(
             "warned": [],
         }
 
-    rules = rules or DEFAULT_RULES
+    rules = rules or load_external_rules()
 
     # 元件类型
     comp_type = _classify_component(footprint_data.get("symbol_name", ""))

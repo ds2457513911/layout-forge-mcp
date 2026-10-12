@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "purpose": "rule_checker 阈值外置真源（2026-10-12 起）。只放数字/开关，判定逻辑仍在 services/rule_checker.py —— 改逻辑必须改代码。改本文件立即生效，不用重启 MCP。",
+    "fallback": "文件缺失或 JSON 损坏时自动回退 services/rule_checker.py::DEFAULT_RULES（宁用内置默认，不带病运行）",
+    "last_updated": "2026-10-12"
+  },
+  "naming": {
+    "prefix": "NB_",
+    "prefix_case_sensitive": true,
+    "no_dot": true
+  },
+  "pad": {
+    "size_tolerance_mm": 0.05,
+    "min_spacing_mm": 0.20,
+    "soldermask_expand_mm": 0.05,
+    "pastemask_equal_pad": true
+  },
+  "origin": {
+    "center_tolerance_mm": 0.05,
+    "connector_tolerance_mm": 20.0
+  },
+  "place_bound": {
+    "ic_expand_mm": 0.35,
+    "chip_expand_mm": 0.15,
+    "connector_expand_mm": 0.85,
+    "expand_tolerance_mm": 0.05,
+    "min_expand_mm": 0.05,
+    "max_expand_mm": 3.0
+  },
+  "silkscreen": {
+    "line_width_min_mm": 0.10,
+    "to_pad_clearance_mm": 0.20
+  },
+  "assembly": {
+    "size_tolerance_mm": 0.05
+  }
+}

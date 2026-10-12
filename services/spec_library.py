@@ -5,7 +5,7 @@ services/spec_library.py —— spec 库（**每颗料解析成果的沉淀处**
 ★ 为什么要有这个模块
   建一颗封装的真正成本在「读规格书提参数」——这一步只能 AI 读图，无法穷举。
   以前解析完的 spec 是一次性消耗品（用完即弃，重建时手工重拼 JSON）。
-  本模块把它落盘成 `Data/specs/<符号名>.json`，配套三个能力：
+  本模块把它落盘成 `knowledge/specs/<符号名>.json`，配套三个能力：
 
     save_spec()   —— 建封装时顺手存档
     load_spec()   —— ★ 同封装不同料号：**零读图**直接复用
@@ -14,7 +14,7 @@ services/spec_library.py —— spec 库（**每颗料解析成果的沉淀处**
 ★ 目录（**唯一真源**在 MCP 项目内，随代码一起搬走）
 ```
 layout-forge-mcp/
-└── Data/specs/
+└── knowledge/specs/
     ├── _index.json            反查表：符号名 / 族 / 来源 PDF / 指纹 / 存档时间
     └── <符号名>.json          一颗料一份 spec
 ```
@@ -40,8 +40,8 @@ from services import paths as P
 
 logger = logging.getLogger("layout-forge")
 
-#: ★ spec 库目录（`Data/specs/`），不存在时自动建
-SPEC_DIR = os.path.join(P.PROJECT_ROOT, "Data", "specs")
+#: ★ spec 库目录（`knowledge/specs/`），不存在时自动建
+SPEC_DIR = os.path.join(P.PROJECT_ROOT, "knowledge", "specs")
 
 #: 反查表文件名
 INDEX_NAME = "_index.json"
@@ -56,7 +56,7 @@ _SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9._-]+")
 # 1. 基础：目录 / 文件名 / 索引读写
 # ============================================================
 def ensure_spec_dir() -> str:
-    """确保 `Data/specs/` 存在（幂等）。返回目录路径。"""
+    """确保 `knowledge/specs/` 存在（幂等）。返回目录路径。"""
     os.makedirs(SPEC_DIR, exist_ok=True)
     return SPEC_DIR
 
@@ -188,7 +188,7 @@ def save_spec(
     overwrite: bool = True,
 ) -> Dict[str, Any]:
     """
-    把一份 spec 存档到 `Data/specs/<name>.json`，并更新 `_index.json`。
+    把一份 spec 存档到 `knowledge/specs/<name>.json`，并更新 `_index.json`。
 
     :param name: 符号名（建议用封装名，如 `NB_LMBR140ET1G_2P`）
     :param spec: 解析出的 spec 字典（会原样落盘）
@@ -265,7 +265,7 @@ def list_specs() -> List[Dict[str, Any]]:
 
 def rebuild_index() -> Dict[str, Any]:
     """
-    ★ 扫 `Data/specs/*.json` **重建** `_index.json`。
+    ★ 扫 `knowledge/specs/*.json` **重建** `_index.json`。
 
     什么时候需要：
       · 指纹规则改了（如 pitch=0 的归一化口径变化）

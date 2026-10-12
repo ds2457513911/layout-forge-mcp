@@ -1,6 +1,6 @@
 # Data/specs/ —— spec 库（每颗料解析成果的沉淀处）
 
-> 建立：2026-10-09 ｜ 最后更新：2026-10-09
+> 建立：2026-10-09 ｜ 最后更新：2026-10-12（Data\specs → knowledge\specs）
 > 维护者：`services/spec_library.py`（读写都走它，别手改 JSON 后忘记重建索引）
 
 ## 这个目录是干什么的

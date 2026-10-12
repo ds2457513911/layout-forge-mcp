@@ -775,6 +775,37 @@ def main() -> int:
           any(d.get("item") == "body_center" for d in g10["derivations"]),
           [d.get("item") for d in g10["derivations"]], "含 body_center")
 
+    # ---- [11] knowledge 库回归（2026-10-12 新增：Data→knowledge 改名 +
+    #      规则参数外置 + 检测案例库）----
+    print("\n  [11] knowledge 库 —— 规则外置 / 案例库")
+    from services import rule_checker as _RC
+    from services import case_library as _CL
+    from services import spec_library as _SL
+    c.chk("spec 库真源已迁 knowledge/specs（spec_library.SPEC_DIR）",
+          _SL.SPEC_DIR.replace("\\", "/").endswith("knowledge/specs"),
+          _SL.SPEC_DIR, ".../knowledge/specs")
+    c.chk("rule_checker 有外置加载函数 load_external_rules",
+          hasattr(_RC, "load_external_rules"), True, True)
+    _eff = _RC.load_external_rules()
+    c.chk("外置规则 JSON 可加载（合并后 naming.prefix = NB_）",
+          _eff.get("naming", {}).get("prefix") == "NB_",
+          _eff.get("naming", {}).get("prefix"), "NB_")
+    c.chk("外置规则文件缺失时回退内置 DEFAULT_RULES",
+          _RC.load_external_rules(os.path.join("N:", "no", "such.json"))
+          == _RC.DEFAULT_RULES, True, True)
+    c.chk("_deep_merge 嵌套合并（覆盖子键、保留兄弟键）",
+          _RC._deep_merge({"a": {"x": 1, "y": 2}}, {"a": {"x": 9}})
+          == {"a": {"x": 9, "y": 2}}, True, True)
+    c.chk("case_library 目录指向 knowledge/cases",
+          _CL.CASE_DIR.replace("\\", "/").endswith("knowledge/cases"),
+          _CL.CASE_DIR, ".../knowledge/cases")
+    c.chk("save_case 拒绝全空内容",
+          not _CL.save_case("SELFCHK_DUMMY").get("ok"), True, True)
+    c.chk("save_case/find_case/list_cases 已注册进 MCP 工具层",
+          all(t in _mcp_src for t in
+              ("def save_case", "def find_case", "def list_cases")),
+          True, True)
+
     # ========================================================
     # 汇总
     # ========================================================

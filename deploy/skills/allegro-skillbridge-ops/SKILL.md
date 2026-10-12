@@ -49,7 +49,7 @@ description: |
   图元消失、图元没画出来、静默返回 nil、只挂 1 步、extents、绘图范围、
   outside the new extents、axlDBCreateRectangle 返回 nil、Place_Bound 画不出、
   axlDBGetDesign 的 bBox、模板页框、空图纸 bBox、页框当内容框。
-  (13) ★ MCP 服务层（28 个工具）+ spec 库：工具链怎么配合本技能、哪些参数 /
+  (13) ★ MCP 服务层（31 个工具）+ spec 库：工具链怎么配合本技能、哪些参数 /
   默认落点与既有规则冲突；同封装零读图复用与建完存档；扫描件定位兜底。
   触发词：MCP、layout-forge-mcp、solve_footprint_geometry、extra_spec、
   参数透传、install_shadow_library、归档口径、new_symbol_drawing、change_drawing_extents、
@@ -239,7 +239,7 @@ install_shadow_library(symbol_name="<符号名>", pn="<符号名>",
 | 项 | 值 / 规则 |
 |--|--|
 | 项目根 | `C:\Users\ds245\Documents\Work_Bmorn\Layout\layout-forge-mcp`（本技能只服务这一个项目） |
-| 调用方式 | **MCP 为主**（已注册到 `~/.workbuddy/mcp.json`，28 个工具已冒烟实测）+ **CLI 补位**（启停 / 自检 / 归档） |
+| 调用方式 | **MCP 为主**（已注册到 `~/.workbuddy/mcp.json`，31 个工具已冒烟实测）+ **CLI 补位**（启停 / 自检 / 归档） |
 | Python | 走 MCP 时**由 server 管**，调用方不碰解释器。★ 但跑 CLI 那三件事**只能用项目 `.venv/Scripts/python.exe`** —— 系统 Python 与托管 Python 都没装 `skillbridge`，一 import 就 ImportError |
 | MCP 拉起方式 | 项目 `.venv/Scripts/python.exe -c "import sys; sys.path.insert(0, <项目根>); from mcp_server.server import main; main()"`。**不依赖 cwd**（`config.py` 的 `PROJECT_ROOT` 按 `__file__` 解析） |
 | 服务 | SkillBridge 在 **7777** 端口；Allegro 侧的 pythonw 服务随 Allegro 生灭 |

@@ -1,0 +1,42 @@
+{
+  "nb_rj45_15d95x9d8x3d6_1d02__warn_": {
+    "family": "RJ45",
+    "file": "nb_rj45_15d95x9d8x3d6_1d02__warn_.json",
+    "fingerprint": {
+      "body_x": 15.95,
+      "body_y": 9.8,
+      "mount": "smd",
+      "pad_x": 1.55,
+      "pad_y": 0.7,
+      "pin_count": 10,
+      "pitch_x": 1.02,
+      "pitch_y": 1.27
+    },
+    "n_lessons": 2,
+    "name": "nb_rj45_15d95x9d8x3d6_1d02",
+    "saved_at": "2026-10-12 16:11:10",
+    "source_pdf": "Data/footprint_test/CSTR-66-033M(1)/CSTR-66-033M.pdf",
+    "tag": "WARN裁定",
+    "verdict": "pass_with_notes"
+  },
+  "nb_wson8_8p___pitch_": {
+    "family": "WSON8",
+    "file": "nb_wson8_8p___pitch_.json",
+    "fingerprint": {
+      "body_x": 8.0,
+      "body_y": 6.0,
+      "mount": "smd",
+      "pad_x": 1.5,
+      "pad_y": 0.6,
+      "pin_count": 8,
+      "pitch_x": 7.2,
+      "pitch_y": 1.27
+    },
+    "n_lessons": 2,
+    "name": "NB_WSON8_8P",
+    "saved_at": "2026-10-12 16:11:10",
+    "source_pdf": "E:/footprintdata/20261008 (WSON8 datasheet)",
+    "tag": "散热盘pitch裁定",
+    "verdict": "pass_with_notes"
+  }
+}

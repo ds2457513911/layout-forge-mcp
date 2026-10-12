@@ -1,0 +1,45 @@
+{
+  "schema": "layout-forge-case/1",
+  "name": "NB_WSON8_8P",
+  "tag": "散热盘pitch裁定",
+  "saved_at": "2026-10-12 16:11:10",
+  "family": "WSON8",
+  "source_pdf": "E:/footprintdata/20261008 (WSON8 datasheet)",
+  "fingerprint": {
+    "mount": "smd",
+    "pin_count": 8,
+    "pitch_x": 7.2,
+    "pitch_y": 1.27,
+    "body_x": 8.0,
+    "body_y": 6.0,
+    "pad_x": 1.5,
+    "pad_y": 0.6
+  },
+  "check_summary": {
+    "total": 18,
+    "pass": 14,
+    "fail": 1,
+    "warn": 3,
+    "na": 0
+  },
+  "report_path": null,
+  "findings": [
+    {
+      "rule_id": "3.2y",
+      "issue": "extracted 0.635 vs datasheet 1.27",
+      "verdict": "false_positive",
+      "reason": "中心散热大焊盘(y=0)混进 min-gap，信号脚到散热盘 0.635 被当成 pitch；实际信号脚 pitch 1.27 正确"
+    },
+    {
+      "rule_id": "-",
+      "issue": "AI 曾判『焊盘放反』",
+      "verdict": "false_positive",
+      "reason": "工程师确认焊盘方向正确；根因同上，读数被散热盘带偏"
+    }
+  ],
+  "lessons": [
+    "本族件中心有散热大焊盘：pitch 判据必须剔除散热盘/离群大焊盘后按信号脚分组再算",
+    "报告出现 pitch 减半/异常时先怀疑散热盘污染，不要急着判焊盘方向"
+  ],
+  "verdict": "pass_with_notes"
+}

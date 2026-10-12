@@ -72,8 +72,8 @@ render_pdf_page(pdf, page=3)       → 读尺寸数字
 
 ## 5. 坑
 
-1. **手改 `Data/specs/*.json` 后要 `rebuild_index()`**，否则指纹不同步、`find_spec` 按旧指纹匹配。
-2. **`nb_xtal4_3d2x2d5x0d7.json` 是所有几何自检的基线**（231 项断言），改它等于改基准。
+1. **手改 `knowledge/specs/*.json` 后要 `rebuild_index()`**，否则指纹不同步、`find_spec` 按旧指纹匹配。
+2. **`nb_xtal4_3d2x2d5x0d7.json` 是所有几何自检的基线**（239 项断言），改它等于改基准。
 3. 库文件缺失时 `geometry_solver._load_builtin()` **抛错不降级** ——
    这是有意的：静默降级会让自检在错误基准上"全绿"。
 4. 别把 spec 写进 SKILL 目录 —— SKILL 是知识包，MCP 工具读不到里面的数据。

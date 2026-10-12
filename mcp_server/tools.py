@@ -39,7 +39,7 @@ from mcp_server import config
 from services import allegro_service, pdf_service
 from services import footprint_extractor, rule_checker, report_renderer
 from services import footprint_builder, geometry_solver, library_install
-from services import spec_library
+from services import case_library, spec_library
 from shared.json_utils import coerce_numeric, extract_json_body
 from shared.validation import validate_land_pattern
 
@@ -1371,7 +1371,7 @@ def register(mcp: FastMCP) -> None:
         overwrite: bool = True,
     ) -> dict:
         """
-        ★ 把一份 spec（读规格书解析出的参数 JSON）存进 spec 库 `Data/specs/`。
+        ★ 把一份 spec（读规格书解析出的参数 JSON）存进 spec 库 `knowledge/specs/`。
 
         建封装成功后**顺手调一次**：下次遇到同封装的不同料号（如 LMBR120/140/160
         同为 SOD-323HE）直接 `load_spec` 复用，一次图都不用读；要返工重建时也
@@ -1479,6 +1479,102 @@ def register(mcp: FastMCP) -> None:
         items = spec_library.list_specs()
         return {"count": len(items), "specs": items,
                 "dir": spec_library.SPEC_DIR}
+
+    # ============================================================
+    # Tool 29~31: 案例库 —— 检测裁定沉淀 + 同族预警
+    # ============================================================
+    @mcp.tool()
+    def save_case(
+        name: str,
+        tag: str | None = None,
+        family: str | None = None,
+        source_pdf: str | None = None,
+        spec_json: str | None = None,
+        check_summary_json: str | None = None,
+        report_path: str | None = None,
+        findings_json: str | None = None,
+        lessons: list[str] | None = None,
+        verdict: str | None = None,
+        overwrite: bool = True,
+    ) -> dict:
+        """
+        ★ 把一次检测的**人工裁定**存进案例库 `knowledge/cases/`。
+
+        检查完成、和 layout 工程师确认完「哪条是真问题、哪条是误报」之后
+        **顺手调一次**：同族件下次检测前 `find_case` 自动召回本案例，
+        裁定一次、全族受益。
+
+        :param name: 封装名（如 `NB_WSON8_8P`）
+        :param tag: 可选标签，区分同一封装的多条案例（如 `散热盘pitch裁定`）
+        :param spec_json: 该件的 spec JSON 字符串（有则自动算几何指纹）
+        :param check_summary_json: 检查报告 summary 的 JSON 字符串
+                                   （{"total","pass","fail","warn","na"}）
+        :param report_path: 报告 JSON 路径，便于回查全文
+        :param findings_json: ★ 人工裁定列表 JSON 字符串，每条
+                              {"rule_id","issue","verdict","reason"}，
+                              verdict ∈ "false_positive"/"true_positive"/"needs_human"
+        :param lessons: ★ 教训/预警列表（最值钱），如
+                        "中心有散热盘时 pitch 判据必须剔除散热盘再算"
+        :param verdict: 整案结论 "pass"/"pass_with_notes"/"fail"
+        :param overwrite: 同名已存在时是否覆盖（默认 True）
+        :return: {"ok": bool, "name", "file", "error"}
+        """
+        try:
+            spec = json.loads(spec_json) if spec_json else None
+            summary = json.loads(check_summary_json) if check_summary_json else None
+            findings = json.loads(findings_json) if findings_json else None
+        except (TypeError, ValueError) as e:
+            return {"ok": False, "error": f"JSON 参数解析失败: {e}"}
+        return case_library.save_case(
+            name, tag=tag, family=family, source_pdf=source_pdf,
+            spec=spec if isinstance(spec, dict) else None,
+            check_summary=summary if isinstance(summary, dict) else None,
+            report_path=report_path,
+            findings=findings if isinstance(findings, list) else None,
+            lessons=lessons, verdict=verdict, overwrite=overwrite)
+
+    @mcp.tool()
+    def find_case(
+        spec_json: str | None = None,
+        keyword: str | None = None,
+        tol: float = 0.05,
+        include_payload: bool = False,
+    ) -> dict:
+        """
+        ★ 查案例库：该封装 / 同族件有哪些已知坑与人工裁定 —— **检查前先查**。
+
+        用法与 `find_spec` 同源（同一套几何指纹）：
+            检测开始时把目标件的 spec（或指纹字段）传进来
+            → exact = 同封装案例；family = 同族案例
+            → 把召回案例里的 lessons / findings 作为预警上下文，
+              解读报告时先对照历史裁定，避免把已知误报再报一遍。
+
+        :param spec_json: 目标件的 spec JSON 字符串（与 keyword 至少给一个）
+        :param keyword: 名字/族/来源 PDF 子串搜（人工导航用）
+        :param tol: 数值比较容差（mm，默认 0.05）
+        :param include_payload: True 时附案例全文
+        :return: {"exact": [...], "family": [...], "keyword": [...],
+                  "query": {指纹}, "total": int}
+        """
+        try:
+            spec = json.loads(spec_json) if spec_json else None
+        except (TypeError, ValueError) as e:
+            return {"ok": False, "error": f"spec_json 不是合法 JSON: {e}"}
+        return case_library.find_case(
+            spec=spec if isinstance(spec, dict) else None,
+            keyword=keyword, tol=tol, include_payload=include_payload)
+
+    @mcp.tool()
+    def list_cases() -> dict:
+        """
+        列出案例库全部案例（名字 / 标签 / 族 / 来源 PDF / 结论 / 教训数 / 存档时间）。
+
+        检测前浏览一眼，了解库里有哪类经验。
+        :return: {"count": int, "cases": [...], "dir": 案例库路径}
+        """
+        items = case_library.list_cases()
+        return {"count": len(items), "cases": items,
+                "dir": case_library.CASE_DIR}
 
     # ============================================================
     # Tool 28: render_pdf_contact_sheet —— ★ 扫描件定位尺寸页的兜底
