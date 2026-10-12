@@ -175,7 +175,7 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
   正确做法：先整页定位区域 → 用 `render_pdf_page` 或 PyMuPDF `clip` **裁到该区域 + 提高 dpi（≥400）** → 再读数。
 - **★ 交叉校验（读完之后必做，至少两条）**：
   1. **图纸内自洽**：相邻标注求和是否等于总尺寸（如 `1.2 + 0.5 + 1.2` 应等于标注的总高）
-  2. **与既有产物比对**：同名件若已有 `.dra` / 历史 `checklist_report_*.json`，用它的实测值反查本次读数
+  2. **与既有产物比对**：同名件若已有 `.dra` / 历史 `checklist_report_*.json`（报告默认落在图纸子目录，历史归档在项目 `Tools/log/`），用它的实测值反查本次读数
   3. 只有"数值范围守门"（0.2~5 mm）**挡不住** 0.5↔0.7 这类量级相近的误读，别拿它当保险
 - 图片可能旋转 90 度，先在心里旋转再读数
 - 只读 **land pattern / recommended pad / 推荐焊盘** 区域，不读器件外形尺寸
@@ -367,6 +367,18 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
 - 改写表格中的任何字符
 - 补充解释
 
+流程结束前，若本次检查有**人工裁定**（误报判定 / 阈值修正 / 规则确认）：
+
+### 第 8 步：案例沉淀（有人工裁定时做，没有就跳过）
+
+调用 `save_case` 把裁定写入案例库（`knowledge/cases/`，JSON 热更新，不用重连 MCP）：
+- `tag`：封装名（如 `NB_WSON8_8P`）
+- `fingerprint`：指纹八元组（mount/pin_count/pitch_x/pitch_y/body_x/body_y/pad_x/pad_y）
+- `findings`：命中的误报项 + 原因；`verdict`：`PASS/FAIL/WARN/NA`；`lessons`：教训一句话
+
+**下次检查同类封装前，先 `find_case`（按 keyword / fingerprint_query）做同族预警**，
+命中案例里判过的误报项直接引用案例结论降级，不再重复误报。
+
 流程结束。
 
 ---
@@ -538,7 +550,9 @@ Python 都 `import skillbridge` 失败，用错解释器会直接连不上 Alleg
 每次改了 MCP 代码后：
 1. **重连 MCP / 重启客户端** —— 服务进程缓存启动时的代码，不重连不生效
    （本项目 `mcp_server/config.py` **没有** `MCP_VERSION` 字段，无法靠版本号判断）
-2. 判据：重连后工具总数应为 **28**；或直接调一个新加的工具（如 `list_specs`）
+   ★ **只有改 `services/`、`mcp_server/` 才需要重连**；改 `knowledge/`
+   （rules/checker_rules.json、specs、cases）是**每次调用现读盘**，立即生效
+2. 判据：重连后工具总数应为 **31**；或直接调一个新加的工具（如 `find_case`）
    看是否报"未知工具"
 3. 改动较大时跑两套离线自检：`Tools/selfcheck_geometry.py`（239 项）+
    `Tools/selfcheck_skill_syntax.py`（222 项），**只能用项目 `.venv`**
