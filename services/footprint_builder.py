@@ -692,6 +692,41 @@ def _convert_sequence_mm_to_design(values: Sequence[float], unit: str) -> List[f
 # ============================================================
 # 单个动作：建 padstack
 # ============================================================
+def ensure_tht_padstack_layers(ps_dict: Optional[Dict[str, Any]]) -> List[str]:
+    """
+    TH padstack 层兜底（2026-10-12 LYDPJ 事故新增）：有 drill = 通孔件，
+    必须双面铜箔（TOP+BOTTOM）+ 双面阻焊。spec 只写 TOP 系时自动镜像补齐。
+
+    :return: 补层说明列表（空 = 无需补或非 TH）
+    """
+    fixed: List[str] = []
+    if not ps_dict or not ps_dict.get("drill"):
+        return fixed
+    ls = ps_dict.setdefault("layers", [])
+
+    def _find(layer: str) -> Optional[Dict[str, Any]]:
+        for _ld in ls:
+            if str(_ld.get("layer", "")).upper() == layer:
+                return _ld
+        return None
+
+    top = _find("TOP")
+    smt = _find("SOLDERMASK_TOP")
+    if top is not None and _find("BOTTOM") is None:
+        bot = dict(top)
+        bot["layer"] = "BOTTOM"
+        bot["size"] = list(top.get("size", [0, 0]))
+        ls.append(bot)
+        fixed.append(f"{ps_dict.get('name')}: 补 BOTTOM(镜像 TOP)")
+    if smt is not None and _find("SOLDERMASK_BOTTOM") is None:
+        smb = dict(smt)
+        smb["layer"] = "SOLDERMASK_BOTTOM"
+        smb["size"] = list(smt.get("size", [0, 0]))
+        ls.append(smb)
+        fixed.append(f"{ps_dict.get('name')}: 补 SOLDERMASK_BOTTOM(镜像 TOP)")
+    return fixed
+
+
 def create_padstack(
     name: str,
     layers: Sequence[Dict[str, Any]],
@@ -3474,6 +3509,19 @@ def build_footprint(
                 f"扩展 extents 失败（{ext.get('error')}）—— "
                 f"放 pin 可能报 SPMHA1-70，但不阻断流程。"
             )
+
+    # ---- 1b) TH padstack 层兜底（2026-10-12 LYDPJ 事故新增）----
+    # padstack 带 drill = 通孔件：必须双面铜箔 + 双面阻焊。
+    # 实锤根因：AI 写 spec 只写了 TOP + SOLDERMASK_TOP（漏 BOTTOM），
+    # 建出来的 TH 件双面板底面无铜无开窗。这里按「有 drill 即 TH」
+    # 自动镜像补齐，spec 漏写也能兜底；补了什么写进 warnings 提示复核。
+    tht_fixed = ensure_tht_padstack_layers(padstack)
+    for _ep in (extra_padstacks or []):
+        tht_fixed += ensure_tht_padstack_layers(_ep)
+    if tht_fixed:
+        warnings.append(
+            "TH padstack 自动补层（spec 漏 BOTTOM，已镜像 TOP 兜底）: " + "; ".join(tht_fixed)
+        )
 
     # ---- 2) padstack ----
     ps = create_padstack(

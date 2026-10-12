@@ -288,11 +288,18 @@ def build_drill(
     """
     plating = "'PLATED" if plated else "'NON_PLATED"
 
+    # ★ 2026-10-12 实测（LYDPJ 事故）：异形孔分支漏 ?figure 字段时，
+    #   axlDBCreatePadStack **静默丢弃整个 drill**（no_check=t 不报错）——
+    #   建出的 padstack holeType='none'、drillDiameter=0.0、type='smd'，
+    #   TH 件变成无孔 SMD。官方范例（pad.il CreateThru）drill defstruct
+    #   必须带 ?figure + ?figureSize；figure 名 = drill_type 去掉 _DRILL。
     if size is not None:
+        drill_figure = drill_type[:-len("_DRILL")] if drill_type.endswith("_DRILL") else drill_type
         expr = call(
             "make_axlPadStackDrill",
             holeType=sym(drill_type),
             plating=plating,
+            figure=sym(drill_figure),
             figureSize=fmt_point(*size),
             offset=fmt_point(*offset) if offset != (0.0, 0.0) else None,
             drillChar=q(drill_char) if drill_char else None,

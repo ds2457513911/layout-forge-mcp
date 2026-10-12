@@ -613,6 +613,75 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
             expected=None, source=None,
         ))
 
+    # ---------- 2.7 TH 焊盘层完整性（2026-10-12 LYDPJ 事故新增） ----------
+    # TH（通孔插件）padstack 必须双面：ETCH/TOP + ETCH/BOTTOM + 双面阻焊。
+    # 实锤：LYDPJ-H23CB1Y-053N 生成时 padstack 建成 SMD 类型（无 drill、
+    # 无 BOTTOM、Soldermask_Bottom=None），双面板底面无铜无法焊接，而当时
+    # 六大项检查全 PASS —— 检查器此前完全没有 TH 层概念。
+    # 判定 TH（满足其一即查）：
+    #   a) 任一 pin pads 带 DRILL 或 ETCH/BOTTOM 层（成品特征）
+    #   b) spec 库按 symbol_name 命中且 mount == "tht"（设计意图，
+    #      能抓「TH 件被建成 SMD」的坏件——坏件自身无 TH 特征）
+    # ★ 层名匹配用后缀：extracta 报的阻焊层带类别前缀（PIN/SOLDERMASK_TOP），
+    #   etch 层则无前缀（ETCH/TOP）——endswith 兼容两种形态
+    _TH_NEED = ("ETCH/TOP", "ETCH/BOTTOM", "SOLDERMASK_TOP", "SOLDERMASK_BOTTOM")
+
+    def _th_pin_missing(_pin):
+        _have = set()
+        for _pd in _pin.get("pads", []):
+            if isinstance(_pd, dict):
+                _have.add(str(_pd.get("layer", "")).upper())
+        return [l for l in _TH_NEED
+                if not any(h == l or h.endswith("/" + l) for h in _have)]
+
+    _all_layers = set()
+    for _pin in pins:
+        for _pd in _pin.get("pads", []):
+            if isinstance(_pd, dict):
+                _all_layers.add(str(_pd.get("layer", "")).upper())
+    _is_th = bool(_all_layers & {"DRILL", "ETCH/BOTTOM"})
+    _th_src = "pins 含 TH 特征"
+    if not _is_th:
+        _hit = None
+        try:
+            from services.spec_library import load_spec as _load_spec
+            _hit = _load_spec(str(data.get("symbol_name", "")))
+        except Exception:
+            _hit = None
+        if _hit and str(_hit.get("mount", "")).lower() == "tht":
+            _is_th = True
+            _th_src = "spec 库 mount=tht"
+
+    if _is_th and pins:
+        _th_missing = [(f"pin{_pin.get('number')}", _th_pin_missing(_pin)) for _pin in pins]
+        _th_missing = [(n, m) for n, m in _th_missing if m]
+        if _th_missing:
+            items.append(_item(
+                "2.7", "TH 焊盘层完整性",
+                "FAIL",
+                value=f"{len(_th_missing)}/{len(pins)} pin 缺层",
+                rule="TH 件 padstack 必须 ETCH/TOP+ETCH/BOTTOM+双面阻焊（双面板底面可焊）",
+                detail=" | ".join(f"{n}: 缺 {'/'.join(m)}" for n, m in _th_missing[:3]),
+                expected="四面层齐全",
+                source="default",
+            ))
+        else:
+            items.append(_item(
+                "2.7", "TH 焊盘层完整性",
+                "PASS",
+                value=f"{len(pins)} pin 四面层齐全（判定: {_th_src}）",
+                rule="TH 件 padstack 必须 ETCH/TOP+ETCH/BOTTOM+双面阻焊",
+                detail="",
+                expected="四面层齐全",
+                source="default",
+            ))
+    else:
+        items.append(_item(
+            "2.7", "TH 焊盘层完整性", "NA",
+            detail="SMD 特征（无 drill / 无 BOTTOM / spec 非 tht）",
+            expected=None, source=None,
+        ))
+
     return items
     
 
