@@ -1,0 +1,62 @@
+{
+  "schema": "layout-forge-spec/1",
+  "name": "NB_XTAL4_3D2X2D5X0D7",
+  "saved_at": "2026-10-09 15:12:37",
+  "family": "SMD-Crystal-3225",
+  "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/Data/footprint/3S48000163/3S48000163产品规格书_20220916_S1.pdf",
+  "notes": "来源：Data/footprint/3S48000163/3S48000163产品规格书_20220916_S1.pdf\n      p5「DIMENSIONS & MARKING」+「CONNECTION DIAGRAM」\n\n尺寸来源 = 图上标注（全页尺寸直接标在图上 3.2±0.1 / 1.4 / 0.8 / 1.2 / 0.5），\n没有 MIN/TYP/MAX 尺寸表 → 取标注值本身：\n  assembly 3.2x2.5、Place_Bound 3.9x3.2\n（不再按旧的「中值+公差 0.1」取 3.3x2.6 / 4.0x3.3；\n  Data/footprint/3S48000163 那份人工金标准用的正是 3.2x2.5 / 3.9x3.2 —— 与人工件一致）\n\n★ 本项目所有几何自检的基线样例，改它等于改 225 项断言的基准。",
+  "fingerprint": {
+    "mount": "smd",
+    "pin_count": 4,
+    "pitch_x": 2.2,
+    "pitch_y": 1.7,
+    "body_x": 3.2,
+    "body_y": 2.5,
+    "pad_x": 1.4,
+    "pad_y": 1.2
+  },
+  "spec": {
+    "symbol_base": "XTAL",
+    "component_type": "ic",
+    "mount": "smd",
+    "dim_source": "drawing",
+    "pad": {
+      "shape": "rect",
+      "size": [
+        1.4,
+        1.2
+      ]
+    },
+    "array": {
+      "rows": 2,
+      "cols": 2,
+      "pitch_x": 2.2,
+      "pitch_y": 1.7
+    },
+    "pin_count": 4,
+    "body": {
+      "x": 3.2,
+      "y": 2.5,
+      "z": 0.7
+    },
+    "body_tol": {
+      "x": 0.1,
+      "y": 0.1
+    },
+    "pin1_corner": "bottom-left",
+    "pin_names": [
+      "Xtal In",
+      "GND",
+      "Xtal Out",
+      "GND"
+    ],
+    "refdes_text": "#REF",
+    "refdes_targets": [
+      "refdes_assembly"
+    ],
+    "refdes_place": "body_center",
+    "refdes_justify": "left",
+    "refdes_dx": -0.15,
+    "refdes_dy": 0.04
+  }
+}

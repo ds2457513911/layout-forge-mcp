@@ -459,19 +459,30 @@ def build_pin_text(
     offset: Tuple[float, float] = (0.0, 0.0),
     text: Optional[str] = None,
     orientation_expr: Optional[str] = None,
+    text_block: str = "1",
+    justify: Optional[str] = "center",
 ) -> str:
     """
     构造 make_axlPinText 表达式。
 
-    ★ 用法完全照抄 Cadence 官方示例（axldbctpin.il）：
+    ★ 用法照抄 Cadence 官方示例（axldbctpin.il）的**结构体形式**：
 
-        ;; 完整写法：?text 传 axlTextOrientation 结构体
         make_axlPinText(?number "1FFE" ?offset -100:0
             ?text make_axlTextOrientation(?textBlock "2"
                         ?rotation 90 ?mirrored t ?justify "right"))
 
-        ;; 简化写法：?text 直接传字符串
-        make_axlPinText(?number "2" ?offset -100:0 ?text "2")
+    ★★ **为什么禁止简化写法 `?text "N"`（2026-10-09 实测 CSTJ-421 事故）**：
+      官方示例里有一行 `make_axlPinText(?number "2" ?offset -100:0 ?text "2")`，
+      看似"文字内容 = 2"。**实际 Allegro 把数字字符串 ?text 当成【字块号】**——
+      实测结果：1 号脚 → text block 1（字高 0.508mm）、2 号脚 → block 2（0.787）、
+      … 6 号脚 → block 6（2.032）。**引脚号字号随脚号递增**，
+      与人工件（全部 block 1）对拍立即穿帮。
+      官方示例恰好 pin 号 = "2" = 字块 "2"，把坑掩盖了。
+      → 因此本函数**无条件走结构体形式**，`text` 参数保留但**不再生效**
+        （显示内容本来就是 ?number，见 extracta 回读）。
+
+    ★ 字块口径（人工模板 14/14）：引脚号与位号同字块 —— **block "1"**、
+      justify "center"。想改口径显式传 text_block / justify。
 
     ★ 注意：官方示例里写成 `(make_axlPinText ...)`，那是**直接贴在 CIW 里的
       顶层求值形式**。通过 skillbridge 的 eval 通道发送时必须用
@@ -481,20 +492,22 @@ def build_pin_text(
       - ?number **必须是字符串**（传 123 报错）→ 这里强制 str()
       - ?offset **必须是坐标对**（传 -100 报错）→ 这里强制 (x, y)
       - ?number 不能含非法字符（"2!" 报错）
-      - 省略 ?text/结构体在部分版本可用，但官方示例里当作错误用例，
-        所以这里保证一定给出 ?text。
 
     :param offset: 文字相对 pin 锚点的偏移。(x, y) 两元素，别传标量。
+    :param text: 【已废弃】保留参数位仅为兼容旧调用方，**不生效**。
+    :param orientation_expr: 已构造好的 make_axlTextOrientation 表达式；
+                             给了就以它为准（text_block / justify 失效）。
     """
     ox, oy = offset if isinstance(offset, (tuple, list)) else (0.0, 0.0)
 
     if orientation_expr is not None:
         text_arg = orientation_expr
-    elif text is not None:
-        text_arg = q(str(text))
     else:
-        # 既没给结构体也没给文本，用 pin 编号本身当文本
-        text_arg = q(str(number))
+        # ★ 2026-10-09 修复：绝不再传字符串 ?text（见 docstring 的事故记录）
+        text_arg = build_text_orientation(
+            rotation=0.0, mirrored=False,
+            justify=justify or "center", text_block=text_block,
+        )
 
     expr = call(
         "make_axlPinText",

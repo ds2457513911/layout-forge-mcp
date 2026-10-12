@@ -1,0 +1,87 @@
+{
+  "nb_cstj421_aj35_6p": {
+    "family": "Audio-Jack-3.5",
+    "file": "nb_cstj421_aj35_6p.json",
+    "fingerprint": {
+      "body_x": 7.59,
+      "body_y": 12.2,
+      "mount": "tht",
+      "pad_x": 1.2,
+      "pad_y": 2.2,
+      "pin_count": 6,
+      "pitch_x": 1.76,
+      "pitch_y": 1.0
+    },
+    "name": "NB_CSTJ421_AJ35_6P",
+    "saved_at": "2026-10-09 15:12:37",
+    "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/Data/footprint/CSTJ-421-1010BG/CSTJ-421-1010BG.pdf"
+  },
+  "nb_fpc0510_6p_4d77x3d6": {
+    "family": "FPC-0.5",
+    "file": "nb_fpc0510_6p_4d77x3d6.json",
+    "fingerprint": {
+      "body_x": 4.77,
+      "body_y": 3.6,
+      "mount": "smd",
+      "pad_x": 0.3,
+      "pad_y": 0.65,
+      "pin_count": 8,
+      "pitch_x": 0.5,
+      "pitch_y": 0.5
+    },
+    "name": "NB_FPC0510_6P_4D77X3D6",
+    "saved_at": "2026-10-09 15:12:37",
+    "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp/Tools/test/FPC0510系列 Pitch0.5 H1.0 前掀盖+下接触.pdf"
+  },
+  "nb_lmbr140et1g_2p": {
+    "family": "SOD-323HE",
+    "file": "nb_lmbr140et1g_2p.json",
+    "fingerprint": {
+      "body_x": 2.7,
+      "body_y": 1.4,
+      "mount": "smd",
+      "pad_x": 2.0,
+      "pad_y": 1.1,
+      "pin_count": 2,
+      "pitch_x": 1.9,
+      "pitch_y": null
+    },
+    "name": "NB_LMBR140ET1G_2P",
+    "saved_at": "2026-10-09 15:21:38",
+    "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp/Tools/test/NB_LMBR140ET1G_2P/LMBR140ET1G.pdf"
+  },
+  "nb_lydpj_5p_12x6": {
+    "family": "3.5mm 耳机座 (LYD-PJ-35)",
+    "file": "nb_lydpj_5p_12x6.json",
+    "fingerprint": {
+      "body_x": 12.0,
+      "body_y": 6.0,
+      "mount": "tht",
+      "pad_x": 2.1,
+      "pad_y": 1.3,
+      "pin_count": 5,
+      "pitch_x": null,
+      "pitch_y": null
+    },
+    "name": "NB_LYDPJ_5P_12X6",
+    "saved_at": "2026-10-12 11:19:52",
+    "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/Data/footprint/NB_LYDPJ_5P_12X6/LYDPJ-H23CB1Y-053N.pdf"
+  },
+  "nb_xtal4_3d2x2d5x0d7": {
+    "family": "SMD-Crystal-3225",
+    "file": "nb_xtal4_3d2x2d5x0d7.json",
+    "fingerprint": {
+      "body_x": 3.2,
+      "body_y": 2.5,
+      "mount": "smd",
+      "pad_x": 1.4,
+      "pad_y": 1.2,
+      "pin_count": 4,
+      "pitch_x": 2.2,
+      "pitch_y": 1.7
+    },
+    "name": "NB_XTAL4_3D2X2D5X0D7",
+    "saved_at": "2026-10-09 15:12:37",
+    "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/Data/footprint/3S48000163/3S48000163产品规格书_20220916_S1.pdf"
+  }
+}

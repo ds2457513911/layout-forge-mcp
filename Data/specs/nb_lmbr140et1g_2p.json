@@ -1,0 +1,115 @@
+{
+  "schema": "layout-forge-spec/1",
+  "name": "NB_LMBR140ET1G_2P",
+  "saved_at": "2026-10-09 15:21:38",
+  "family": "SOD-323HE",
+  "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp/Tools/test/NB_LMBR140ET1G_2P/LMBR140ET1G.pdf",
+  "notes": "来源：Tools/test/NB_LMBR140ET1G_2P/LMBR140ET1G.pdf 第 3 页\n      「DIMENSIONS」表 + 「Suggested solder pad layout」图\n（整份 PDF 是纯位图扫描件：文本层 0 字符、矢量 0 条，locate 工具必然失配，\n  只能视觉读图；推荐先用缩略图拼版一次定位页码）\n\n★ 踩过的坑（同族复用前必读）：\n  1. F=1.90 是**两 pad 中心距**，不是总长 —— 交叉验证 B/2+C+D/2\n     = 1.00+0.50+0.40 = 1.90 ✓\n  2. 非对称焊盘（阴极 2.0x1.1 / 阳极 0.8x1.0），走 pins_override 逐脚\n     padstack + pad_size，第二个 padstack 走 extra_padstacks\n  3. 原点必须在**封装几何中心**，不是 pin1 中心（放 pin1 中心会被规则 3.4 判 FAIL）\n  4. Place_Bound 外扩 0.35 会与 pin1 含阻焊左缘**浮点贴边**（规则 5.2 FAIL）\n     → 取 0.40\n  5. 本体尺寸查 MIN/MAX 表取 MAX（2.7 x 1.4）；焊盘布局图给的是标注值直接用\n\n★ 与人工件 nb_sod-323_2_2d7x1d4x0d75 的差异（2026-10-09 待用户裁决）：\n  人工件 pin1 pad 是**竖的 1.1x2.0**（上下伸出本体），与规格书 p3 的横向\n  pad 相左；本 spec 按规格书取横向 2.0x1.1。",
+  "fingerprint": {
+    "mount": "smd",
+    "pin_count": 2,
+    "pitch_x": 1.9,
+    "pitch_y": null,
+    "body_x": 2.7,
+    "body_y": 1.4,
+    "pad_x": 2.0,
+    "pad_y": 1.1
+  },
+  "spec": {
+    "symbol_base": "LMBR140ET1G",
+    "symbol_name": "NB_LMBR140ET1G_2P",
+    "component_type": "chip",
+    "mount": "smd",
+    "dim_source": "table",
+    "dim_tables": {
+      "body.x": {
+        "min": 2.3,
+        "max": 2.7
+      },
+      "body.y": {
+        "min": 1.2,
+        "max": 1.4
+      }
+    },
+    "pad": {
+      "shape": "rect",
+      "size": [
+        2,
+        1.1
+      ]
+    },
+    "array": {
+      "rows": 1,
+      "cols": 2,
+      "pitch_x": 1.9,
+      "pitch_y": 0
+    },
+    "pin_count": 2,
+    "pins_override": [
+      {
+        "number": "1",
+        "x": -0.65,
+        "y": 0,
+        "pad_size": [
+          2,
+          1.1
+        ]
+      },
+      {
+        "number": "2",
+        "x": 1.25,
+        "y": 0,
+        "padstack": "R0D8X1D",
+        "pad_size": [
+          0.8,
+          1
+        ]
+      }
+    ],
+    "extra_padstacks": [
+      {
+        "name": "R0D8X1D",
+        "layers": [
+          {
+            "layer": "TOP",
+            "figure": "RECTANGLE",
+            "size": [
+              0.8,
+              1
+            ]
+          },
+          {
+            "layer": "SOLDERMASK_TOP",
+            "figure": "RECTANGLE",
+            "size": [
+              0.9,
+              1.1
+            ]
+          },
+          {
+            "layer": "PASTEMASK_TOP",
+            "figure": "RECTANGLE",
+            "size": [
+              0.8,
+              1
+            ]
+          }
+        ]
+      }
+    ],
+    "body": {
+      "x": 2.7,
+      "y": 1.4
+    },
+    "body_center": [
+      0,
+      0
+    ],
+    "place_bound_expand_mm": 0.4,
+    "pin1_corner": "bottom-left",
+    "pin_names": [
+      "cathode",
+      "anode"
+    ]
+  }
+}

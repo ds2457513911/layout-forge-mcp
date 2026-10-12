@@ -63,6 +63,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from services import spec_library
 from services.rule_checker import DEFAULT_RULES, _classify_component
 
 __all__ = [
@@ -723,6 +724,38 @@ def solve_outlines(
                  "width": float(rules.get("assembly", {}).get("line_width_mm", 0.10))}
     pb_rect = {"x1": _r4(_half(-pb[0]) + ocx), "y1": _r4(_half(-pb[1]) + ocy),
                "x2": _r4(_half(pb[0]) + ocx), "y2": _r4(_half(pb[1]) + ocy)}
+
+    # ---- ★ 浮点贴边防护（2026-10-12 加，任务 #3）----
+    #   Place_Bound 边缘与焊盘**阻焊边缘**「差 < 0.01mm」时，规则检查的
+    #   覆盖/间隙浮点比较必 FAIL —— LMBR 0.35→0.40、LYDPJ 1.85→1.90
+    #   两次实机应验。此处自动把外扩再让 0.05，杜绝复发。
+    #   对拍用 solve_pad_rects（每脚含阻焊的实际矩形）——数组件与
+    #   pins_override 连接器统一覆盖，不受 array 兜底记录失真的影响。
+    _guard_note = None
+    try:
+        _prects = solve_pad_rects(spec, rules)
+    except Exception:                            # noqa: BLE001
+        _prects = []
+    if _prects:
+        _pbb = {
+            "x1": min(r["x1"] for r in _prects), "x2": max(r["x2"] for r in _prects),
+            "y1": min(r["y1"] for r in _prects), "y2": max(r["y2"] for r in _prects),
+        }
+        for _ in range(20):                      # 上限防死循环（每次 +0.05）
+            _touch = any(
+                abs(pb_rect[_k] - _pbb[_k]) < 0.01
+                for _k in ("x1", "x2", "y1", "y2")
+            )
+            if not _touch:
+                break
+            expand = _r4(expand + 0.05)
+            pb = [_r4(bx + 2 * expand), _r4(by + 2 * expand)]
+            pb_rect = {"x1": _r4(_half(-pb[0]) + ocx), "y1": _r4(_half(-pb[1]) + ocy),
+                       "x2": _r4(_half(pb[0]) + ocx), "y2": _r4(_half(pb[1]) + ocy)}
+            _guard_note = ("浮点贴边防护：Place_Bound 边缘与焊盘阻焊边差 <0.01mm，"
+                           "外扩自动 +0.05（2026-10-12 加，LMBR/LYDPJ 两次应验）")
+    if _guard_note:
+        warnings.append(f"⚠️ {_guard_note}")
     _bc_note = None
     if ocx or ocy:
         _bc_note = {
@@ -771,6 +804,12 @@ def solve_outlines(
     ]
     if _bc_note:
         deriv.append(_bc_note)
+    if _guard_note:
+        deriv.append({
+            "item": "place_bound.float_guard", "value": expand,
+            "formula": f"{ctype}_expand_mm + 0.05×n（贴边自动让位）",
+            "source": _guard_note,
+        })
     return body_rect, pb_rect, pad_bbox, deriv, warnings
 
 
@@ -1359,10 +1398,11 @@ def to_build_args(
     """
     把 `solve()` 的结果转成 `build_footprint_from_params(**kwargs)` 的入参。
 
-    ★ silk / body 都传**列表**：
-      · `silk`   = 本体残段（短横线）+ 1 脚三角
-      · `body`   = Assembly 的 2 个元素（本体框 + 1 脚三角）
-      需要执行器支持 `list`（否则只取第一段）。
+    ★ silk / assembly 都传**列表**：
+      · `silk`      = 本体残段（短横线）+ 1 脚三角
+      · `assembly`  = Assembly 层图元列表（本体框 + 1 脚三角）
+                      ★ 2026-10-12 起走显式 `assembly` 参数（执行器逐项画），
+                      不再借用 `body` 通道 —— body 只作无 assembly 时的兜底。
     """
     if not geo.get("success"):
         raise ValueError(f"几何求解失败：{geo.get('error')}")
@@ -1371,7 +1411,8 @@ def to_build_args(
         "extra_padstacks": geo.get("extra_padstacks") or [],
         "pins": geo["pins"],
         "silk": geo["silk"],
-        "body": geo.get("assembly") or geo["body"],
+        "assembly": geo.get("assembly"),
+        "body": None if geo.get("assembly") else geo["body"],
         "place_bound": geo["place_bound"],
         "refdes": geo["refdes"],
         "fresh_symbol": fresh_symbol,
@@ -1381,222 +1422,46 @@ def to_build_args(
 
 
 # ============================================================
-# 8. 金标准回归样例（3S48000163）
+# 8. 回归样例 —— ★ 2026-10-09 起真源迁到 Data/specs/*.json
 # ============================================================
-# 全部取自规格书 p5「DIMENSIONS & MARKING」+「CONNECTION DIAGRAM」实测：
-#   本体  3.2±0.1 × 2.5±0.1 × 0.7max   （命名用中值 3.2 / 2.5 / 0.7）
-#   焊盘  1.4 × 1.2，横向中心距 2.2（=1.4+0.8），纵向 1.7（=1.2+0.5）
-#   引脚  #1 左下 / #2 右下 / #3 右上 / #4 左上，逆时针
-# ★ 尺寸来源 = **图上标注**（用户口径 2026-09-29）：
-#   全页尺寸都直接标在图上（`3.2±0.1` / `1.4` / `0.8` / `1.2` / `0.5`），
-#   **没有** MIN/TYP/MAX 尺寸表（唯一的 "Max" 在回流焊曲线里，不是封装尺寸）
-#   → 取标注值本身：assembly 3.2×2.5、Place_Bound 3.9×3.2
-#   （**不**再按旧的「中值+公差 0.1」取 3.3×2.6 / 4.0×3.3；
-#     顺带说明：`Data\footprint\3S48000163` 那份人工金标准用的正是 3.2×2.5 /
-#     Place_Bound 3.9×3.2 —— 新口径与人工件一致）
-SPEC_3S48000163: Dict[str, Any] = {
-    "symbol_base": "XTAL",
-    "component_type": "ic",
-    "mount": "smd",
-    # ---- 尺寸来源：图上标注了具体值 → 取标注值 ----
-    "dim_source": "drawing",
-    "pad": {"shape": "rect", "size": [1.4, 1.2]},
-    "array": {"rows": 2, "cols": 2, "pitch_x": 2.2, "pitch_y": 1.7},
-    "pin_count": 4,
-    "body": {"x": 3.2, "y": 2.5, "z": 0.7},
-    # 公差只作**记录**（图纸标注 / 人工复核）用，不再影响取值口径。
-    # 真要回到旧口径，显式开 use_max_for_geometry=True（见 resolve_dim）。
-    "body_tol": {"x": 0.1, "y": 0.1},
-    "pin1_corner": "bottom-left",
-    "pin_names": ["Xtal In", "GND", "Xtal Out", "GND"],
-    # ---- 位号（模板口径：装配层一条 #REF，居中于本体）----
-    #   人工金标准实测：`#REF` @ REF DES/ASSEMBLY_TOP，xy = (-0.15, 0.04)、
-    #   justify = LEFT；本体中心在 (0,0) → 即相对中心偏移 (-0.15, +0.04)。
-    #   所以这里把**人工件的实际偏移**写死，保证逐值对拍完全一致；
-    #   其它料号不给 dx/dy 时默认就落在本体正中心。
-    "refdes_text": "#REF",
-    "refdes_targets": ["refdes_assembly"],
-    "refdes_place": "body_center",
-    "refdes_justify": "left",
-    "refdes_dx": -0.15,
-    "refdes_dy": 0.04,
-    # silk_style 默认 auto → 会走"贴焊盘外缘 + 0.06"（金标准形态）
-}
-
-
-# ============================================================
-# 9. 回归样例 2：COTEX FPC-0510 6P（0.5mm pitch，H1.0，前掀盖下接触）
-# ============================================================
-# 来源：Tools\test\FPC0510系列 Pitch0.5 H1.0 前掀盖+下接触.pdf
-#       p1 产品图纸（1/2）RECOMMEND PCB LAYOUT + CKT 表（2026-09-30 解析）
-# 6P 取值（CKT 表第 6 行）：A=4.77  B=2.50  C=3.60  D=4.27
-#   信号焊盘 ×6  0.30×0.65   pitch 0.5   跨距 B = (6-1)×0.5 = 2.50
-#   固定焊盘 ×2  0.30×1.15   跨距 D = 4.27（= A - 0.5，全表自洽 ✓）
-#   本体 4.77×3.60（A×C）
-# 垂直尺寸链（自上而下，全部对上图纸标注）：
-#   信号pad顶 0 → 0.65 pad底 → +0.11 本体上边 → +1.91 固定pad顶
-#   → +1.15 固定pad底（(0.25)=本体左边缘~固定pad中心=D/2差 ✓，
-#     (1.135)=B/2~本体右边缘=A/2-B/2 ✓，两个参考值都对上）
-# 原点 = 本体中心（[规范 四]）→ 换算：
-#   信号 pad 中心 y = 0.325 - 2.56 = -2.235
-#   固定 pad 中心 y = 3.135 - 2.56 = +0.575
-# 编号假设（规格书未标 pin1 位置）：信号 1..6 自左向右，固定脚 7(左) 8(右)。
-# pin1_corner 这里**只决定 1 脚三角朝向**（pins_override 已绕过阵列逻辑）：
-#   "bottom-left" → sy=-1 → 三角在 pin1 焊盘 -y 外侧（上方）、底边朝外。
-# ★ 双 padstack：信号 R0D3X0D65（主）+ 固定 R0D3X1D15（extra_padstacks）。
-SPEC_FPC0510_6P: Dict[str, Any] = {
-    # ★ 显式命名：8 是"6 信号 + 2 固定"，自动命名会拼成 FPC05108（歧义）
-    "symbol_name": "NB_FPC0510_6P_4D77X3D6",
-    "symbol_base": "FPC0510",
-    "component_type": "connector",
-    "mount": "smd",
-    "dim_source": "drawing",
-    "pad": {"shape": "rect", "size": [0.30, 0.65]},
-    # array 仅作 pad_bbox 兜底记录；真实引脚用 pins_override
-    "array": {"rows": 1, "cols": 6, "pitch_x": 0.5, "pitch_y": 0.5},
-    "pin_count": 8,
-    "pins_override": [
-        *[{"number": str(i), "x": _r4(-1.25 + (i - 1) * 0.5), "y": -2.235,
-           "padstack": "R0D3X0D65", "pad_size": [0.30, 0.65]}
-          for i in range(1, 7)],
-        {"number": "7", "x": -2.135, "y": 0.575,
-         "padstack": "R0D3X1D15", "pad_size": [0.30, 1.15]},
-        {"number": "8", "x": 2.135, "y": 0.575,
-         "padstack": "R0D3X1D15", "pad_size": [0.30, 1.15]},
-    ],
-    "body": {"x": 4.77, "y": 3.60},
-    "pin1_corner": "bottom-left",
-    "pin1_mark_axis": "y",
-    "refdes_text": "#REF",
-    "refdes_targets": ["refdes_assembly"],
-    "refdes_place": "body_center",
-    "refdes_justify": "left",
-    "extra_padstacks": [
-        {
-            "name": "R0D3X1D15",
-            "layers": [
-                {"layer": "TOP", "figure": "RECTANGLE", "size": [0.30, 1.15]},
-                {"layer": "SOLDERMASK_TOP", "figure": "RECTANGLE",
-                 "size": [0.40, 1.25]},
-                {"layer": "PASTEMASK_TOP", "figure": "RECTANGLE",
-                 "size": [0.30, 1.15]},
-            ],
-        },
-    ],
-}
-
-
-# ============================================================
-# 10. 回归样例 3：CSTJ-421-1010BG（Ø3.50mm 4 极音频插座，**通孔件**）
-# ============================================================
-# 来源：Tools\test\CSTJ-421-1010BG.pdf（深圳市科新成电子）
-#       右上角 "RECOMMEND PCB LAYOUT" 视图（2026-10-08 逐值解析）
+# 以前这三份 spec **硬编码在本文件**，有三个毛病：
+#   1. 加一颗料 = 改源码，还要过 selfcheck_geometry 225 项断言
+#   2. MCP 工具读不到（solve_footprint_geometry 逐字段构造 spec，与常量无关）
+#   3. 和真实库 `Data\footprint\` 两套账
+# 现在**真源是 `Data/specs/<符号名>.json`**（含 family / source_pdf / notes 方法论），
+# 由 `services/spec_library.py` 读写（save_spec / load_spec / find_spec）。
+# 这里只保留**加载后的常量名**，兼容 `Tools/e2e_*.py` 与 `selfcheck_geometry` 的既有引用。
 #
-# ★ 提取方法（可复现，脚本在 WorkBuddy 缓存区 cstj421/）
-#   1) 文本层取值 —— 所有尺寸都标在图上，**没有** MIN/TYP/MAX 表 →
-#      口径 `dim_source="drawing"`，直接取标注值本人。
-#   2) 比例 k = **10.70 pt/mm** —— 由「5-1.20 / 5-0.60」（焊盘宽/孔宽 = 2:1）
-#      与「9.25/5.35/11.50」三条竖向尺寸的**差值**互证（差值法避开了
-#      尺寸线两端各约 7pt 的箭头内缩量）。
-#   3) 基准：**中心线 X = 644.04**（由图上 637.68/650.40 这对对称特征定位）；
-#      **本体上边缘 Y = 94.88**（图上一条横向虚线）。
-#      两个基准的交叉点 = 本 SPEC 的原点 —— 好处是**每个坐标都等于图上标注值**，
-#      逐值对拍时一眼能认。
-#   4) 焊盘靠「135° 斜纹线聚类」定位（单链接，阈值 7pt），
-#      再用焊盘外轮廓竖线的中点定中心，十字准心叠加回原图逐个核对通过。
-#
-# ★ 器件事实
-#   · 3.5mm 4 极音频插座（TRRS + 2 组开关触点 = 6 个触点），正沉 1.0mm
-#   · 全部通孔（THT），6 个焊盘 6 个孔，**孔是槽孔（oblong）不是圆孔**
-#   · 焊盘分三种，正好对应图上的三组标注：
-#       3-2.20 / 3-1.60  → 1/2/3 号... 实为 2/3/4 号：焊盘 1.20×2.20，孔 0.60×1.60
-#       2-2.00           → 5/6 号：焊盘 1.20×2.00，孔 0.60×1.40
-#       5-1.20 / 5-0.60  → 全部 5 个椭圆焊盘的宽 / 孔宽
-#       1 号脚例外：**矩形焊盘 1.42×1.40**，孔 0.70×1.00
-#         （图上标 4.85 = 中心线→左边缘、3.43 = 中心线→右边缘 → 宽 1.42）
-#
-# ★ 已知不确定项（如实记录，供人工复核）
-#   · 1 号矩形焊盘宽 4.85-3.43 = **1.42**（非圆整值）；实测线框 15.24pt/10.70
-#     = 1.424，两者一致，故按 1.42 收，未强行圆整成 1.40。
-#   · 1 号脚孔径：图上未直接标注，实测槽孔轮廓 ≈ 7.32×10.68pt → 0.68×1.00，
-#     按槽孔族惯例(0.60 系列)取 **0.70×1.00**。
-#   · 本体轮廓**做成一个外接矩形**（含左侧 R0.70 的凸出部）；
-#     图上其实是「上部窄 (±3.4)、下部宽 (左 -3.95 / 右 +3.64)」的阶梯形，
-#     逐段复现收益低，此处从略并在 warnings 里提示。
-SPEC_CSTJ421_AJ35: Dict[str, Any] = {
-    "symbol_name": "NB_CSTJ421_AJ35_6P",
-    "symbol_base": "CSTJ421",
-    "component_type": "connector",
-    "mount": "tht",                       # 通孔件
-    "dim_source": "drawing",              # 尺寸全标在图上
-    # ---- 主 padstack：2/3/4 号脚（图上 "3-2.20 / 3-1.60"）----
-    "pad": {
-        "shape": "oblong",
-        "size": [1.20, 2.20],
-        "drill_size": [0.60, 1.60],       # 槽孔（异形孔）
-        "drill_type": "OBLONG_DRILL",
-    },
-    # array 仅作 pad_bbox 兜底记录；真实引脚用 pins_override
-    "array": {"rows": 1, "cols": 6, "pitch_x": 1.76, "pitch_y": 1.0},
-    "pin_count": 6,
-    # ---- 原点 = 中心线 × 本体上边缘 → Y 值直接等于图上标注 ----
-    #   4.14/4.25/4.23/4.45/4.55 ← 横向（图上 4.85&3.43 / 4.25 / 4.45 / 4.55）
-    #   2.75/5.35/9.00/11.50/11.60 ← 纵向（图上同名标注，基准=本体上边缘）
-    "pins_override": [
-        {"number": "1", "x": -4.14, "y": -2.75,
-         "padstack": "R1D42X1D4", "pad_size": [1.42, 1.40]},
-        {"number": "2", "x": 4.25, "y": -2.75,
-         "padstack": "OB1D2X2D2", "pad_size": [1.20, 2.20]},
-        {"number": "3", "x": -4.23, "y": -5.35,
-         "padstack": "OB1D2X2D2", "pad_size": [1.20, 2.20]},
-        {"number": "4", "x": -4.45, "y": -11.50,
-         "padstack": "OB1D2X2D2", "pad_size": [1.20, 2.20]},
-        {"number": "5", "x": 4.55, "y": -9.00,
-         "padstack": "OB1D2X2D0", "pad_size": [1.20, 2.00]},
-        {"number": "6", "x": 4.55, "y": -11.60,
-         "padstack": "OB1D2X2D0", "pad_size": [1.20, 2.00]},
-    ],
-    # 触点用途（图上 SCHMATIC 的 TERMINAL NO. 图例）
-    "pin_names": ["M/G", "L/M", "BREAK", "R/L", "L/R", "TRANSFER"],
-    # ---- 本体：图上外接矩形（含左侧 R0.70 凸出）7.59 × 12.20 ----
-    #   中心不在原点 → 用 body_center 摆正（连接器常见：原点取本体上边缘）
-    "body": {"x": 7.59, "y": 12.20},
-    "body_center": [-0.15, -6.10],
-    # ---- Place_Bound：本体 + 外扩，外扩量必须让四角盖住外伸的焊盘 ----
-    #   焊盘最外到 X=-5.05 / +5.15，本体半宽仅 3.795 → 单边至少要 1.51
-    "place_bound_expand_mm": 1.60,
-    # ---- 1 脚 = 左上角矩形焊盘 ----
-    "pin1_corner": "top-left",
-    "pin1_mark_axis": "y",
-    # ---- 位号：居中于本体（模板口径）----
-    "refdes_text": "#REF",
-    "refdes_targets": ["refdes_assembly"],
-    "refdes_place": "body_center",
-    "refdes_justify": "left",
-    # ---- 第 2/3 种 padstack ----
-    "extra_padstacks": [
-        {   # 5/6 号脚：1.20×2.00，孔 0.60×1.40（图上 "2-2.00"）
-            "name": "OB1D2X2D0",
-            "layers": [
-                {"layer": "TOP", "figure": "OBLONG", "size": [1.20, 2.00]},
-                {"layer": "SOLDERMASK_TOP", "figure": "OBLONG",
-                 "size": [1.30, 2.10]},
-            ],
-            "drill": {"size": [0.60, 1.40], "drill_type": "OBLONG_DRILL",
-                      "plated": True},
-        },
-        {   # 1 号脚：矩形 1.42×1.40，孔 0.70×1.00
-            "name": "R1D42X1D4",
-            "layers": [
-                {"layer": "TOP", "figure": "RECTANGLE", "size": [1.42, 1.40]},
-                {"layer": "SOLDERMASK_TOP", "figure": "RECTANGLE",
-                 "size": [1.52, 1.50]},
-            ],
-            "drill": {"size": [0.70, 1.00], "drill_type": "OBLONG_DRILL",
-                      "plated": True},
-        },
-    ],
-}
+# ★ 每份 spec 的**提取方法论与已知不确定项**见对应 JSON 的 `notes` 字段：
+#     3S48  —— 尺寸来源口径（图上标注 vs MIN/MAX 表）为什么取标注值
+#     FPC   —— 非对称引脚 + 双 padstack 的写法先例
+#     CSTJ  —— 比例 k=10.70pt/mm 的推导、1 号焊盘宽 1.42 为何不圆整
+#   （改 spec 请改 JSON，别再往本文件里塞常量。）
+
+
+def _load_builtin(name: str, attr: str) -> Dict[str, Any]:
+    """
+    从 spec 库加载内置样例。
+
+    ★ 库缺失时**抛错而不静默降级** —— 这三份是所有几何自检的基线，
+    静默降级会让 225 项断言在错误基准上"全绿"。
+    """
+    spec = spec_library.load_spec(name)
+    if spec is None:
+        raise RuntimeError(
+            f"内置样例 spec 缺失：Data/specs/{name.lower()}.json\n"
+            f"  真源已迁到 spec 库（services/spec_library.py 维护）。\n"
+            f"  若被误删：从备份恢复，或按 JSON 的 notes 字段重跑解析。\n"
+            f"  受影响常量：{attr}")
+    return spec
+
+
+SPEC_3S48000163: Dict[str, Any] = _load_builtin(
+    "NB_XTAL4_3D2X2D5X0D7", "SPEC_3S48000163")
+SPEC_FPC0510_6P: Dict[str, Any] = _load_builtin(
+    "NB_FPC0510_6P_4D77X3D6", "SPEC_FPC0510_6P")
+SPEC_CSTJ421_AJ35: Dict[str, Any] = _load_builtin(
+    "NB_CSTJ421_AJ35_6P", "SPEC_CSTJ421_AJ35")
 
 
 def _demo() -> None:                          # pragma: no cover

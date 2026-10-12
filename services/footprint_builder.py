@@ -841,7 +841,7 @@ def create_padstack(
                     drill_expr = S.build_drill(
                         diameter=0.0,
                         plated=bool(drill.get("plated", True)),
-                        drill_type=str(drill.get("drill_type", "OBLONG")),
+                        drill_type=str(drill.get("drill_type", "OBLONG_DRILL")),
                         size=(
                             _mm_to_design(float(sz[0]), unit),
                             _mm_to_design(float(sz[1]), unit),
@@ -3302,6 +3302,7 @@ def build_footprint(
     template_path: Optional[str] = None,
     workspace_id: Optional[str] = None,
     extra_padstacks: Optional[Sequence[Dict[str, Any]]] = None,
+    assembly: Optional[OutlineSpec] = None,
 ) -> Dict[str, Any]:
     """
     一次调用建出完整封装（padstack + pins + 丝印 + 本体 + place_bound + 位号）。
@@ -3332,6 +3333,14 @@ def build_footprint(
                      「外框 + 1 脚标识」两段，见 `geometry_solver.solve()`
     :param body:     {"x1":..,"y1":..,"x2":..,"y2":..,"width":0.1}
                      （同样支持列表）
+    :param assembly: ★★ solver 产出的 **Assembly 层图元列表**（逐项画）：
+                     `[本体矩形, {"kind":"pin1_mark","lines":[...],...}, ...]`
+                     支持矩形与折线（`lines`）混排，与 silk 同一套图元形态。
+                     ★ 给了它就**代替** `body` 画 PACKAGE GEOMETRY/ASSEMBLY_TOP
+                     —— 这是"本体框 + 1 脚三角"一次成型的正道（2026-10-12 修
+                     执行器 gap：此前 assembly 列表没有入口，连接器类 1 脚
+                     三角标只能 CLI 补画）。
+                     `geometry_solver.to_build_args()` 已默认携带本参数。
     :param place_bound: {"x1":..,"y1":..,"x2":..,"y2":..}（同样支持列表）
     :param refdes:   {"text":"#REF","x":0,"y":0,"text_block":"1","justify":"left"}
                      ★ 可选 `targets`（列表）一次放多层：
@@ -3455,7 +3464,7 @@ def build_footprint(
         #       "This may fail if an object falls outside the new extents"
         #   ★ 计算抽到 `_compute_auto_extents()`（纯函数）—— 便于离线自检回归。
         _ex1, _ey1, _ex2, _ey2 = _compute_auto_extents(
-            pins, silk, body, place_bound,
+            pins, silk, (assembly if assembly is not None else body), place_bound,
             padstack=padstack, extra_padstacks=extra_padstacks, refdes=refdes,
         )
         ext = change_extents(_ex1, _ey1, _ex2, _ey2, workspace_id)
@@ -3609,7 +3618,14 @@ def build_footprint(
                     f"{target} 第 {i + 1}/{len(items)} 段绘制不完整: {r.get('error')}")
 
     _draw_outlines(silk, "silkscreen", 0.15)
-    _draw_outlines(body, "assembly", 0.10)
+    # ---- Assembly 层：assembly 列表优先（含 1 脚三角标），无则退回 body ----
+    #   ★ 2026-10-12 修执行器 gap：此前本阶段只画 body（纯本体矩形），
+    #     solver 产出的 assembly 列表（本体框 + pin1_mark 三角）没有入口，
+    #     连接器类每次要 CLI 补画 1 脚三角标（fix_fpc/fix_lydpj 补位脚本）。
+    if assembly is not None:
+        _draw_outlines(assembly, "assembly", 0.10)
+    else:
+        _draw_outlines(body, "assembly", 0.10)
     _draw_outlines(place_bound, "place_bound", 0.0, filled=True)
 
     # ---- 7) 位号 ----

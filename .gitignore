@@ -45,8 +45,23 @@ dbdoctor.log
 padstack_editor.jrl
 
 # ---------- 客户资料（禁止上传） ----------
-Data/
-Tools/
+# Data/
+
+# Tools/ 整体不上传：里面有 e2e 脚本、探针、客户料号。
+# 但一键部署（deploy\setup_agent.py）必须用到下面这几个，单独放行。
+# ★ 注意不能写 "Tools/" 目录级忽略 —— 那样里面的 ! 例外一律失效。
+Tools/*
+!Tools/install_skillbridge.py
+!Tools/selfcheck_geometry.py
+!Tools/selfcheck_skill_syntax.py
+
+# 含客户料号 / 本机绝对路径，明确排除
+Tools/e2e_*.py
+Tools/dump_*.py
+Tools/probe_*.py
+Tools/online_calibrate.py
+Tools/verify_e2e.py
+Tools/collect_logs.py
 
 # ---------- IDE / 系统 ----------
 .idea/

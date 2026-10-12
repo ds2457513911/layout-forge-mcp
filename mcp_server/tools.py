@@ -39,6 +39,7 @@ from mcp_server import config
 from services import allegro_service, pdf_service
 from services import footprint_extractor, rule_checker, report_renderer
 from services import footprint_builder, geometry_solver, library_install
+from services import spec_library
 from shared.json_utils import coerce_numeric, extract_json_body
 from shared.validation import validate_land_pattern
 
@@ -1268,6 +1269,7 @@ def register(mcp: FastMCP) -> None:
         symbol_name: str | None = None,
         template_path: str | None = None,
         extra_padstacks: list[dict] | None = None,
+        assembly: list[dict] | None = None,
     ) -> dict:
         """
         一次调用建出完整封装：padstack + 所有 pin + 丝印 + 本体 + Place_Bound + 位号。
@@ -1298,6 +1300,13 @@ def register(mcp: FastMCP) -> None:
                       （同样接受列表）
         :param place_bound: {"x1":-1.95,"y1":-1.6,"x2":1.95,"y2":1.6}
                       （同样接受列表）
+        :param assembly: ★★ **推荐**。solver 产出的 Assembly 层图元列表，
+                      即 `solve_footprint_geometry` 返回里的 `assembly` 字段
+                      （本体矩形 + 1 脚三角标），逐项画到
+                      PACKAGE GEOMETRY/ASSEMBLY_TOP。
+                      ★ 给了它就代替 `body` —— 直接把 solve 结果里的
+                      `assembly` 原样传进来即可，**不要**手工挑 `body` 字段
+                      （那会丢掉 1 脚三角标，规则检查第 6.3 项必 FAIL）。
         :param refdes: {"text":"U*","x":0.0,"y":-2.0,"text_block":"1"}
             ★ 可选 `targets`（列表）一次放多层 —— 取值 "refdes"
               （REF DES/SILKSCREEN_TOP，默认）/ "refdes_assembly"
@@ -1346,4 +1355,163 @@ def register(mcp: FastMCP) -> None:
             symbol_name=symbol_name,
             template_path=template_path,
             extra_padstacks=extra_padstacks,
+            assembly=assembly,
         )
+
+    # ============================================================
+    # Tool 24: save_spec —— ★ 把「读图提参」的成果存档（下次零读图）
+    # ============================================================
+    @mcp.tool()
+    def save_spec(
+        name: str,
+        spec_json: str,
+        family: str | None = None,
+        source_pdf: str | None = None,
+        notes: str | None = None,
+        overwrite: bool = True,
+    ) -> dict:
+        """
+        ★ 把一份 spec（读规格书解析出的参数 JSON）存进 spec 库 `Data/specs/`。
+
+        建封装成功后**顺手调一次**：下次遇到同封装的不同料号（如 LMBR120/140/160
+        同为 SOD-323HE）直接 `load_spec` 复用，一次图都不用读；要返工重建时也
+        不用手工重拼 JSON。
+
+        :param name: 符号名，建议用封装名（如 `NB_LMBR140ET1G_2P`）
+        :param spec_json: ★ spec 的 **JSON 字符串**（不是 dict，与
+                          validate_land_pattern_json 同一约定）。
+                          就是喂给 `solve_footprint_geometry` 的那套字段
+                          （pad / array / body / mount / pins_override /
+                          extra_padstacks / place_bound_expand_mm ...）
+        :param family: 封装族（如 `SOD-323HE` / `SOT-23` / `FPC-0.5`），用于同族查找
+        :param source_pdf: 来源规格书路径，便于回查
+        :param notes: ★★ 最值钱的字段：提取方法论 + **踩过的坑**
+                      （例："F=1.90 是两 pad 中心距不是总长；B/2+C+D/2 交叉验证"）
+                      下次同族遇到同样陷阱，读这一句就不用再推理一遍
+        :param overwrite: 同名已存在时是否覆盖（默认 True）
+
+        :return: {"ok": bool, "name", "file", "index_entry", "error"}
+        """
+        try:
+            spec = json.loads(spec_json)
+        except (TypeError, ValueError) as e:
+            return {"ok": False, "error": f"spec_json 不是合法 JSON: {e}"}
+        if not isinstance(spec, dict):
+            return {"ok": False, "error": "spec_json 解析后必须是 object（dict）"}
+        return spec_library.save_spec(
+            name, spec, family=family, source_pdf=source_pdf,
+            notes=notes, overwrite=overwrite)
+
+    # ============================================================
+    # Tool 25: load_spec —— ★ 零读图复用
+    # ============================================================
+    @mcp.tool()
+    def load_spec(name: str) -> dict:
+        """
+        从 spec 库取回一份 spec（**直接能喂 `solve_footprint_geometry` 的字段**）。
+
+        拿它之后通常这么用：
+            load_spec("NB_LMBR140ET1G_2P")
+              → 改 symbol_base / symbol_name（新料号）
+              → solve_footprint_geometry(...) 或 build_footprint_from_params(...)
+
+        :param name: 符号名（大小写不敏感）。不确定全名时先用 `find_spec` 搜。
+        :return: {"found": bool, "name", "spec": {...}}；
+                 未找到时附 `"hint"` 列出库里已有的名字，避免盲猜。
+        """
+        spec = spec_library.load_spec(name)
+        if spec is None:
+            return {"found": False, "name": name,
+                    "hint": [e.get("name") for e in spec_library.list_specs()]}
+        return {"found": True, "name": name, "spec": spec}
+
+    # ============================================================
+    # Tool 26: find_spec —— 按「几何指纹」找同封装 / 同族
+    # ============================================================
+    @mcp.tool()
+    def find_spec(
+        mount: str | None = None,
+        pin_count: int | None = None,
+        pitch_x: float | None = None,
+        pitch_y: float | None = None,
+        body_x: float | None = None,
+        body_y: float | None = None,
+        pad_x: float | None = None,
+        pad_y: float | None = None,
+        tol: float = 0.05,
+        keyword: str | None = None,
+    ) -> dict:
+        """
+        找库里有没有「同封装 / 同族」的 spec —— **判断能不能少读图**。
+
+        两种用法（可同时给）：
+          A. 给几何字段 → 按**指纹**匹配：
+             (mount, pin_count, pitch_x, pitch_y, body_x, body_y, pad_x, pad_y)
+             · 八项全等（容差内）      → `exact`：**同封装**，直接 load_spec 复用
+             · mount+pad+body 同、差脚数/pitch → `family`：同族，只读差异
+          B. 给 `keyword` → 按名字 / 族 / 来源 PDF 子串搜（人工导航用）
+
+        ★ 典型场景：新料号先量几个数（pitch / body / pad）来查一次，
+          `exact` 命中就**完全不用读规格书**。
+
+        :param tol: 数值比较容差（mm，默认 0.05）
+        :return: {"exact": [...], "family": [...], "keyword": [...],
+                  "query": {...}, "total": 库内总数}
+        """
+        return spec_library.find_spec(
+            mount=mount, pin_count=pin_count, pitch_x=pitch_x, pitch_y=pitch_y,
+            body_x=body_x, body_y=body_y, pad_x=pad_x, pad_y=pad_y,
+            tol=tol, keyword=keyword)
+
+    # ============================================================
+    # Tool 27: list_specs —— 库里有什么
+    # ============================================================
+    @mcp.tool()
+    def list_specs() -> dict:
+        """
+        列出 spec 库里已存档的全部器件（名字 / 族 / 来源 PDF / 指纹 / 存档时间）。
+
+        建新封装**之前**看一眼，能省掉重复读图。
+
+        :return: {"count": int, "specs": [{name, family, source_pdf,
+                  fingerprint, saved_at, file}]}
+        """
+        items = spec_library.list_specs()
+        return {"count": len(items), "specs": items,
+                "dir": spec_library.SPEC_DIR}
+
+    # ============================================================
+    # Tool 28: render_pdf_contact_sheet —— ★ 扫描件定位尺寸页的兜底
+    # ============================================================
+    @mcp.tool()
+    def render_pdf_contact_sheet(
+        pdf_file_path: str,
+        cols: int = 4,
+        thumb_width: int = 210,
+        max_pages: int | None = None,
+    ) -> dict:
+        """
+        ★ 把整份规格书拼成**一张缩略图**，一次扫完定位「哪一页是尺寸/焊盘图」。
+
+        **什么时候用它**：`locate_land_pattern_page` 返回 `page: null`、
+        尤其是带 `hint` 说「文本层为空」时（纯扫描件，关键词匹配无解）。
+
+        ★ 为什么这么干：这类 PDF 逐页读整页太贵（11 页 = 11 张大图）。
+          拼成一张后**读一次**即可定位，再单独渲染目标页读数字。
+          实测（LMBR140ET1G.pdf，11 页纯扫描件）：1 张 840×945 拼图就定位到 p3。
+
+        :param pdf_file_path: 规格书 PDF 路径（完整路径或 stem 均可）
+        :param cols: 每行几页（默认 4）
+        :param thumb_width: 单页缩略图宽（像素，默认 210；字看不清就调 300+）
+        :param max_pages: 最多拼多少页（None = 全部）
+
+        :return: {"ok": bool, "image_path": str, "pages": int, "grid": str,
+                  "page_index": {"3": [x, y, w, h]}, "note": str}
+                 拿到页码后调 `render_pdf_page(page=N)` 读尺寸数字。
+        """
+        pdf = pdf_service.resolve_pdf(pdf_file_path, config.PDF_SEARCH_ROOTS)
+        if pdf is None:
+            return {"ok": False, "error": f"找不到 PDF: {pdf_file_path}"}
+        return pdf_service.build_contact_sheet(
+            pdf, config.RENDER_OUTPUT_ROOT, cols=cols,
+            thumb_width=thumb_width, max_pages=max_pages)

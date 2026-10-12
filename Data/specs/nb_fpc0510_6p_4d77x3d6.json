@@ -1,0 +1,164 @@
+{
+  "schema": "layout-forge-spec/1",
+  "name": "NB_FPC0510_6P_4D77X3D6",
+  "saved_at": "2026-10-09 15:12:37",
+  "family": "FPC-0.5",
+  "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp/Tools/test/FPC0510系列 Pitch0.5 H1.0 前掀盖+下接触.pdf",
+  "notes": "来源：Tools/test/FPC0510系列 Pitch0.5 H1.0 前掀盖+下接触.pdf\n\n★ 非对称引脚布局的先例：6 个信号脚 + 2 个固定脚，两种 padstack\n  （R0D3X0D65 信号 / R0D3X1D15 固定脚），走 pins_override + extra_padstacks 通道。\n★ 显式命名：8 是「6 信号 + 2 固定」，自动命名会拼成 FPC05108（歧义）",
+  "fingerprint": {
+    "mount": "smd",
+    "pin_count": 8,
+    "pitch_x": 0.5,
+    "pitch_y": 0.5,
+    "body_x": 4.77,
+    "body_y": 3.6,
+    "pad_x": 0.3,
+    "pad_y": 0.65
+  },
+  "spec": {
+    "symbol_name": "NB_FPC0510_6P_4D77X3D6",
+    "symbol_base": "FPC0510",
+    "component_type": "connector",
+    "mount": "smd",
+    "dim_source": "drawing",
+    "pad": {
+      "shape": "rect",
+      "size": [
+        0.3,
+        0.65
+      ]
+    },
+    "array": {
+      "rows": 1,
+      "cols": 6,
+      "pitch_x": 0.5,
+      "pitch_y": 0.5
+    },
+    "pin_count": 8,
+    "pins_override": [
+      {
+        "number": "1",
+        "x": -1.25,
+        "y": -2.235,
+        "padstack": "R0D3X0D65",
+        "pad_size": [
+          0.3,
+          0.65
+        ]
+      },
+      {
+        "number": "2",
+        "x": -0.75,
+        "y": -2.235,
+        "padstack": "R0D3X0D65",
+        "pad_size": [
+          0.3,
+          0.65
+        ]
+      },
+      {
+        "number": "3",
+        "x": -0.25,
+        "y": -2.235,
+        "padstack": "R0D3X0D65",
+        "pad_size": [
+          0.3,
+          0.65
+        ]
+      },
+      {
+        "number": "4",
+        "x": 0.25,
+        "y": -2.235,
+        "padstack": "R0D3X0D65",
+        "pad_size": [
+          0.3,
+          0.65
+        ]
+      },
+      {
+        "number": "5",
+        "x": 0.75,
+        "y": -2.235,
+        "padstack": "R0D3X0D65",
+        "pad_size": [
+          0.3,
+          0.65
+        ]
+      },
+      {
+        "number": "6",
+        "x": 1.25,
+        "y": -2.235,
+        "padstack": "R0D3X0D65",
+        "pad_size": [
+          0.3,
+          0.65
+        ]
+      },
+      {
+        "number": "7",
+        "x": -2.135,
+        "y": 0.575,
+        "padstack": "R0D3X1D15",
+        "pad_size": [
+          0.3,
+          1.15
+        ]
+      },
+      {
+        "number": "8",
+        "x": 2.135,
+        "y": 0.575,
+        "padstack": "R0D3X1D15",
+        "pad_size": [
+          0.3,
+          1.15
+        ]
+      }
+    ],
+    "body": {
+      "x": 4.77,
+      "y": 3.6
+    },
+    "pin1_corner": "bottom-left",
+    "pin1_mark_axis": "y",
+    "refdes_text": "#REF",
+    "refdes_targets": [
+      "refdes_assembly"
+    ],
+    "refdes_place": "body_center",
+    "refdes_justify": "left",
+    "extra_padstacks": [
+      {
+        "name": "R0D3X1D15",
+        "layers": [
+          {
+            "layer": "TOP",
+            "figure": "RECTANGLE",
+            "size": [
+              0.3,
+              1.15
+            ]
+          },
+          {
+            "layer": "SOLDERMASK_TOP",
+            "figure": "RECTANGLE",
+            "size": [
+              0.4,
+              1.25
+            ]
+          },
+          {
+            "layer": "PASTEMASK_TOP",
+            "figure": "RECTANGLE",
+            "size": [
+              0.3,
+              1.15
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
