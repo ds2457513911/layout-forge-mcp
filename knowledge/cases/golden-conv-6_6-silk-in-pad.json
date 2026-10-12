@@ -1,0 +1,29 @@
+{
+  "schema": "layout-forge-case/1",
+  "name": "GOLDEN-CONV-6.6-silk-in-pad",
+  "tag": "真缺陷保留",
+  "saved_at": "2026-10-12 18:55:00",
+  "family": "CONV-6.6",
+  "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
+  "fingerprint": null,
+  "check_summary": null,
+  "report_path": null,
+  "findings": [
+    {
+      "rule_id": "6.6",
+      "issue": "6.6 丝印端点深入焊盘 >0.1mm：mos8/qfn24/qfn28/tqfn21/zif28 各 1 处",
+      "verdict": "keep_fail",
+      "reason": "这 5 件丝印线端点确实压进焊盘区域，属金标准库真实瑕疵（装配时丝印可能压焊盘影响外观甚至焊接）。保留 FAIL，可作为金标准库修正清单反馈库维护者。",
+      "affected": 5,
+      "examples": [
+        "nb_mos8(pin5)",
+        "nb_qfn24_4x4x0d8_0d5(pin12)",
+        "NB_ZIF28(pin30)"
+      ]
+    }
+  ],
+  "lessons": [
+    "6.6 丝印端点深入焊盘 >0.1mm：mos8/qfn24/qfn28/tqfn21/zif28 各 1 处 → 这 5 件丝印线端点确实压进焊盘区域，属金标准库真实瑕疵（装配时丝印可能压焊盘影响外观甚至焊接）。保留 FAIL，可作为金标准库修正清单反馈库维护者。…"
+  ],
+  "verdict": "keep_fail"
+}

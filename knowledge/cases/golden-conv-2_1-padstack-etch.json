@@ -1,0 +1,28 @@
+{
+  "schema": "layout-forge-case/1",
+  "name": "GOLDEN-CONV-2.1-padstack-etch",
+  "tag": "金标准惯例裁定",
+  "saved_at": "2026-10-12 18:55:00",
+  "family": "CONV-2.1",
+  "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
+  "fingerprint": null,
+  "check_summary": null,
+  "report_path": null,
+  "findings": [
+    {
+      "rule_id": "2.1",
+      "issue": "2.1 焊盘尺寸与 padstack 命名一致性 FAIL：命名 0.55×0.5 实际 0.775×0.852",
+      "verdict": "false_positive",
+      "reason": "金标准库 padstack 命名不编码 etch 铜箔尺寸（历史惯例：名字是原始尺寸，etch 另行放大）；c0402 系列（0.55~0.7 五个变体）共用同一 padstack 名但 etch 不同，实锤命名不含 etch。该规则对金标准库无效，对新产件（命名=etch）仍有效。",
+      "affected": 72,
+      "examples": [
+        "c0402",
+        "b0603_0d95"
+      ]
+    }
+  ],
+  "lessons": [
+    "2.1 焊盘尺寸与 padstack 命名一致性 FAIL：命名 0.55×0.5 实际 0.775×0.852 → 金标准库 padstack 命名不编码 etch 铜箔尺寸（历史惯例：名字是原始尺寸，etch 另行放大）；c0402 系列（0.55~0.7 五个变体）共用同…"
+  ],
+  "verdict": "false_positive"
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "layout-forge-case/1",
+  "name": "GOLDEN-CONV-3.3-pad-overlap",
+  "tag": "金标准惯例裁定",
+  "saved_at": "2026-10-12 18:55:00",
+  "family": "CONV-3.3",
+  "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
+  "fingerprint": null,
+  "check_summary": null,
+  "report_path": null,
+  "findings": [
+    {
+      "rule_id": "3.3",
+      "issue": "3.3 相邻焊盘 bbox 重叠 FAIL：gap-close 系刻意贴合、lqfp/qfn/msop 大重叠 0.1~0.9mm²",
+      "verdict": "review_note",
+      "reason": "gap-close-pwr 系列是为测 min-gap 算法造的刻意贴合件；lqfp128/qfn/msop/wifi 等的焊盘重叠是真实设计（密脚 IC 常态）。<0.1mm² 属 bbox 擦边已由 overlap_tolerance 消化；>=0.1mm² 保留 FAIL 交人工确认是否刻意。",
+      "affected": 31,
+      "examples": [
+        "gap-close-pwr",
+        "lqfp128_p4mm_14sq",
+        "nb_qfn13_4x3x0d85(0.887)"
+      ]
+    }
+  ],
+  "lessons": [
+    "3.3 相邻焊盘 bbox 重叠 FAIL：gap-close 系刻意贴合、lqfp/qfn/msop 大重叠 0.1~0.9mm² → gap-close-pwr 系列是为测 min-gap 算法造的刻意贴合件；lqfp128/qfn/msop/wifi 等的焊盘重叠是真实设计（密脚 IC 常态…"
+  ],
+  "verdict": "review_note"
+}

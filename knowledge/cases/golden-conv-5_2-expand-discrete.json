@@ -1,0 +1,29 @@
+{
+  "schema": "layout-forge-case/1",
+  "name": "GOLDEN-CONV-5.2-expand-discrete",
+  "tag": "金标准惯例裁定",
+  "saved_at": "2026-10-12 18:55:00",
+  "family": "CONV-5.2",
+  "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
+  "fingerprint": null,
+  "check_summary": null,
+  "report_path": null,
+  "findings": [
+    {
+      "rule_id": "5.2",
+      "issue": "5.2b 外扩量 WARN：金标准外扩 0~2.56mm 离散（0 / 0.004 / 0.15 / 2.0 / 2.56 均有）",
+      "verdict": "review_note",
+      "reason": "金标准库 place_bound 外扩无统一惯例，离散度大。几何层保留 WARN 但不升级 FAIL；解读时对照器件类型人工参考。已另有退化外框守卫（device<1.0mm 或外扩>3.0mm 转 NA）。",
+      "affected": 70,
+      "examples": [
+        "lqfp128_p4mm_14sq(2.56)",
+        "NB_BGA1516(2.0)",
+        "gap-close-pwr(0.0)"
+      ]
+    }
+  ],
+  "lessons": [
+    "5.2b 外扩量 WARN：金标准外扩 0~2.56mm 离散（0 / 0.004 / 0.15 / 2.0 / 2.56 均有） → 金标准库 place_bound 外扩无统一惯例，离散度大。几何层保留 WARN 但不升级 FAIL；解读时对照器件类型人工参考。已另有退化外框守卫（devic…"
+  ],
+  "verdict": "review_note"
+}

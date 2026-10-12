@@ -38,5 +38,71 @@
     "source_pdf": "E:/footprintdata/20261008 (WSON8 datasheet)",
     "tag": "散热盘pitch裁定",
     "verdict": "pass_with_notes"
+  },
+  "golden-conv-1_1-name-prefix": {
+    "family": "CONV-1.1",
+    "file": "golden-conv-1_1-name-prefix.json",
+    "fingerprint": null,
+    "n_lessons": 1,
+    "name": "GOLDEN-CONV-1.1-name-prefix",
+    "saved_at": "2026-10-12 18:55:00",
+    "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
+    "tag": "金标准惯例裁定",
+    "verdict": "false_positive"
+  },
+  "golden-conv-2_1-padstack-etch": {
+    "family": "CONV-2.1",
+    "file": "golden-conv-2_1-padstack-etch.json",
+    "fingerprint": null,
+    "n_lessons": 1,
+    "name": "GOLDEN-CONV-2.1-padstack-etch",
+    "saved_at": "2026-10-12 18:55:00",
+    "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
+    "tag": "金标准惯例裁定",
+    "verdict": "false_positive"
+  },
+  "golden-conv-5_2-expand-discrete": {
+    "family": "CONV-5.2",
+    "file": "golden-conv-5_2-expand-discrete.json",
+    "fingerprint": null,
+    "n_lessons": 1,
+    "name": "GOLDEN-CONV-5.2-expand-discrete",
+    "saved_at": "2026-10-12 18:55:00",
+    "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
+    "tag": "金标准惯例裁定",
+    "verdict": "review_note"
+  },
+  "golden-conv-3_3-pad-overlap": {
+    "family": "CONV-3.3",
+    "file": "golden-conv-3_3-pad-overlap.json",
+    "fingerprint": null,
+    "n_lessons": 1,
+    "name": "GOLDEN-CONV-3.3-pad-overlap",
+    "saved_at": "2026-10-12 18:55:00",
+    "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
+    "tag": "金标准惯例裁定",
+    "verdict": "review_note"
+  },
+  "golden-conv-2_2-mask-expand": {
+    "family": "CONV-2.2",
+    "file": "golden-conv-2_2-mask-expand.json",
+    "fingerprint": null,
+    "n_lessons": 1,
+    "name": "GOLDEN-CONV-2.2-mask-expand",
+    "saved_at": "2026-10-12 18:55:00",
+    "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
+    "tag": "金标准惯例裁定",
+    "verdict": "false_positive"
+  },
+  "golden-conv-6_6-silk-in-pad": {
+    "family": "CONV-6.6",
+    "file": "golden-conv-6_6-silk-in-pad.json",
+    "fingerprint": null,
+    "n_lessons": 1,
+    "name": "GOLDEN-CONV-6.6-silk-in-pad",
+    "saved_at": "2026-10-12 18:55:00",
+    "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
+    "tag": "真缺陷保留",
+    "verdict": "keep_fail"
   }
 }

@@ -1,0 +1,29 @@
+{
+  "schema": "layout-forge-case/1",
+  "name": "GOLDEN-CONV-1.1-name-prefix",
+  "tag": "金标准惯例裁定",
+  "saved_at": "2026-10-12 18:55:00",
+  "family": "CONV-1.1",
+  "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
+  "fingerprint": null,
+  "check_summary": null,
+  "report_path": null,
+  "findings": [
+    {
+      "rule_id": "1.1",
+      "issue": "1.1 封装名前缀 WARN：历史件小写名不以 NB_ 开头（如 b0603_0d95）",
+      "verdict": "false_positive",
+      "reason": "金标准库 253 件中 223 件为历史小写命名，NB_ 前缀是新规范；对旧库件属命名惯例差异，不是几何缺陷。新产件仍应遵守 NB_ 前缀。",
+      "affected": 223,
+      "examples": [
+        "b0603_0d95",
+        "c0402",
+        "r0402"
+      ]
+    }
+  ],
+  "lessons": [
+    "1.1 封装名前缀 WARN：历史件小写名不以 NB_ 开头（如 b0603_0d95） → 金标准库 253 件中 223 件为历史小写命名，NB_ 前缀是新规范；对旧库件属命名惯例差异，不是几何缺陷。新产件仍应遵守 NB_ 前缀。…"
+  ],
+  "verdict": "false_positive"
+}

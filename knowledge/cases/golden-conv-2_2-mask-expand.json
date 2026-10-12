@@ -1,0 +1,29 @@
+{
+  "schema": "layout-forge-case/1",
+  "name": "GOLDEN-CONV-2.2-mask-expand",
+  "tag": "金标准惯例裁定",
+  "saved_at": "2026-10-12 18:55:00",
+  "family": "CONV-2.2",
+  "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
+  "fingerprint": null,
+  "check_summary": null,
+  "report_path": null,
+  "findings": [
+    {
+      "rule_id": "2.2",
+      "issue": "2.2 阻焊外扩 WARN：单边 -0.14~0.076mm，非典型 0.08",
+      "verdict": "false_positive",
+      "reason": "金标准库阻焊外扩离散（0 / 0.025 / 0.05 / 0.076，个别负值=阻焊小于焊盘）。0.08mm 只是本库常见值不是硬规范；范围判定 0.05~0.13 外的离散交人工参考即可，保留 WARN 不升级。",
+      "affected": 17,
+      "examples": [
+        "nb_ddr4_std260(0.025/0.076)",
+        "NB_BGA1516(0.05)",
+        "jopen25x30_s(-0.116/-0.139)"
+      ]
+    }
+  ],
+  "lessons": [
+    "2.2 阻焊外扩 WARN：单边 -0.14~0.076mm，非典型 0.08 → 金标准库阻焊外扩离散（0 / 0.025 / 0.05 / 0.076，个别负值=阻焊小于焊盘）。0.08mm 只是本库常见值不是硬规范；范围判定 0.05~0…"
+  ],
+  "verdict": "false_positive"
+}
