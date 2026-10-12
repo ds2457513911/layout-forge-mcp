@@ -2,6 +2,7 @@
   "_meta": {
     "purpose": "rule_checker 阈值外置真源（2026-10-12 起）。只放数字/开关，判定逻辑仍在 services/rule_checker.py —— 改逻辑必须改代码。改本文件立即生效，不用重启 MCP。",
     "fallback": "文件缺失或 JSON 损坏时自动回退 services/rule_checker.py::DEFAULT_RULES（宁用内置默认，不带病运行）",
+    "calibration": "2026-10-12 金标准 253 件对拍校准：阻焊外扩惯例 0.08（195/246 占比）、原点偏移 ≤0.5mm 占绝对多数、重叠判定加 0.05mm² 消 bbox 擦边、丝印重叠加 0.1mm 内缩消贴边",
     "last_updated": "2026-10-12"
   },
   "naming": {
@@ -12,11 +13,14 @@
   "pad": {
     "size_tolerance_mm": 0.05,
     "min_spacing_mm": 0.20,
-    "soldermask_expand_mm": 0.05,
-    "pastemask_equal_pad": true
+    "soldermask_expand_typical_mm": 0.08,
+    "soldermask_expand_min_mm": 0.05,
+    "soldermask_expand_max_mm": 0.13,
+    "pastemask_equal_pad": true,
+    "overlap_tolerance_mm2": 0.05
   },
   "origin": {
-    "center_tolerance_mm": 0.05,
+    "center_tolerance_mm": 0.5,
     "connector_tolerance_mm": 20.0
   },
   "place_bound": {
@@ -25,11 +29,14 @@
     "connector_expand_mm": 0.85,
     "expand_tolerance_mm": 0.05,
     "min_expand_mm": 0.05,
-    "max_expand_mm": 3.0
+    "max_expand_mm": 3.0,
+    "degenerate_outline_mm": 1.0,
+    "max_plausible_expand_mm": 3.0
   },
   "silkscreen": {
     "line_width_min_mm": 0.10,
-    "to_pad_clearance_mm": 0.20
+    "to_pad_clearance_mm": 0.20,
+    "overlap_inset_mm": 0.10
   },
   "assembly": {
     "size_tolerance_mm": 0.05

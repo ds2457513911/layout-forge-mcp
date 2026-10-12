@@ -432,6 +432,74 @@ def _merge_bboxes(bboxes):
 # ============================================================
 # 主入口
 # ============================================================
+# ============================================================
+# 单位归一（2026-10-12 金标准对拍实锤：mil 图纸几何全是 mil 原值）
+# ============================================================
+MIL_PER_MM = 1.0 / 25.4
+
+def _mil2mm(v):
+    return v * MIL_PER_MM if isinstance(v, (int, float)) else v
+
+
+def _normalize_result_units(result: Dict[str, Any], units: str) -> Dict[str, Any]:
+    """
+    ★ mil 图纸 → 全部几何换算成 mm（与 SkillBridge 路径的 value_mm 口径对齐）。
+
+    背景：项目约定「对外统一 mm」，skillbridge_reader 一直做换算，
+    extracta 路径此前漏了 —— 旧图纸（设计单位 mil）跑规则检查时
+    焊盘尺寸/间距/外扩全部大 25.4 倍，产生成片假 FAIL（2026-10-12
+    金标准 253 件对拍实锤：2.1×72、5.2×123 等大半由它引起）。
+
+    转换对象：pin xy/bbox/size、pad bbox/size、layers 元素 segments/
+    bbox/size/center、texts xy、design_bbox。转换后 units='mm'
+    （units_raw 保留原始值供追溯）。
+    """
+    if units != "mil":
+        return result
+
+    for p in result.get("pins") or []:
+        for k in ("xy", "relxy"):
+            if p.get(k):
+                p[k] = [_mil2mm(p[k][0]), _mil2mm(p[k][1])]
+        if p.get("bbox"):
+            p["bbox"] = [[_mil2mm(x), _mil2mm(y)] for x, y in p["bbox"]]
+        if p.get("size"):
+            p["size"] = [_mil2mm(p["size"][0]), _mil2mm(p["size"][1])]
+        for pd in p.get("pads") or []:
+            if pd.get("bbox"):
+                pd["bbox"] = [[_mil2mm(x), _mil2mm(y)] for x, y in pd["bbox"]]
+            if pd.get("size"):
+                pd["size"] = [_mil2mm(pd["size"][0]), _mil2mm(pd["size"][1])]
+
+    for els in (result.get("layers") or {}).values():
+        for el in els:
+            el["segments"] = [
+                [[_mil2mm(x), _mil2mm(y)] for x, y in seg]
+                for seg in el.get("segments") or []
+            ]
+            if el.get("bbox"):
+                el["bbox"] = [[_mil2mm(x), _mil2mm(y)] for x, y in el["bbox"]]
+            if el.get("size"):
+                el["size"] = [_mil2mm(el["size"][0]), _mil2mm(el["size"][1])]
+            if el.get("center"):
+                el["center"] = [_mil2mm(el["center"][0]), _mil2mm(el["center"][1])]
+
+    for t in result.get("texts") or []:
+        if t.get("xy") and t["xy"][0] is not None:
+            t["xy"] = [_mil2mm(t["xy"][0]), _mil2mm(t["xy"][1])]
+
+    db = result.get("design_bbox")
+    if db and db.get("value"):
+        db["value"] = [[_mil2mm(x), _mil2mm(y)] for x, y in db["value"]]
+        db["value_mm"] = db["value"]
+        db["unit"] = "mm"
+        db["size_mm"] = _bbox_size(db["value"])
+        db["center_mm"] = _bbox_center(db["value"])
+
+    result["units"] = "mm"
+    return result
+
+
 def read_via_extracta(dra_path: str) -> Dict[str, Any]:
     """
     用 extracta 读取 .dra，返回与 read_full_footprint 相同结构的 dict。
@@ -515,6 +583,7 @@ def read_via_extracta(dra_path: str) -> Dict[str, Any]:
 
             # 每个 pin 附上 pad 层数据（绝对 bbox）
             pads_attached = []
+            etch_size = None
             max_size = [0.0, 0.0]
             for pd in pad_defs:
                 size = pd.get("size") or [0, 0]
@@ -533,17 +602,25 @@ def read_via_extracta(dra_path: str) -> Dict[str, Any]:
                     "bbox": pad_bbox,
                     "size": size,
                 })
-                # 记录最大 pad 尺寸（用于推算 pin bbox）
+                # ★ pin bbox 用**铜箔（ETCH/TOP）**尺寸 —— 阻焊/钢网比铜箔大，
+                #   拿它们推 bbox 会把焊盘虚胖，3.3 重叠检查成片假 FAIL
+                #   （2026-10-12 金标准对拍实锤：msop10/qfn13 等）
+                if pd["layer"] == "ETCH/TOP" and size[0] > 0 and size[1] > 0:
+                    etch_size = [size[0], size[1]]
                 if size[0] > max_size[0]:
                     max_size[0] = size[0]
                 if size[1] > max_size[1]:
                     max_size[1] = size[1]
 
-            # pin bbox：用最大 pad 尺寸推算（保守方向）
-            if xy and (max_size[0] > 0 or max_size[1] > 0):
+            # pin bbox：优先 etch（铜箔），无 etch 时退回最大 pad 尺寸
+            bbox_size = etch_size or (
+                [max_size[0], max_size[1]]
+                if (max_size[0] > 0 or max_size[1] > 0) else None
+            )
+            if xy and bbox_size:
                 pin_bbox = [
-                    [xy[0] - max_size[0] / 2, xy[1] - max_size[1] / 2],
-                    [xy[0] + max_size[0] / 2, xy[1] + max_size[1] / 2],
+                    [xy[0] - bbox_size[0] / 2, xy[1] - bbox_size[1] / 2],
+                    [xy[0] + bbox_size[0] / 2, xy[1] + bbox_size[1] / 2],
                 ]
             else:
                 pin_bbox = None
@@ -556,7 +633,7 @@ def read_via_extracta(dra_path: str) -> Dict[str, Any]:
                 "rotation": None,
                 "rel_rotation": None,
                 "bbox": pin_bbox,
-                "size": [max_size[0], max_size[1]] if pin_bbox else None,
+                "size": bbox_size if pin_bbox else None,
                 "pads": pads_attached,
             })
 
@@ -624,7 +701,7 @@ def read_via_extracta(dra_path: str) -> Dict[str, Any]:
 
         # ---- 最终返回 ----
         symbol_name = dra.stem
-        return {
+        result = {
             "source_file": str(dra.resolve()),
             "symbol_name": symbol_name,
             "units": header.get("units", "mm"),
@@ -638,6 +715,8 @@ def read_via_extracta(dra_path: str) -> Dict[str, Any]:
             "_source": "extracta",  # 标记数据来源，便于调试
             "_gaps": gaps,          # ★ 静默缺口的显式清单（空列表 = 无缺口）
         }
+        # ★ mil 图纸统一归一成 mm（见 _normalize_result_units 的背景说明）
+        return _normalize_result_units(result, header.get("units", "mm"))
 
     finally:
         # 清理临时目录

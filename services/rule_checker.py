@@ -44,11 +44,14 @@ DEFAULT_RULES: Dict[str, Any] = {
     "pad": {
         "size_tolerance_mm": 0.05,
         "min_spacing_mm": 0.20,
-        "soldermask_expand_mm": 0.05,
+        "soldermask_expand_typical_mm": 0.08,
+        "soldermask_expand_min_mm": 0.05,
+        "soldermask_expand_max_mm": 0.13,
         "pastemask_equal_pad": True,
+        "overlap_tolerance_mm2": 0.05,
     },
     "origin": {
-        "center_tolerance_mm": 0.05,        # IC / chip 类
+        "center_tolerance_mm": 0.5,          # IC / chip 类（2026-10-12 金标准校准）
         "connector_tolerance_mm": 20.0,      # 连接器（允许大幅偏移）
     },
     "place_bound": {
@@ -59,10 +62,15 @@ DEFAULT_RULES: Dict[str, Any] = {
         # 宽松判定用范围（找不到类型时兜底）
         "min_expand_mm": 0.05,
         "max_expand_mm": 3.0,
+        # 外框退化守卫（2026-10-12 金标准对拍实锤：Assembly 外框识别
+        # 退化时外扩可达 10mm+，必须转 NA 而不是 WARN/FAIL）
+        "degenerate_outline_mm": 1.0,
+        "max_plausible_expand_mm": 3.0,
     },
     "silkscreen": {
         "line_width_min_mm": 0.10,
         "to_pad_clearance_mm": 0.20,
+        "overlap_inset_mm": 0.10,            # 端点须深入焊盘 >0.1mm 才算真重叠
     },
     "assembly": {
         "size_tolerance_mm": 0.05,
@@ -119,9 +127,12 @@ def load_external_rules(path: Optional[str] = None) -> Dict[str, Any]:
 # 元件类型识别
 # ============================================================
 CONNECTOR_KEYWORDS = [
-    "con", "conn", "connector", "hdmi", "usb", "typec", "type-c",
+    "con", "conn", "connector", "hdmi", "usb", "typec", "type-c", "type_c",
     "fpc", "btb", "wtb", "dsub", "rj45", "sata", "sd", "tf",
     "sim", "earphone", "jack", "socket", "header", "plug", "receptacle",
+    # 2026-10-12 金标准对拍补：这些系列原点取结构基准/引脚排，
+    # 误判成 ic 会被 0.5mm 容差误 FAIL（type_c×3、zif×12、ngff、ddr、audio）
+    "type_c", "zif", "ngff", "audio", "ddr", "sodimm", "wifi",
 ]
 
 IC_KEYWORDS = [
@@ -528,8 +539,14 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
         sm_results.append(((sw - ew) / 2, (sh - eh) / 2))
 
     if sm_results:
+        # 2026-10-12 金标准校准：惯例外扩 0.08mm（195/246），历史件散布
+        # 0.05~0.12 —— 用范围判定代替等值判定
+        sm_min = float(cfg.get("soldermask_expand_min_mm", 0.05))
+        sm_max = float(cfg.get("soldermask_expand_max_mm", 0.13))
+        sm_typ = float(cfg.get("soldermask_expand_typical_mm", 0.08))
+        eps = 0.005    # 边界浮点擦边（0.05 恰好压线时不能误 WARN）
         ok = all(
-            abs(ex - sm_expand_rule) <= 0.02 and abs(ey - sm_expand_rule) <= 0.02
+            sm_min - eps <= ex <= sm_max + eps and sm_min - eps <= ey <= sm_max + eps
             for ex, ey in sm_results
         )
         sample_ex, sample_ey = sm_results[0]
@@ -537,9 +554,9 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
             "2.2", "阻焊开窗外扩",
             "PASS" if ok else "WARN",
             value={"单边x": _round(sample_ex), "单边y": _round(sample_ey)},
-            rule=f"单边外扩 {sm_expand_rule}mm（±0.02）",
+            rule=f"单边外扩 [{sm_min}, {sm_max}]mm（惯例 {sm_typ}）",
             detail="",
-            expected=f"单边 {sm_expand_rule} ± 0.02",
+            expected=f"单边 [{sm_min}, {sm_max}]",
             source="default",
         ))
     else:
@@ -659,8 +676,13 @@ def check_pitch(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List[Di
             ))
 
     # 3.3 焊盘不重叠：真实几何重叠检测
+    # 2026-10-12 金标准校准：bbox 面积重叠 < overlap_tolerance_mm2 视为
+    # 擦边（bbox 是保守矩形，相邻贴紧焊盘常互相 grazes），不算 FAIL
+    ov_tol = float(rules.get("pad", {}).get(
+        "overlap_tolerance_mm2", 0.05))
     overlap_found = False
     overlap_detail = ""
+    overlap_area = 0.0
     min_clearance = float("inf")
     min_pair = None
 
@@ -671,13 +693,18 @@ def check_pitch(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List[Di
             if not b1 or not b2:
                 continue
             area = _bbox_overlap_area(b1, b2)
-            if area > 0:
+            if area > ov_tol:
                 overlap_found = True
+                overlap_area = area
                 overlap_detail = (
                     f"pin {pins[i]['number']} 与 pin {pins[j]['number']} 焊盘 bbox 真实重叠 "
                     f"{_round(area)}mm²"
                 )
                 break
+            if area > 0:
+                # 擦边级重叠：记录但不算 FAIL
+                if area > overlap_area:
+                    overlap_area = area
             d = _bbox_min_distance(b1, b2)
             if d < min_clearance:
                 min_clearance = d
@@ -702,6 +729,11 @@ def check_pitch(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List[Di
                 f"最小欧氏距离 {_round(min_clearance)}mm"
                 f"（pin {min_pair[0]} 与 pin {min_pair[1]}，几何上不重叠）"
             )
+        if overlap_area > 0:
+            detail += (
+                f"；存在 ≤{ov_tol}mm² 的 bbox 擦边重叠（{_round(overlap_area)}mm²），"
+                "判为贴紧不算重叠"
+            )
         items.append(_item(
             "3.3", "焊盘不重叠",
             "PASS",
@@ -724,9 +756,17 @@ def check_pitch(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List[Di
     source_center = None
 
     pb = data.get("layers", {}).get("place_bound_top") or []
-    if pb and pb[0].get("bbox"):
-        center = pb[0]["center"]
-        source_center = "place_bound_top"
+    # ★ 取 bbox 面积最大的元素当外框中心 —— pb[0] 可能是小元素/标注，
+    #   2026-10-12 金标准对拍实锤（ddr4 偏 37mm 就是取错元素）
+    if pb:
+        _pb_best = max(
+            (el for el in pb if el.get("bbox")),
+            key=lambda el: _bbox_area(el.get("bbox")),
+            default=None,
+        )
+        if _pb_best is not None:
+            center = _pb_best.get("center") or _bbox_center(_pb_best["bbox"])
+            source_center = "place_bound_top"
 
     if center is None:
         pins_bbox = _pins_combined_bbox(pins)
@@ -806,7 +846,16 @@ def check_place_bound(data: Dict, rules: Dict) -> List[Dict]:
 
     # ---------- 5.2a 覆盖检查（相对 pins bbox） ----------
     # 这个用 pins bbox 是对的：place_bound 必须覆盖所有焊盘
-    contains = _bbox_contains(pb_bbox, pins_bbox)
+    # 2026-10-12 金标准校准：金标准惯例允许 place_bound 比焊盘 bbox 小
+    # ≤0.1mm（dfn1006 等「上方缺 0.05~0.08mm」成片假 FAIL），加容差：
+    # 把 pins bbox 向内缩 cov_tol 后仍须被 pb 完全包含
+    cov_tol = float(cfg.get("coverage_tolerance_mm", 0.1))
+    contains = (
+        pb_bbox[0][0] <= pins_bbox[0][0] + cov_tol and
+        pb_bbox[0][1] <= pins_bbox[0][1] + cov_tol and
+        pb_bbox[1][0] >= pins_bbox[1][0] - cov_tol and
+        pb_bbox[1][1] >= pins_bbox[1][1] - cov_tol
+    )
 
     if not contains:
         issues = []
@@ -858,8 +907,51 @@ def check_place_bound(data: Dict, rules: Dict) -> List[Dict]:
         ))
         return items
 
+    # ---------- ★ 退化外框守卫（2026-10-12 金标准对拍实锤） ----------
+    # Assembly 外框识别退化（如 RJ45 识别成 0.5×0.5 的小元素）时，
+    # 外扩会被算成 5~12mm 的鬼数 —— 转 NA，别拿它判 WARN/FAIL。
+    degenerate = float(cfg.get("degenerate_outline_mm", 1.0))
+    if min(device_size[0], device_size[1]) < degenerate:
+        items.append(_item(
+            "5.2", "Place_Bound 外扩量",
+            "NA",
+            value={
+                "device_size": [_round(device_size[0]), _round(device_size[1])],
+                "pb_size": [_round(pb_size[0]), _round(pb_size[1])],
+                "reference": "assembly_device_outline",
+            },
+            rule="器件外框任一边 < "
+                 f"{degenerate}mm，疑似外框识别退化",
+            detail=(
+                f"识别到的器件外框 {_round(device_size[0])}×{_round(device_size[1])}mm "
+                "过小，外扩量不可信，转人工复核"
+            ),
+            expected=None,
+            source="self",
+        ))
+        return items
+
     expand_x = (pb_size[0] - device_size[0]) / 2
     expand_y = (pb_size[1] - device_size[1]) / 2
+
+    # 外扩超出物理合理范围 → 大概率外框还是识别错了（宁可 NA 不误报）
+    max_plausible = float(cfg.get("max_plausible_expand_mm", 3.0))
+    if (max(expand_x, expand_y) > max_plausible):
+        items.append(_item(
+            "5.2", "Place_Bound 外扩量",
+            "NA",
+            value={
+                "expand_x": _round(expand_x), "expand_y": _round(expand_y),
+                "device_size": [_round(device_size[0]), _round(device_size[1])],
+                "pb_size": [_round(pb_size[0]), _round(pb_size[1])],
+                "reference": "assembly_device_outline",
+            },
+            rule=f"外扩量 > {max_plausible}mm 超出物理合理范围，疑似外框识别退化",
+            detail=f"expand_x={_round(expand_x)}, expand_y={_round(expand_y)}，转人工复核",
+            expected=None,
+            source="self",
+        ))
+        return items
 
     # 按元件类型选规则
     comp_type = _classify_component(data.get("symbol_name", ""))
@@ -917,6 +1009,10 @@ def check_place_bound(data: Dict, rules: Dict) -> List[Dict]:
 def check_assembly(data: Dict, rules: Dict) -> List[Dict]:
     items = []
     asm = data.get("layers", {}).get("assembly_top") or []
+    # 2026-10-12 金标准对拍校准：惯例 assembly 只画外框 1 个元素，
+    # 1 脚标识的存在性归 AI 语义检查（本函数注释既有的口径），
+    # 几何层只要求「有外框」，≥2 的旧要求过严（39/253 假 WARN）
+    min_elements = 1
 
     items.append(_item(
         "6.1", "Assembly_Top 存在",
@@ -931,7 +1027,7 @@ def check_assembly(data: Dict, rules: Dict) -> List[Dict]:
     if not asm:
         return items
 
-    has_content = len(asm) >= 2
+    has_content = len(asm) >= min_elements
     combined = _layer_combined_bbox(asm)
     combined_size = _bbox_size(combined) if combined else None
 
@@ -942,9 +1038,10 @@ def check_assembly(data: Dict, rules: Dict) -> List[Dict]:
             "n_elements": len(asm),
             "combined_bbox_size": [_round(combined_size[0]), _round(combined_size[1])] if combined_size else None,
         },
-        rule="Assembly 层应有至少 2 个元素（外框 + 标识）",
+        rule=f"Assembly 层应有至少 {min_elements} 个元素"
+             + ("" if min_elements > 1 else "（chip 类只有外框即可）"),
         detail="" if has_content else "元素过少",
-        expected="≥ 2 元素",
+        expected=f"≥ {min_elements} 元素",
         source="default",
     ))
 
@@ -953,12 +1050,13 @@ def check_assembly(data: Dict, rules: Dict) -> List[Dict]:
         "6.3", "Assembly 元素数",
         "PASS" if has_content else "WARN",
         value=f"{len(asm)} 个元素",
-        rule="Assembly 层应有 ≥2 个元素（外框 + 1 脚标识）",
+        rule=f"Assembly 层应有 ≥{min_elements} 个元素"
+             + ("" if min_elements > 1 else "（chip 类无 1 脚标识）"),
         detail=(
             "1 脚标识的存在性由 AI 语义检查判定"
             if has_content else "只有 1 个元素"
         ),
-        expected="≥ 2 元素",
+        expected=f"≥ {min_elements} 元素",
         source="default",
     ))
 
@@ -972,36 +1070,38 @@ def check_silkscreen(data: Dict, rules: Dict) -> List[Dict]:
     items = []
     silk = data.get("layers", {}).get("silkscreen_top") or []
     pins = data.get("pins", [])
+    comp_type = _classify_component(data.get("symbol_name", ""))
+    inset = float(rules.get("silkscreen", {}).get("overlap_inset_mm", 0.10))
 
-    items.append(_item(
-        "6.4", "Silkscreen_Top 存在",
-        "PASS" if silk else "FAIL",
-        value=len(silk),
-        rule="必须画 Silkscreen_Top",
-        detail="" if silk else "未找到 Silkscreen_Top 层",
-        expected="必须存在",
-        source="default",
-    ))
+    # 6.4：chip 类（0201/0402 等无极性件）与 ≤2 脚小件（二极管/LED/DFN
+    # 2L）金标准惯例不画丝印 → NA；其余保持 FAIL
+    if comp_type == "chip" or (pins and len(pins) <= 2):
+        items.append(_item(
+            "6.4", "Silkscreen_Top 存在",
+            "PASS" if silk else "NA",
+            value=len(silk),
+            rule="chip 类无极性件允许不画 Silkscreen（1 脚标识无意义）",
+            detail="" if silk else "chip 类无丝印为惯例，不判失败",
+            expected="建议有，缺省允许",
+            source="default",
+        ))
+    else:
+        items.append(_item(
+            "6.4", "Silkscreen_Top 存在",
+            "PASS" if silk else "FAIL",
+            value=len(silk),
+            rule="必须画 Silkscreen_Top",
+            detail="" if silk else "未找到 Silkscreen_Top 层",
+            expected="必须存在",
+            source="default",
+        ))
 
     if not silk:
         return items
 
-    complex_paths = [p for p in silk if p.get("n_segs", 0) >= 3]
-    has_complex = len(complex_paths) > 0
-
-    # 6.5：只检查复杂 path 数量（1 脚标识的语义存在性由 AI 检查负责）
-    items.append(_item(
-        "6.5", "Silkscreen 复杂 path 数",
-        "PASS" if has_complex else "WARN",
-        value=f"{len(complex_paths)} 个复杂 path",
-        rule="Silkscreen 层应有 ≥1 个复杂 path（n_segs≥3，可能为 1 脚标识）",
-        detail=(
-            "1 脚标识的存在性由 AI 语义检查判定"
-            if has_complex else "未找到复杂 path"
-        ),
-        expected="≥ 1 个",
-        source="default",
-    ))
+    # 6.5（旧「Silkscreen 复杂 path 数」已于 2026-10-12 删除：
+    #   自造概念 + 金标准 55 件假阳性，1 脚标识的语义存在性
+    #   本就归 AI 语义检查负责，几何层不再猜。）
 
     overlap_found = False
     overlap_detail = ""
@@ -1012,7 +1112,9 @@ def check_silkscreen(data: Dict, rules: Dict) -> List[Dict]:
             p_bbox = pin.get("bbox")
             if not p_bbox:
                 continue
-            if _segments_cross_bbox(s, p_bbox):
+            # ★ 内缩判据：端点须深入焊盘 >inset mm 才算真重叠
+            #   （金标准惯例：丝印框端点常贴到焊盘 bbox 边上，2026-10-12 校准）
+            if _segments_cross_bbox(s, p_bbox, margin=-inset):
                 overlap_found = True
                 overlap_detail = (
                     f"Silkscreen 元素的线段端点落在 pin {pin['number']} 焊盘区域内"
