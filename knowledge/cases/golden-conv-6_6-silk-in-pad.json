@@ -2,7 +2,7 @@
   "schema": "layout-forge-case/1",
   "name": "GOLDEN-CONV-6.6-silk-in-pad",
   "tag": "真缺陷保留",
-  "saved_at": "2026-10-12 18:55:00",
+  "saved_at": "2026-10-12 19:40:00",
   "family": "CONV-6.6",
   "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
   "fingerprint": null,
@@ -13,17 +13,17 @@
       "rule_id": "6.6",
       "issue": "6.6 丝印端点深入焊盘 >0.1mm：mos8/qfn24/qfn28/tqfn21/zif28 各 1 处",
       "verdict": "keep_fail",
-      "reason": "这 5 件丝印线端点确实压进焊盘区域，属金标准库真实瑕疵（装配时丝印可能压焊盘影响外观甚至焊接）。保留 FAIL，可作为金标准库修正清单反馈库维护者。",
-      "affected": 5,
+      "reason": "旋转伪影修复后 qfn24 洗清（其丝印端点只是压进被旋转伪影虚胖的 pin bbox）。剩余 3 件丝印线端点确实压进焊盘区域 >0.1mm，属金标准库真实瑕疵，保留 FAIL 作为修正清单反馈库维护者。",
+      "affected": 3,
       "examples": [
         "nb_mos8(pin5)",
-        "nb_qfn24_4x4x0d8_0d5(pin12)",
+        "nb_tqfn21_5x3x0d8(pin15)",
         "NB_ZIF28(pin30)"
       ]
     }
   ],
   "lessons": [
-    "6.6 丝印端点深入焊盘 >0.1mm：mos8/qfn24/qfn28/tqfn21/zif28 各 1 处 → 这 5 件丝印线端点确实压进焊盘区域，属金标准库真实瑕疵（装配时丝印可能压焊盘影响外观甚至焊接）。保留 FAIL，可作为金标准库修正清单反馈库维护者。…"
+    "丝印压焊盘检查依赖 pin bbox 精度——bbox 伪影会连带产生假 FAIL（qfn24 案例）"
   ],
   "verdict": "keep_fail"
 }

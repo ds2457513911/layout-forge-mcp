@@ -463,6 +463,24 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
     不得在 markdown 前后添加"结论"、"建议"、"已保存到"、"需要注意"等文字。
     不得改动表格中的任何一个字符。
 
+### S 系硬规则（2026-10-12 金标准批量实锤后补充）
+
+- **S1 目标消歧**：用户给的目录里若有**多个 .dra 或多个 PDF**，禁止默认拿第一个就跑。
+  必须列出候选（文件名 + pin 数）请用户确认；只有当目录里恰有一对 PDF/.dra 时才可静默继续。
+  检查完用报告头 `symbol_name` 与文件名核对，防止张冠李戴。
+- **S2 禁复用旧报告**：本次检查的结论**只能来自本次** `check_footprint_by_rules`
+  返回的 `report_path` / `markdown`。目录里已有的 `checklist_report_*.json`
+  是历史产物，**禁止当成本次结果输出**（读取仅限第 3 步交叉校验理论值，
+  且必须先核对报告内 `symbol_name` 与本次目标一致）。
+- **S3 禁推理文字泄漏**：最终输出只允许报告 `markdown` 字段本体。
+  AI 自己的读图过程、中间 JSON、tool 参数、复核思路一律不出现在回复里
+  （报告内部的 blockquote 提示行属报告内容，可保留）。
+- **S4 先探通道再调 dra 工具**：凡是要触 Allegro 的工具
+  （`build_footprint_from_params` / `export_psm` / `save_footprint_drawing` 等），
+  **先调 `inspect_allegro_environment` 探通道**；探针失败就如实报
+  "Allegro 未连接（SkillBridge 7777 不通）"，
+  禁止盲调业务工具后把超时误读成"工具挂了"、更禁止据此跳过步骤。
+
 ### 常规注意事项
 
 - **数值 vs 语义分工清楚**：数值问题让 Python 判定，语义问题让 AI 判断

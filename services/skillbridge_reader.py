@@ -269,6 +269,33 @@ def _extract_pins(design) -> List[Dict[str, Any]]:
                 "size": _bbox_size(_bbox_to_list(_safe_get(pad, "b_box"))),
             })
 
+        # 2026-10-12 第 3 层实机对拍实锤：pin bbox 改铜箔（ETCH/TOP）优先，
+        # 与 extracta_reader 口径对齐 —— b_box 是整层最大（含阻焊/钢网），
+        # 虚胖 bbox 导致 3.3/6.6 两路判定不一致。
+        etch_size = None
+        max_size = [0.0, 0.0]
+        for pd in pads_out:
+            ps = pd.get("size") or [0.0, 0.0]
+            if pd.get("layer") == "ETCH/TOP" and ps[0] > 0 and ps[1] > 0:
+                etch_size = [ps[0], ps[1]]
+            if ps[0] > max_size[0]:
+                max_size[0] = ps[0]
+            if ps[1] > max_size[1]:
+                max_size[1] = ps[1]
+        bbox_size = etch_size or (
+            [max_size[0], max_size[1]]
+            if (max_size[0] > 0 or max_size[1] > 0) else None
+        )
+        if xy and bbox_size:
+            bbox = [
+                [xy[0] - bbox_size[0] / 2, xy[1] - bbox_size[1] / 2],
+                [xy[0] + bbox_size[0] / 2, xy[1] + bbox_size[1] / 2],
+            ]
+            size = bbox_size
+        else:
+            bbox = _bbox_to_list(_safe_get(pin, "b_box"))
+            size = _bbox_size(bbox)
+
         pins_out.append({
             "number": pin_number,
             "name": pin_name,
@@ -386,7 +413,7 @@ def read_full_footprint(
                 continue
             layers_data[key] = _get_layer_elements(ws, cfg["layer_name"], cfg["filter"])
 
-        return {
+        result = {
             "source_file": os.path.abspath(dra_path),
             "symbol_name": symbol_name,
             "units": units,
@@ -398,6 +425,15 @@ def read_full_footprint(
             "raw_pin_count": len(pins),
             "_source": "skillbridge",
         }
+
+        # 2026-10-12 第 3 层实机对拍实锤：mil 图纸时 skillbridge 路径返回
+        # 原始 mil 值，规则检查器按 mm 口径消费 → 3.3 假 FAIL / 6.6 假 PASS /
+        # 5.2b 误转 NA。与 extracta_reader 对齐：出函数前统一归一成 mm。
+        if units == "mil":
+            from services.extracta_reader import _normalize_result_units
+            result = _normalize_result_units(result, units)
+
+        return result
 
     finally:
         try:

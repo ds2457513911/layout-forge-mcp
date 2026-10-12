@@ -78,10 +78,10 @@
     "fingerprint": null,
     "n_lessons": 1,
     "name": "GOLDEN-CONV-3.3-pad-overlap",
-    "saved_at": "2026-10-12 18:55:00",
+    "saved_at": "2026-10-12 19:40:00",
     "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
     "tag": "金标准惯例裁定",
-    "verdict": "review_note"
+    "verdict": "mixed"
   },
   "golden-conv-2_2-mask-expand": {
     "family": "CONV-2.2",
@@ -100,7 +100,7 @@
     "fingerprint": null,
     "n_lessons": 1,
     "name": "GOLDEN-CONV-6.6-silk-in-pad",
-    "saved_at": "2026-10-12 18:55:00",
+    "saved_at": "2026-10-12 19:40:00",
     "source_pdf": "金标准库对拍 Data/PCB_Footprint（253 件全量，2026-10-12 第 2 层裁定）",
     "tag": "真缺陷保留",
     "verdict": "keep_fail"

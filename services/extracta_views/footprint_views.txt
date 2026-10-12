@@ -20,12 +20,16 @@
 # ============================================================
 
 # ---- 视图 1：引脚坐标 ----
+# PIN_ROTATION（2026-10-12 第 3 层实机对拍新增）：pin 实例旋转角。
+# 没有它侧边 pin 的 bbox 宽高会反 90°（padstack 原始尺寸直接贴上），
+# 3.3 重叠检查出现成片伪 FAIL（qfn24 实测：sb 无重叠 / ex 假重叠 0.216mm²）。
 COMPOSITE_PAD
 PIN_NUMBER
 SYM_NAME
 PAD_STACK_NAME
 PIN_X
 PIN_Y
+PIN_ROTATION
 END
 
 # ---- 视图 2：焊盘逐层定义（字段名不写！PAD_DEF 自动输出全部列） ----

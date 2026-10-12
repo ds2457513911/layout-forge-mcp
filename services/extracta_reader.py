@@ -182,10 +182,12 @@ def _parse_pins_file(path: Path) -> List[Dict[str, Any]]:
     """
     解析 pins.txt：
 
-    A!PIN_NUMBER!SYM_NAME!PAD_STACK_NAME!PIN_X!PIN_Y!
-    S!4!!R1D4X1D2!-1.1000!0.8500!
+    A!PIN_NUMBER!SYM_NAME!PAD_STACK_NAME!PIN_X!PIN_Y!PIN_ROTATION!
+    S!4!!R1D4X1D2!-1.1000!0.8500!90.000!
 
-    返回：[{"number": "4", "pad_stack_name": "R1D4X1D2", "xy": [-1.1, 0.85]}, ...]
+    返回：[{"number": "4", "pad_stack_name": "R1D4X1D2", "xy": [-1.1, 0.85],
+            "rotation": 90.0}, ...]
+    （rotation 兼容旧视图：列缺失时为 None）
     """
     rows = _read_extracta_output(path)
     pins: List[Dict[str, Any]] = []
@@ -196,10 +198,12 @@ def _parse_pins_file(path: Path) -> List[Dict[str, Any]]:
         pad_stack_name = r[2]
         x = _to_float(r[3])
         y = _to_float(r[4])
+        rotation = _to_float(r[5]) if len(r) > 5 else None
         pins.append({
             "number": number,
             "pad_stack_name": pad_stack_name,
             "xy": [x, y] if (x is not None and y is not None) else None,
+            "rotation": rotation,
         })
     return pins
 
@@ -582,11 +586,19 @@ def read_via_extracta(dra_path: str) -> Dict[str, Any]:
             pad_defs = pads_by_name.get(pad_name, [])
 
             # 每个 pin 附上 pad 层数据（绝对 bbox）
+            # ★ 旋转处理（2026-10-12 第 3 层实机对拍实锤）：padstack 的
+            #   w×h 是未旋转定义，pin 旋转 90°/270° 时实体宽高互换。
+            #   不处理则侧边 pin bbox 宽高反 90°，3.3 出成片伪重叠
+            #   （qfn24：真实无重叠，伪影判 0.216mm²×10 对）。
+            rot = p.get("rotation")
+            swapped = rot is not None and abs((rot % 180) - 90) < 1e-6
             pads_attached = []
             etch_size = None
             max_size = [0.0, 0.0]
             for pd in pad_defs:
                 size = pd.get("size") or [0, 0]
+                if swapped:
+                    size = [size[1], size[0]]
                 off = pd.get("offset") or [0, 0]
                 if xy:
                     center = [xy[0] + off[0], xy[1] + off[1]]
@@ -630,7 +642,7 @@ def read_via_extracta(dra_path: str) -> Dict[str, Any]:
                 "name": pad_name,
                 "xy": xy,
                 "relxy": xy,  # extracta 只给绝对坐标，relxy 用同一值兜底
-                "rotation": None,
+                "rotation": rot,
                 "rel_rotation": None,
                 "bbox": pin_bbox,
                 "size": bbox_size if pin_bbox else None,
