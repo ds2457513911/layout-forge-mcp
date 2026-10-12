@@ -30,6 +30,7 @@ v4.1 变更：
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -89,7 +90,12 @@ def _write_checklist_json(
 
     if filename is None:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"checklist_report_{ts}.json"
+        # 2026-10-12 待修清单 #1：文件名带 symbol_name，防止旧报告张冠李戴
+        # （同一目录下多件连续检查时，纯时间戳名容易认错件）
+        sym = str(result.get("footprint_data", {}).get("symbol_name") or "")
+        sym = re.sub(r"[^0-9A-Za-z_-]+", "_", sym).strip("_")
+        stem = f"{sym}_" if sym else ""
+        filename = f"checklist_report_{stem}{ts}.json"
 
     out_path = out_dir / filename
 
