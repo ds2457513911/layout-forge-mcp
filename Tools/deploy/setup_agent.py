@@ -41,7 +41,7 @@ SERVER_NAME = "layout-forge-mcp"
 
 # ---- 本文件在 deploy\ 下，项目根 = 上一级 ----
 DEPLOY_DIR = Path(__file__).resolve().parent
-DEFAULT_PROJECT_ROOT = DEPLOY_DIR.parent
+DEFAULT_PROJECT_ROOT = DEPLOY_DIR.parent.parent
 
 
 # ============================================================

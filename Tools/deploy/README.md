@@ -110,6 +110,9 @@ deploy.bat /dry                     只打印要做什么，一个文件都不�
 
 ## 相关目录
 
-- 服务源码：`../mcp_server/`、`../services/`
-- 自检 / SkillBridge 安装器：`../Tools/selfcheck_*.py`、`../Tools/install_skillbridge.py`
-- 维护手册：`../SOP-工程维护手册.md`
+> deploy 现位于 `Tools\deploy\`（项目根的下一级 Tools 里），以下均为相对本文件。
+
+- 服务源码：`../../mcp_server/`、`../../services/`
+- 自检 / SkillBridge 安装器：`../../Tools/selfcheck_*.py`、`../../Tools/install_skillbridge.py`
+- 维护手册：`../../docs/SOP-工程维护手册.md`
+- 知识库（热更新数据层）：`../../knowledge/`

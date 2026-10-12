@@ -27,12 +27,13 @@ REM  v7 changes vs the copy-from-check v6:
 REM    - names corrected: layout-check-mcp -> layout-forge-mcp. The old
 REM      script registered a command that does not exist in this project
 REM      and could never start.
-REM    - LOCAL MODE: if ..\pyproject.toml exists, deploy this checkout in
-REM      place instead of cloning a second copy next to deploy\.
+REM    - LOCAL MODE: if ..\..\pyproject.toml exists (deploy lives in
+REM      Tools\deploy\), deploy this checkout in place instead of
+REM      cloning a second copy.
 REM    - MCP entry rewritten to the documented form: venv python with
 REM      -c sys.path injection. "uv run" is NOT used because the client
 REM      launches the server with an unknown cwd.
-REM    - all Agent-side logic moved to deploy\setup_agent.py (python),
+REM    - all Agent-side logic moved to Tools\deploy\setup_agent.py (python),
 REM      so this bat only bootstraps the environment.
 REM    - python fallback when uv is unavailable.
 REM    - hard check: skillbridge must import from the project venv.
@@ -102,7 +103,7 @@ call :CleanWingetLeftover
 REM ============ Step 0: locate project root ============
 echo [0/6] Locate project
 set "LOCAL_ROOT="
-for %%i in ("%SCRIPT_DIR%\..") do set "LOCAL_ROOT=%%~fi"
+for %%i in ("%SCRIPT_DIR%\..\..") do set "LOCAL_ROOT=%%~fi"
 
 set "MODE=clone"
 set "PROJECT_ROOT=%INSTALL_DIR%"
@@ -315,7 +316,7 @@ set "AGENT_ARGS=--project-root "%PROJECT_ROOT%""
 if defined USER_PCENV set "AGENT_ARGS=!AGENT_ARGS! --pcbenv "%USER_PCENV%""
 if "%NO_BRIDGE%"=="1" set "AGENT_ARGS=!AGENT_ARGS! --no-skillbridge"
 
-"%VENV_PYTHON%" "%PROJECT_ROOT%\deploy\setup_agent.py" !AGENT_ARGS!
+"%VENV_PYTHON%" "%PROJECT_ROOT%\Tools\deploy\setup_agent.py" !AGENT_ARGS!
 if errorlevel 1 (
     echo   [!] setup_agent.py reported a failure. Read the output above.
 )

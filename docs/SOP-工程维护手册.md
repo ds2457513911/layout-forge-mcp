@@ -3,7 +3,7 @@
 > 最后更新：**2026-10-12**
 >
 > 定位：给**维护这个项目的人**看（部署、排障、改代码后该跑什么）。
-> 给老板/使用者看的操作说明在项目根 `封装自动生成工具-SOP.md`，两份不重复。
+> 给老板/使用者看的操作说明在 `docs/封装自动生成工具-SOP.md`，两份不重复。
 
 ---
 
@@ -27,7 +27,7 @@
 
 | 判定 | 内容 |
 |---|---|
-| 逐字节相同 10 件 | `mcp_server/{config,prompts,resources,__init__}`、`services/{pdf_locate,rule_checker,skillbridge_reader}`、`shared/` 3 件 |
+| 逐字节相同 10 件 | `mcp_server/{config,prompts,resources,__init__}`、`services/{pdf_locate,rule_checker,skillbridge_reader}`、`services/{json_utils,validation}`（原 `shared/` 3 件，2026-10-12 并入 services） |
 | 本项目单方增强 3 件 | `extracta_reader` 598→646（+REF DES 第 4 路视图）、`pdf_service` 136→264（+contact sheet）、`footprint_extractor` 128→182（+缺口检测） |
 | 工具覆盖 | 本项目 31 个 ⊇ 旧版 7 个，**7/7 全覆盖** |
 
@@ -96,20 +96,20 @@ C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp/.venv/Scripts/python
 ### 3.3 一键部署（新机器走这条）
 
 ```bat
-deploy\deploy.bat                          :: 双击即可
-deploy\deploy.bat /dir "D:\tools\lfm"      :: 指定安装目录
-deploy\deploy.bat /pcbenv "D:\...\pcbenv"  :: 手工给 pcbenv
-deploy\deploy.bat /dry                     :: 只预览不改文件
+Tools\deploy\deploy.bat                          :: 双击即可
+Tools\deploy\deploy.bat /dir "D:\tools\lfm"      :: 指定安装目录
+Tools\deploy\deploy.bat /pcbenv "D:\...\pcbenv"  :: 手工给 pcbenv
+Tools\deploy\deploy.bat /dry                     :: 只预览不改文件
 ```
 
 脚本干六件事：定位项目 → 查/装 uv·git → 取代码（local 原地 / clone 模式）
 → 建 `.venv` 装依赖 → 注册 MCP + 装 Skill + 配 SkillBridge → 冒烟验收。
-逐步中文对照见 `deploy\README.md`。
+逐步中文对照见 `Tools\deploy\README.md`。
 
 只跑 Agent 侧配置（环境已建好时）：
 
 ```bash
-.venv\Scripts\python.exe deploy\setup_agent.py --dry-run
+.venv\Scripts\python.exe Tools\deploy\setup_agent.py --dry-run
 ```
 
 ### 3.3.1 手工建环境与装依赖（脚本失败时的退路）
@@ -125,8 +125,8 @@ uv venv                                          # 用 uv 也行
 .venv\Scripts\python.exe -m pip install -e .     # 按 pyproject.toml
 ```
 
-SkillBridge 自动加载由 `deploy\setup_agent.py` 的 C 步负责，
-等价于旧版的 `deploy\deploy_skillbridge.bat`（已移到 `deploy\_legacy\`）。
+SkillBridge 自动加载由 `Tools\deploy\setup_agent.py` 的 C 步负责，
+等价于旧版的 `deploy_skillbridge.bat`（已移到 `Tools\deploy\_legacy\`）。
 
 ### 3.4 部署后验收清单
 
@@ -167,9 +167,9 @@ SkillBridge 自动加载由 `deploy\setup_agent.py` 的 C 步负责，
 ★ 用 `-c` 注入 `sys.path` 是必须的：客户端拉起 MCP 时 cwd 不确定，
 不注入会 `ModuleNotFoundError: mcp_server`。
 
-★ 这段配置**不需要手写**：`deploy\setup_agent.py` 会自动生成，
+★ 这段配置**不需要手写**：`Tools\deploy\setup_agent.py` 会自动生成，
 并且是「合并写入 + 先备份」，不会冲掉你已有的其它 server。
-命令行等价物：`.venv\Scripts\python.exe deploy\setup_agent.py --dry-run`。
+命令行等价物：`.venv\Scripts\python.exe Tools\deploy\setup_agent.py --dry-run`。
 
 ### 4.2 挂载 Skill
 
@@ -294,7 +294,7 @@ Tools\test\<符号名>\
 ### 7.4 已知文档偏差（维护时一并修）
 
 - `mcp_server/config.py` **无 `MCP_VERSION`**（旧版项目有）。别照抄旧版 SOP 里"更新版本号"那一步。
-- `config.py` 里 PDF 渲染输出目录变量叫 `RENDER_OUTPUT_ROOT`，落盘目录名仍是 `marker_out`（历史名）。
+- `config.py` 里 PDF 渲染输出目录变量叫 `RENDER_OUTPUT_ROOT`，落盘目录为 `Tools/log/render/`（历史名 `marker_out`，2026-10-12 迁入 Tools/log）。
 - `Tools/debug/` 下脚本定位项目根要用**上三级**（`parent.parent.parent`），迁入时修过。
 
 ---
@@ -345,15 +345,14 @@ Tools\test\<符号名>\
 | `knowledge/cases/` | ★ 检测案例库（指纹 + 报告摘要 + **人工裁定** + 教训），同族件自动召回 |
 | `knowledge/rules/` | ★ 规则阈值外置（`checker_rules.json`），改数字不改代码 |
 | `mcp_server/` | MCP 服务（tools / config / resources / prompts / server） |
-| `services/` | 业务源码（solver / builder / rule_checker / extracta / skillbridge / pdf / spec_library / case_library） |
-| `shared/` | 通用工具（json_utils / validation） |
+| `services/` | 业务源码（solver / builder / rule_checker / extracta / skillbridge / pdf / spec_library / case_library / json_utils / validation） |
 | `Tools/` | CLI 脚本（自检 / e2e / 启停 / 归集 / 归档） |
 | `Tools/test/` | 图纸干活区，每个符号一个子目录 |
 | `Tools/log/` | 日志归集区 |
 | `Tools/debug/` | 排障脚本（项目根是上三级） |
-| `marker_out/` | PDF 渲染输出（`RENDER_OUTPUT_ROOT`） |
+| `Tools/log/archive/` | 历史渲染输出归档（原 `marker_out/`，2026-10-12 迁入；`RENDER_OUTPUT_ROOT` 见 9.3） |
 | `.trash/` | 隔离区（不直接删） |
-| `deploy/` | 部署脚本 |
+| `Tools/deploy/` | 部署脚本（2026-10-12 从根 `deploy/` 迁入） |
 
 ### 9.3 关键环境变量
 

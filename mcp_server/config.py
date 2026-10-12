@@ -12,8 +12,10 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # PDF 页面渲染输出根目录
-# （原名叫 MARKER_ROOT，marker 引擎已移除，改名为 RENDER_OUTPUT_ROOT）
-RENDER_OUTPUT_ROOT = PROJECT_ROOT / "marker_out"
+# （原名叫 MARKER_ROOT，marker 引擎已移除，改名为 RENDER_OUTPUT_ROOT；
+#   2026-10-12 重构：落盘位置从根 marker_out/ 迁到 Tools/log/render/，
+#   运行痕迹统一进 Tools/log，项目根不再被污染）
+RENDER_OUTPUT_ROOT = PROJECT_ROOT / "Tools" / "log" / "render"
 
 # PDF 搜索根目录列表
 # 当 AI 只传 PDF 的 stem（而非完整路径）时，会在此列表下递归搜索。

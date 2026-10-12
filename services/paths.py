@@ -2,17 +2,20 @@
 """
 services/paths.py —— 项目目录约定（**单一真源**，别再各处硬编码）
 
-目录布局（2026-09-29 与用户约定）：
+目录布局（2026-10-12 重构后）：
 
 ```
 <PROJECT_ROOT>/
-├── services/           源码
+├── services/           源码（含 json_utils / validation，无 shared/）
 ├── mcp_server/         MCP 工具层
+├── knowledge/          ★ 热更新数据层：specs / cases / rules（改 JSON 不用重连 MCP）
+├── docs/               项目文档（SOP 维护手册、使用者 SOP、SKILL API 报告）
 ├── .trash/             隔离区（**可恢复**，由 footprint_builder._quarantine_file 维护）
 └── Tools/
-    ├── *.py  *.il  *.md        CLI 脚本 + 文档（人要读/要跑的，放根目录）
-    ├── test/           ★ 测试图纸干活区：.dra / .pad / .psm 等产物
-    └── log/            ★ 日志区：Allegro 的 .jrl / .log、探针输出、脚本运行日志
+    ├── *.py  *.il  *.md        CLI 脚本（人要读/要跑的）
+    ├── test/           ★ 测试图纸干活区：每个封装一个子目录（.dra/.pad/.psm + PDF）
+    ├── deploy/         ★ 一键部署：deploy.bat + setup_agent.py + skills 副本
+    └── log/            ★ 日志区：.jrl/.log、master.tag、checklist_report、archive/
 ```
 
 ★ 为什么要 `log/` 集中：Allegro 和探针脚本会把 `.jrl` / `.log` / `master.tag`

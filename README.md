@@ -48,12 +48,15 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 
 ```
 <PROJECT_ROOT>/
-├── services/  mcp_server/          源码
+├── services/  mcp_server/          源码（json_utils / validation 并入 services，无 shared）
+├── knowledge/                      ★ 热更新数据层：specs / cases / rules（改 JSON 不用重连 MCP）
+├── docs/                           SOP 维护手册 + 使用者 SOP + SKILL API 核实报告
 ├── .trash/                         隔离区（**可恢复**，不删东西进去就完事）
 └── Tools/
     ├── *.py  *.il  *.md            CLI 脚本 + 文档
-    ├── test/        ★ 图纸/产物：.dra / .pad / .psm
-    └── log/         ★ 日志：Allegro 的 .jrl/.log、master.tag、probe_result.txt
+    ├── test/        ★ 图纸干活区：每个封装一个子目录 + golden_3S48000163.dra
+    ├── deploy/      ★ 一键部署（deploy.bat + setup_agent.py + skills 副本）
+    └── log/         ★ 日志：Allegro 的 .jrl/.log、master.tag、checklist_report、archive/
 ```
 
 ### 目录导航（每个目录都有自己的 `README.md`）
@@ -66,7 +69,6 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 |--|--|--|
 | `services/` | 生成侧核心：求解器 / 执行器 / 读取层 / SKILL 代码片段生成 | `services/README.md` |
 | `mcp_server/` | MCP 工具层（对外暴露的那个门面） | `mcp_server/README.md` |
-| `shared/` | 跨模块小工具（JSON 容错 / 参数校验） | `shared/README.md` |
 | `Tools/` | CLI 脚本 + 探针 + 自检 + 文档 | `Tools/README.md` |
 | `Tools/test/` | ★ 测试图纸干活区（.dra / .pad / .psm） | `Tools/test/README.md` |
 | `Tools/log/` | ★ 运行痕迹归集区 | `Tools/log/README.md` |
@@ -75,7 +77,7 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 | `knowledge/cases/` | ★ **检测案例库**（2026-10-12 新增）：指纹 + 报告摘要 + 人工裁定 + 教训，检查前 `find_case` 同族预警 | `knowledge/README.md` |
 | `knowledge/rules/` | ★ **规则阈值外置**（2026-10-12 新增）：`checker_rules.json`，改数字立即生效 | `knowledge/README.md` |
 | `docs/` | ★ **作业流程 SOP** + 调研与攻坚清单（决策依据都在这） | `docs/README.md` |
-| `deploy/` | ★ **一键部署**（新机器双击 `deploy.bat` 即可：装环境 / 注册 MCP / 装 Skill / 配 SkillBridge / 验收） | `deploy/README.md` |
+| `Tools/deploy/` | ★ **一键部署**（新机器双击 `deploy.bat` 即可：装环境 / 注册 MCP / 装 Skill / 配 SkillBridge / 验收） | `Tools/deploy/README.md` |
 | `.trash/` | 隔离区（可恢复，**不要当垃圾桶删**） | `.trash/README.md` |
 | `<Layout>/Data/footprint/` | ★ 人工模板库 = **金标准**，默认不覆盖 | `Data/footprint/README.md` |
 
@@ -145,8 +147,8 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 | `tools/selfcheck_geometry.py` | ★ **参数→几何**求解器的离线自检（**239 项**，不需要 Allegro）|
 | `tools/dump_all_footprints.py` | 批量扫 `Data/footprint` 下所有 `.dra` 出命名规则分析（2026-10-09 迁入；本项目根下无该目录时自动退回上一级真实库）|
 
-> ★ **工程维护手册（部署 / 排障 / 变更）**：项目根 `SOP-工程维护手册.md`。
-> 给使用者/汇报看的操作说明：`封装自动生成工具-SOP.md`。两份定位不同。
+> ★ **工程维护手册（部署 / 排障 / 变更）**：`docs/SOP-工程维护手册.md`。
+> 给使用者/汇报看的操作说明：`docs/封装自动生成工具-SOP.md`。两份定位不同。
 | `tools/online_calibrate.py` | ★★ **在线校准闭环**：建 → 编译 → 回读 → 与金标准 `.dra` 逐值对拍。分 `[A] 形态/结构`（必须一致）与 `[B] 尺寸口径`（已记录差异）两类分开报；`--install` 可顺带跑影子库落位 |
 | `tools/e2e_3S48000163.py` | 端到端实测脚本（`--dry-run` 只体检 / `--keep-pad` 拷 .pad）|
 | `tools/verify_e2e.py` | 通道恢复后的快速验证（`--probe` 只探活）|
@@ -161,14 +163,14 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 ### 1. 一键部署（推荐）
 
 ```bat
-deploy\deploy.bat                          :: 新机器双击即可
-deploy\deploy.bat /dir "D:\tools\lfm"      :: 指定安装目录
-deploy\deploy.bat /pcbenv "D:\...\pcbenv"  :: 手工给 pcbenv
-deploy\deploy.bat /dry                     :: 只预览不改文件
+Tools\deploy\deploy.bat                          :: 新机器双击即可
+Tools\deploy\deploy.bat /dir "D:\tools\lfm"      :: 指定安装目录
+Tools\deploy\deploy.bat /pcbenv "D:\...\pcbenv"  :: 手工给 pcbenv
+Tools\deploy\deploy.bat /dry                     :: 只预览不改文件
 ```
 
 跑完就全配好了（MCP 注册 + Skill 安装 + Allegro 自动加载 + 冒烟验收）。
-逐步中文对照与排障表见 `deploy/README.md`。
+逐步中文对照与排障表见 `Tools/deploy/README.md`。
 
 ### 1.1 手工装依赖（脚本失败时的退路）
 
@@ -185,10 +187,10 @@ deploy\deploy.bat /dry                     :: 只预览不改文件
 SkillBridge 通过 workspace 端口通信，本项目默认 `workspace_id = "7777"`
 （见 `mcp_server/config.py`）。
 
-Allegro 侧由 `deploy\setup_agent.py` 的 C 步自动配置：往 `pcbenv\allegro.ilinit`
+Allegro 侧由 `Tools\deploy\setup_agent.py` 的 C 步自动配置：往 `pcbenv\allegro.ilinit`
 写自动加载块（`load python_server.il` + `pyStartServer ?id "7777"`）。
 ★ **它会持久修改 Allegro 配置**（开机自动启用），不想要就在部署时加 `/nobridge`。
-旧版的 `deploy_skillbridge.bat` 已移到 `deploy\_legacy\`，别再跑。
+旧版的 `deploy_skillbridge.bat` 已移到 `Tools\deploy\_legacy\`，别再跑。
 
 #### ★ 什么时候需要重启服务
 
@@ -613,7 +615,7 @@ python tools/selfcheck_geometry.py            # 参数→几何求解器：180 �
 ```
 
 `selfcheck_geometry.py` 的基准全部可追溯：[规范] 建库规范 xlsx、[规则] `DEFAULT_RULES`、
-[金标] `Data\footprint\3S48000163\checklist_report_*.json` 实测值、[规格] 规格书 p5。
+[金标] `Tools\log\checklist_report_*.json` 实测值、[规格] 规格书 p5。
 改求解器后**必须跑它** —— 它会挡住这三类曾真实发生过的回归：
 "Place_Bound 按焊盘算""丝印按本体算""pin 编号方向反了"。
 

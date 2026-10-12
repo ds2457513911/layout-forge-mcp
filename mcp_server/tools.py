@@ -40,8 +40,8 @@ from services import allegro_service, pdf_service
 from services import footprint_extractor, rule_checker, report_renderer
 from services import footprint_builder, geometry_solver, library_install
 from services import case_library, spec_library
-from shared.json_utils import coerce_numeric, extract_json_body
-from shared.validation import validate_land_pattern
+from services.json_utils import coerce_numeric, extract_json_body
+from services.validation import validate_land_pattern
 
 
 # ============================================================
