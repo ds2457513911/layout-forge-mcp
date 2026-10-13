@@ -82,12 +82,15 @@ check 与 create 读同一份约定）：
 2. **双面阻焊**：`SOLDERMASK_TOP` + `SOLDERMASK_BOTTOM`（单边外扩 0.05）
 3. **钢网**：顶面 `PASTEMASK_TOP` = 焊盘尺寸；底面无（25/26 金标准口径）。
    ~~"TH 不放钢网"~~ 旧口径作废（2026-10-13 修正）
-4. **DRILL 实义是生死线（二次事故实锤）**：
-   - `make_axlPadStackDrill` 异形孔分支漏 `?figure` → **静默丢整个 drill**（PadType: smd）
-   - figure 写 `'OBLONG`（非法名，合法只有 `OBLONG_X`/`OBLONG_Y`）→ **静默零化
-     figure/尺寸**（`.pad` 的 PadType 仍显示 through！）—— 两种坏法 no_check 都不报错
-   - 金标准口径：本地竖孔 `?figure 'OBLONG_Y ?figureSize {宽}:{长}` + pin 旋转 90°
-     → 板面横槽；槽型 OVAL SLOT；环宽标准 0.3/边（紧凑 0.2 仅高密度 type-c）
+4. **DRILL 实义是生死线（三次静默零化实锤）**：
+   - `make_axlPadStackDrill` 异形孔是**三件套**，缺一都被 `no_check=t` 静默零化：
+     `?holeType 'OBLONG_DRILL` + `?drillDiameter {槽宽=min(size)}` +
+     `?figure 'OBLONG_Y ?figureSize {宽}:{长}`（本地竖向）。
+     漏 `?figure` → 丢整个 drill（PadType: smd）；figure 写 `'OBLONG`（非法名，
+     合法只有 `OBLONG_X`/`OBLONG_Y`）→ 零化 figure/尺寸；漏 `?drillDiameter` →
+     同样全零（`.pad` 仍显示 `PadType: through`！holeType 残留会骗人）。
+   - 金标准口径：本地竖孔 + pin 旋转 90° → 板面横槽；槽型 OVAL SLOT；
+     环宽标准 0.3/边（紧凑 0.2 仅高密度 type-c）
    - **验证口诀：`.pad` 的 PadType 字符串不可信，必须 extracta 回读 DRILL 行
      （size>0 + figure 非空 + 槽型≠NONE）**——规则 2.7 已内置
 5. **命名语法**：`POB{孔长}X{孔短}HOB{盘长}X{盘短}`（长轴在前、板面尺寸序）；

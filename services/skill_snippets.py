@@ -298,12 +298,18 @@ def build_drill(
         # ★ figure 必须显式给对：'OBLONG 不是合法 drill figure（合法的是
         #   OBLONG_X / OBLONG_Y），错名会被 no_check 静默零化（2026-10-13
         #   LYDPJ 二次事故实锤）。约定引擎按金标准派生 OBLONG_Y（本地竖向）。
+        # ★★ 2026-10-13 三次事故实锤：异形孔还必须带 ?drillDiameter（槽宽
+        #   = min(size)）——官方 pad.il CreateThru 范例圆孔就是
+        #   ?drillDiameter 42 + ?figure SQUARE + ?figureSize 60:60 三件套。
+        #   漏 drillDiameter 时 no_check 静默零化整个 drill（.pad 仍显示
+        #   PadType: through！唯一可信判据 = extracta 回读 DRILL 行）。
         drill_figure = figure or (
             drill_type[:-len("_DRILL")] if drill_type.endswith("_DRILL") else drill_type
         )
         expr = call(
             "make_axlPadStackDrill",
             holeType=sym(drill_type),
+            drillDiameter=fmt_num(min(size)),
             plating=plating,
             figure=sym(drill_figure),
             figureSize=fmt_point(*size),

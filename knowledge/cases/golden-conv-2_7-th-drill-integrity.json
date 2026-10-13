@@ -29,12 +29,24 @@
       "examples": [
         "POB1D7X0D5HOB2D3X1D1: drill diameter=0.5 figSize 0.5:1.7 OBLONG_Y + pin rot 90"
       ]
+    },
+    {
+      "rule_id": "2.7",
+      "issue": "三次静默零化实锤：?figure 写对（OBLONG_Y）仍全零——异形孔 defstruct 还必须带 ?drillDiameter（槽宽=min(size)）。官方 pad.il CreateThru 范例圆孔即 ?drillDiameter 42 + ?figure SQUARE + ?figureSize 60:60 三件套，缺一即零化",
+      "verdict": "convention",
+      "reason": "2026-10-13 重建实测：加 ?drillDiameter 0.5 后 extracta DRILL 行 = 0.5/0.5/1.5 OBLONG_Y，与金标准一致（金标准 0.5001 系库内截断尾差）。三件套 = holeType + drillDiameter + figure/figureSize，缺一不可；no_check 下全部静默",
+      "affected": 2,
+      "examples": [
+        "POB1D5X0D5HOB2D1X1D1 rebuild 实测",
+        "pad.il CreateThru 官方范例"
+      ]
     }
   ],
   "lessons": [
     "TH padstack 必查 DRILL 实义（size>0+figure+槽型≠NONE）；.pad 的 PadType 字符串是 holeType 残留不可信——LYDPJ 二次事故的验证盲区",
     "oblong 孔 drill figure = OBLONG_Y（本地竖向），'OBLONG 非法且静默零化；横槽靠 pin 旋转 90° 实现",
-    "axlDBCreatePadStack(no_check=t) 对非法字段静默降级已三次实锤（丢 drill→丢 figure→零化），任何 padstack 创建后必须 extracta 回读验证"
+    "axlDBCreatePadStack(no_check=t) 对非法字段静默降级已三次实锤（丢 drill→丢 figure→零化），任何 padstack 创建后必须 extracta 回读验证",
+    "异形孔 drill 三件套：?holeType + ?drillDiameter(槽宽) + ?figure/?figureSize——缺 ?drillDiameter 也静默零化（第三次实锤）"
   ],
   "verdict": "real_defect_rule_gap"
 }
