@@ -1,0 +1,687 @@
+{
+  "schema": "layout-forge-conventions/1",
+  "mined_at": "2026-10-13 10:31:08",
+  "corpus": {
+    "root": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\PCB_Footprint",
+    "dra_count": 253,
+    "error_count": 0
+  },
+  "adjudicated": {
+    "th_oblong_plated": {
+      "annular_ring_mm": {
+        "standard": 0.3,
+        "standard_support": 16,
+        "compact_allowed": 0.2,
+        "compact_support": 6,
+        "compact_context": "高密度 type_c24（8d34/8d35/9d17）空间不足时收窄",
+        "rule_mapping": "ring∈[0.2,0.3]→PASS；[0.15,0.2)∪(0.3,0.4]→WARN；其余→FAIL；NP 件→NA"
+      },
+      "mask_expand_side_mm": {
+        "value": 0.05,
+        "support": 22
+      },
+      "paste_top": {
+        "policy": "=焊盘尺寸",
+        "support": 23
+      },
+      "paste_bottom": {
+        "policy": "无",
+        "support": 25
+      },
+      "drill_figure": {
+        "value": "OBLONG_Y(本地竖向)",
+        "support": 26,
+        "note": "板面横槽 = 本地竖孔 + pin 旋转 90°；槽型 OVAL SLOT 26/26"
+      },
+      "naming": {
+        "grammar": "P OB{孔长}X{孔短} H OB{盘长}X{盘短}",
+        "support": 23,
+        "variants": "NP 前缀=非金属化（盘段可省）；H 后 OB 可省（HO 连写）；OS{X|Y}{off}=槽偏移",
+        "rule_level": "WARN（金标准库自身存在 3 件 legacy 变体，不升级 FAIL）"
+      }
+    },
+    "th_circle_plated": {
+      "annular_ring_mm": {
+        "note": "离散（0/0.15/0.2/0.325），样本 12 件不足",
+        "rule_mapping": "只查下限 ≥0.15 WARN，不设标准值"
+      },
+      "mask_expand_side_mm": {
+        "value": 0.05,
+        "support": 9
+      },
+      "naming": {
+        "grammar": "PC{孔}HC{盘}",
+        "support": 8,
+        "variants": "NPC{孔}=非金属化（机械孔，盘可省或=占位）"
+      }
+    },
+    "th_other": {
+      "exempt": "SQUARE/HEXAGON/OCTAGON/CROSS 多为安装/定位孔，N plated 占多数——环宽规则 NA"
+    },
+    "smd": {
+      "layers": {
+        "dominant": "TOP+~TSM+~TPM（无 BOTTOM/无 BPM）",
+        "support": 344
+      },
+      "naming": {
+        "grammar": "弱约定（R{w}X{h}/SMD_R*/ob*/c* 多套并存），暂不强制",
+        "rule_mapping": "不建命名规则，待后续单独挖掘"
+      }
+    }
+  },
+  "conventions": {
+    "smd": {
+      "sample_count": 384,
+      "used_count": 359,
+      "layers": [
+        [
+          "TOP+~TPM+~TSM",
+          344
+        ],
+        [
+          "TOP+~TSM",
+          11
+        ],
+        [
+          "TOP+~TFM+~TSM",
+          3
+        ],
+        [
+          "TOP",
+          1
+        ]
+      ],
+      "hole_figure": [
+        [
+          "",
+          359
+        ]
+      ],
+      "slot_type": [
+        [
+          "",
+          359
+        ]
+      ],
+      "plated": [
+        [
+          "P",
+          187
+        ],
+        [
+          "N",
+          172
+        ]
+      ]
+    },
+    "th_circle": {
+      "sample_count": 13,
+      "used_count": 12,
+      "layers": [
+        [
+          "BOTTOM+TOP+internal_pad_def+~BSM+~TPM+~TSM+~DRILL",
+          5
+        ],
+        [
+          "BOTTOM+TOP+internal_pad_def+~BSM+~TSM+~DRILL",
+          2
+        ],
+        [
+          "BOTTOM+TOP+internal_pad_def+~BPM+~BSM+~TPM+~TSM+~DRILL",
+          1
+        ],
+        [
+          "BOTTOM+GND+TOP+VCC+internal_pad_def+~BSM+~TSM+~DRILL",
+          1
+        ],
+        [
+          "BOTTOM+GND+TOP+VCC+internal_pad_def+~BPM+~BSM+~TPM+~TSM+~DRILL",
+          1
+        ],
+        [
+          "BOTTOM+TOP+internal_pad_def+~DRILL",
+          1
+        ],
+        [
+          "BOTTOM+L10+L11GND+L2GND+L3_VAL+L4_VAL+L5GND+L6DEBUG+L7DEBUG+L8GND+L9+TOP+internal_pad_def+~BSM+~TSM+~DRILL",
+          1
+        ]
+      ],
+      "hole_figure": [
+        [
+          "CIRCLE",
+          12
+        ]
+      ],
+      "slot_type": [
+        [
+          "CIRCLE_DRILL",
+          12
+        ]
+      ],
+      "plated": [
+        [
+          "P",
+          8
+        ],
+        [
+          "N",
+          4
+        ]
+      ],
+      "ring_x": [
+        [
+          0.0,
+          4
+        ],
+        [
+          0.2,
+          2
+        ],
+        [
+          0.325,
+          1
+        ],
+        [
+          0.15,
+          1
+        ],
+        [
+          0.95,
+          1
+        ],
+        [
+          0.9,
+          1
+        ],
+        [
+          0.3,
+          1
+        ],
+        [
+          0.25,
+          1
+        ]
+      ],
+      "ring_y": [
+        [
+          0.0,
+          4
+        ],
+        [
+          0.2,
+          2
+        ],
+        [
+          0.325,
+          1
+        ],
+        [
+          0.15,
+          1
+        ],
+        [
+          0.95,
+          1
+        ],
+        [
+          0.9,
+          1
+        ],
+        [
+          0.3,
+          1
+        ],
+        [
+          0.25,
+          1
+        ]
+      ],
+      "mask_expand_x": [
+        [
+          0.05,
+          9
+        ],
+        [
+          0.075,
+          2
+        ]
+      ],
+      "mask_expand_y": [
+        [
+          0.05,
+          9
+        ],
+        [
+          0.075,
+          2
+        ]
+      ],
+      "paste_top_size_eq_pad": 7,
+      "paste_top_present": 7,
+      "paste_bottom_present": 2,
+      "rotation": [
+        [
+          "0",
+          59
+        ],
+        [
+          "90",
+          1
+        ]
+      ],
+      "naming": [
+        [
+          "PC{孔}HC{盘}",
+          8
+        ],
+        [
+          "other",
+          4
+        ]
+      ]
+    },
+    "th_oblong": {
+      "sample_count": 32,
+      "used_count": 26,
+      "layers": [
+        [
+          "BOTTOM+TOP+internal_pad_def+~BSM+~TPM+~TSM+~DRILL",
+          22
+        ],
+        [
+          "BOTTOM+TOP+internal_pad_def+~BSM+~TSM+~DRILL",
+          3
+        ],
+        [
+          "BOTTOM+TOP+internal_pad_def+~BPM+~BSM+~TPM+~TSM+~DRILL",
+          1
+        ]
+      ],
+      "hole_figure": [
+        [
+          "OBLONG_Y",
+          26
+        ]
+      ],
+      "slot_type": [
+        [
+          "OVAL SLOT",
+          26
+        ]
+      ],
+      "plated": [
+        [
+          "P",
+          23
+        ],
+        [
+          "N",
+          3
+        ]
+      ],
+      "ring_x": [
+        [
+          0.3,
+          16
+        ],
+        [
+          0.2,
+          6
+        ],
+        [
+          -0.95,
+          1
+        ],
+        [
+          0.0,
+          1
+        ],
+        [
+          0.15,
+          1
+        ],
+        [
+          -0.2,
+          1
+        ]
+      ],
+      "ring_y": [
+        [
+          0.3,
+          15
+        ],
+        [
+          0.2,
+          6
+        ],
+        [
+          -1.1,
+          1
+        ],
+        [
+          0.0,
+          1
+        ],
+        [
+          0.15,
+          1
+        ],
+        [
+          0.205,
+          1
+        ],
+        [
+          -0.375,
+          1
+        ]
+      ],
+      "mask_expand_x": [
+        [
+          0.05,
+          22
+        ],
+        [
+          0.075,
+          2
+        ],
+        [
+          0.95,
+          1
+        ],
+        [
+          0.2,
+          1
+        ]
+      ],
+      "mask_expand_y": [
+        [
+          0.05,
+          22
+        ],
+        [
+          0.075,
+          2
+        ],
+        [
+          1.1,
+          1
+        ],
+        [
+          0.375,
+          1
+        ]
+      ],
+      "paste_top_size_eq_pad": 23,
+      "paste_top_present": 23,
+      "paste_bottom_present": 1,
+      "rotation": [
+        [
+          "0",
+          53
+        ],
+        [
+          "90",
+          7
+        ]
+      ],
+      "naming": [
+        [
+          "P{孔OB}H{盘OB}",
+          23
+        ],
+        [
+          "NP:{孔OB}(盘省略)",
+          3
+        ]
+      ]
+    },
+    "th_other": {
+      "sample_count": 22,
+      "used_count": 18,
+      "layers": [
+        [
+          "BOTTOM+TOP+internal_pad_def+~BSM+~TSM+~DRILL",
+          13
+        ],
+        [
+          "BOTTOM+TOP+internal_pad_def+~BSM+~TPM+~TSM+~DRILL",
+          3
+        ],
+        [
+          "BOTTOM+GND+TOP+VCC+internal_pad_def+~BSM+~TSM+~DRILL",
+          1
+        ],
+        [
+          "BOTTOM+L10+L11GND+L2GND+L3_VAL+L4_VAL+L5GND+L6DEBUG+L7DEBUG+L8GND+L9+TOP+internal_pad_def+~BSM+~TSM+~DRILL",
+          1
+        ]
+      ],
+      "hole_figure": [
+        [
+          "",
+          7
+        ],
+        [
+          "SQUARE",
+          4
+        ],
+        [
+          "HEXAGON_X",
+          4
+        ],
+        [
+          "OCTAGON",
+          2
+        ],
+        [
+          "CROSS",
+          1
+        ]
+      ],
+      "slot_type": [
+        [
+          "CIRCLE_DRILL",
+          18
+        ]
+      ],
+      "plated": [
+        [
+          "N",
+          13
+        ],
+        [
+          "P",
+          5
+        ]
+      ],
+      "ring_x": [
+        [
+          0.0,
+          2
+        ],
+        [
+          -0.508,
+          2
+        ],
+        [
+          0.125,
+          2
+        ],
+        [
+          -0.5,
+          1
+        ],
+        [
+          -0.75,
+          1
+        ],
+        [
+          -0.95,
+          1
+        ],
+        [
+          1.1,
+          1
+        ],
+        [
+          2.365,
+          1
+        ],
+        [
+          -0.585,
+          1
+        ],
+        [
+          -0.26,
+          1
+        ],
+        [
+          -0.25,
+          1
+        ]
+      ],
+      "ring_y": [
+        [
+          0.0,
+          2
+        ],
+        [
+          -0.508,
+          2
+        ],
+        [
+          0.125,
+          2
+        ],
+        [
+          -0.5,
+          1
+        ],
+        [
+          -0.75,
+          1
+        ],
+        [
+          -0.95,
+          1
+        ],
+        [
+          1.1,
+          1
+        ],
+        [
+          2.365,
+          1
+        ],
+        [
+          -0.585,
+          1
+        ],
+        [
+          -0.26,
+          1
+        ],
+        [
+          -0.25,
+          1
+        ]
+      ],
+      "mask_expand_x": [
+        [
+          0.05,
+          10
+        ],
+        [
+          0.864,
+          1
+        ],
+        [
+          0.61,
+          1
+        ],
+        [
+          0.5,
+          1
+        ],
+        [
+          0.75,
+          1
+        ],
+        [
+          0.95,
+          1
+        ],
+        [
+          0.075,
+          1
+        ],
+        [
+          0.405,
+          1
+        ],
+        [
+          0.25,
+          1
+        ]
+      ],
+      "mask_expand_y": [
+        [
+          0.05,
+          10
+        ],
+        [
+          0.864,
+          1
+        ],
+        [
+          0.61,
+          1
+        ],
+        [
+          0.5,
+          1
+        ],
+        [
+          0.75,
+          1
+        ],
+        [
+          0.95,
+          1
+        ],
+        [
+          0.075,
+          1
+        ],
+        [
+          0.405,
+          1
+        ],
+        [
+          0.25,
+          1
+        ]
+      ],
+      "paste_top_size_eq_pad": 3,
+      "paste_top_present": 3,
+      "paste_bottom_present": 0,
+      "rotation": [
+        [
+          "0",
+          54
+        ],
+        [
+          "90",
+          3
+        ]
+      ],
+      "naming": [
+        [
+          "other",
+          18
+        ]
+      ]
+    }
+  }
+}

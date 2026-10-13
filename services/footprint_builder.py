@@ -885,6 +885,8 @@ def create_padstack(
                             _mm_to_design(float(v), unit)
                             for v in drill.get("offset", [0, 0])
                         ),
+                        figure=(str(drill["figure"])
+                                if drill.get("figure") else None),
                     )
                 else:
                     drill_expr = S.build_drill(
@@ -3510,6 +3512,28 @@ def build_footprint(
                 f"放 pin 可能报 SPMHA1-70，但不阻断流程。"
             )
 
+    # ---- 1a) 构造约定符合化（2026-10-13 第 0 层落地）----
+    # 知识真源 knowledge/conventions.json（253 金标准挖掘 + 裁定）。
+    # TH oblong：按约定重建 padstack 本地字典（OBLONG_Y 竖孔、环宽/mask/
+    # paste/命名全按约定派生），pin 补 rotation=90（本地竖孔→板面横槽）。
+    # spec 里手写的构造字典自此不再是真源——只声明孔位/尺寸即可。
+    try:
+        from services.convention_engine import apply_conventions
+        _pseudo = {
+            "mount": "tht",
+            "padstack": padstack,
+            "extra_padstacks": list(extra_padstacks or []),
+            "pins_override": list(pins),
+        }
+        _ps2, _conv_notes = apply_conventions(_pseudo)
+        if _conv_notes:
+            warnings.extend("约定引擎: " + n for n in _conv_notes)
+        padstack = _ps2["padstack"]
+        extra_padstacks = _ps2.get("extra_padstacks") or extra_padstacks
+        pins = _ps2.get("pins_override") or pins
+    except Exception as _ce:  # noqa: BLE001
+        logger.warning("convention_engine 预处理失败（原样继续）: %s", _ce)
+
     # ---- 1b) TH padstack 层兜底（2026-10-12 LYDPJ 事故新增）----
     # padstack 带 drill = 通孔件：必须双面铜箔 + 双面阻焊。
     # 实锤根因：AI 写 spec 只写了 TOP + SOLDERMASK_TOP（漏 BOTTOM），
@@ -3731,10 +3755,42 @@ def build_footprint(
         if not r.get("success"):
             warnings.append(f"保存失败: {r.get('error')}")
 
+    # ---- 8b) 出厂自检（Phase 4，2026-10-13）：extracta 约定回读 ----
+    # check/create 同一份约定：建完立刻按 conventions.json 验。
+    # TH 件若有 FAIL（如 DRILL 实义为零）→ 整体不 success，不出厂。
+    _selfcheck_ok: Any = None
+    if save:
+        try:
+            from services.convention_engine import verify_built_footprint
+            with AllegroSession(workspace_id) as _sv:
+                _dra_full = _sv.eval_skill("axlGetDrawingName()")
+            _dra_path = str(_dra_full).strip('"') if _dra_full else None
+            if _dra_path and Path(_dra_path).is_file():
+                _sc = verify_built_footprint(_dra_path)
+                if _sc.get("ok") is None:
+                    warnings.append(
+                        f"出厂自检未执行（extracta 回读失败: {_sc.get('error')}）"
+                        " —— 请用 check_footprint 人工复核。")
+                elif _sc.get("ok"):
+                    _n = _sc.get("pin_count", 0)
+                    _nwarn = sum(1 for lvl, _ in _sc.get("issues", []) if lvl == "WARN")
+                    warnings.append(
+                        f"出厂自检 PASS（extracta 回读 {_n} pin，"
+                        f"{_nwarn} 条 WARN 提示）。")
+                else:
+                    _fails = [m for lvl, m in _sc.get("issues", []) if lvl == "FAIL"]
+                    _warns = [m for lvl, m in _sc.get("issues", []) if lvl == "WARN"]
+                    warnings.extend("出厂自检 FAIL: " + m for m in _fails)
+                    warnings.extend("出厂自检 WARN: " + m for m in _warns[:5])
+                    ok = False
+                    _selfcheck_ok = False
+        except Exception as _se:  # noqa: BLE001
+            logger.warning("出厂自检异常（不阻断）: %s", _se)
+
     # ---- 9) 归集本次运行甩出来的日志 -> Tools/log ----
     logs = _collect_logs_step(all_steps, P.TEST_DIR)
 
-    ok = created == len(pins)
+    ok = (created == len(pins)) and (_selfcheck_ok is not False)
     return _result(
         ok,
         padstack_name=pad_name,
@@ -3746,5 +3802,7 @@ def build_footprint(
         warnings=warnings,
         steps=all_steps,
         logs=logs,
-        error=None if ok else f"{len(pins) - created} 个 pin 创建失败",
+        error=None if ok else (
+            f"{len(pins) - created} 个 pin 创建失败"
+            if created != len(pins) else "出厂自检 FAIL（详见 warnings）"),
     )

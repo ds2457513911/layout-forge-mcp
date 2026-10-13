@@ -1,0 +1,40 @@
+{
+  "schema": "layout-forge-case/1",
+  "name": "GOLDEN-CONV-2.7-th-drill-integrity",
+  "tag": "金标准惯例裁定",
+  "saved_at": "2026-10-13 10:40:00",
+  "family": "CONV-2.7",
+  "source_pdf": "规约挖掘 Data/PCB_Footprint（253 件全量 extracta，2026-10-13 第 0 层）+ LYDPJ-H23CB1Y-053N 工程师否决复盘",
+  "fingerprint": null,
+  "check_summary": null,
+  "report_path": null,
+  "findings": [
+    {
+      "rule_id": "2.7",
+      "issue": "LYDPJ 重建件 TH padstack DRILL 行存在但实义全零（diameter/figureSize=0、figure 空、槽型 NONE），PadType 却显示 through——规则 2.7 只查四面层不查孔实义，全链路假 PASS，被 layout 工程师否决",
+      "verdict": "real_defect_rule_gap",
+      "reason": "extracta 实锤：金标准 26/26 个 TH oblong padstack 的 DRILL 行均满足 size>0 + figure 非空 + 槽型≠NONE；SMD padstack 的空 DRILL 行（NONE）与 LYDPJ 坏件同构。2.7 必须升级为查 DRILL 实义，判定 TH 不再依赖 .pad 文件字符串（PadType:through 是 holeType 残留，不可信）。",
+      "affected": 1,
+      "examples": [
+        "LYDPJ-H23CB1Y-053N 重建件（drill 全零被否）",
+        "金标准 nb_audio5_13d05x6d3x4d2 / nb_dc_jack5 / nb_audio6（drill 实义齐全）"
+      ]
+    },
+    {
+      "rule_id": "2.7",
+      "issue": "oblong 孔 drill figure 正确值是 OBLONG_Y（本地竖向）而非 OBLONG——'OBLONG 不是合法 drill figure，axlDBCreatePadStack(no_check=t) 静默保留 holeType 但零化 figure/尺寸",
+      "verdict": "convention",
+      "reason": "金标准 26/26 为 OBLONG_Y + 槽型 OVAL SLOT；板面横槽 = 本地竖孔(0.5×1.7) + pin 旋转 90°。builder 生成 drill defstruct 必须带 ?figure 'OBLONG_Y + ?figureSize {孔宽}:{孔长}（本地竖向）。",
+      "affected": 26,
+      "examples": [
+        "POB1D7X0D5HOB2D3X1D1: drill diameter=0.5 figSize 0.5:1.7 OBLONG_Y + pin rot 90"
+      ]
+    }
+  ],
+  "lessons": [
+    "TH padstack 必查 DRILL 实义（size>0+figure+槽型≠NONE）；.pad 的 PadType 字符串是 holeType 残留不可信——LYDPJ 二次事故的验证盲区",
+    "oblong 孔 drill figure = OBLONG_Y（本地竖向），'OBLONG 非法且静默零化；横槽靠 pin 旋转 90° 实现",
+    "axlDBCreatePadStack(no_check=t) 对非法字段静默降级已三次实锤（丢 drill→丢 figure→零化），任何 padstack 创建后必须 extracta 回读验证"
+  ],
+  "verdict": "real_defect_rule_gap"
+}

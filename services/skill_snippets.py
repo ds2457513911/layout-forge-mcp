@@ -260,6 +260,7 @@ def build_drill(
     size: Optional[Tuple[float, float]] = None,
     offset: Tuple[float, float] = (0.0, 0.0),
     drill_char: Optional[str] = None,
+    figure: Optional[str] = None,
 ) -> str:
     """
     构造 make_axlPadStackDrill 表达式（钻孔定义）。
@@ -294,7 +295,12 @@ def build_drill(
     #   TH 件变成无孔 SMD。官方范例（pad.il CreateThru）drill defstruct
     #   必须带 ?figure + ?figureSize；figure 名 = drill_type 去掉 _DRILL。
     if size is not None:
-        drill_figure = drill_type[:-len("_DRILL")] if drill_type.endswith("_DRILL") else drill_type
+        # ★ figure 必须显式给对：'OBLONG 不是合法 drill figure（合法的是
+        #   OBLONG_X / OBLONG_Y），错名会被 no_check 静默零化（2026-10-13
+        #   LYDPJ 二次事故实锤）。约定引擎按金标准派生 OBLONG_Y（本地竖向）。
+        drill_figure = figure or (
+            drill_type[:-len("_DRILL")] if drill_type.endswith("_DRILL") else drill_type
+        )
         expr = call(
             "make_axlPadStackDrill",
             holeType=sym(drill_type),

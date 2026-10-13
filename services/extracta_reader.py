@@ -510,7 +510,9 @@ def read_via_extracta(dra_path: str) -> Dict[str, Any]:
 
     失败时返回 {"error": "..."}，让上层决定是否回退 SkillBridge。
     """
-    dra = Path(dra_path)
+    # ★ 必须先 resolve：extracta 的 cwd 已改为专用临时目录（2026-10-13），
+    #   相对路径会在临时目录里找不到 .dra → 输出为空（实锤过一次）。
+    dra = Path(dra_path).resolve()
     if not dra.is_file():
         return {"error": f".dra 文件不存在: {dra_path}"}
 
@@ -550,6 +552,11 @@ def read_via_extracta(dra_path: str) -> Dict[str, Any]:
                 [str(exe), str(dra), str(view_file),
                  str(out_pins), str(out_pads), str(out_geom), str(out_refdes)],
                 env=env,
+                # ★ 2026-10-13：必须显式设 cwd——extracta 会在**进程工作目录**
+                #   落 extract.log（+轮转 ,1/,2/,3）。不设则继承 MCP 服务进程
+                #   的 cwd = 项目根，污染仓库根目录（2026-10-12 实锤 4 份）。
+                #   落进本次专用临时目录，随目录一起清理。
+                cwd=str(tmp_dir),
                 capture_output=True,
                 timeout=120,
             )
@@ -559,8 +566,19 @@ def read_via_extracta(dra_path: str) -> Dict[str, Any]:
             return {"error": f"extracta 执行失败: {e}"}
 
         # ---- 校验输出 ----
+        # ★ extracta 偶发抽风（进程本身收尾必崩 0xC0000409，输出偶尔为空），
+        #   2026-10-13 LYDPJ 对拍实锤空输出一次。空则重试一次再判失败。
         if not _read_extracta_output(out_pins):
-            return {"error": "extracta pins.txt 输出为空（可能视图文件语法错误或 .dra 无效）"}
+            subprocess.run(
+                [str(exe), str(dra), str(view_file),
+                 str(out_pins), str(out_pads), str(out_geom), str(out_refdes)],
+                env=env,
+                cwd=str(tmp_dir),
+                capture_output=True,
+                timeout=120,
+            )
+        if not _read_extracta_output(out_pins):
+            return {"error": "extracta pins.txt 输出为空（重试后仍为空；可能视图文件语法错误或 .dra 无效）"}
 
         # ---- 解析 ----
         pins_raw = _parse_pins_file(out_pins)

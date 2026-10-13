@@ -626,11 +626,31 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
     #   etch 层则无前缀（ETCH/TOP）——endswith 兼容两种形态
     _TH_NEED = ("ETCH/TOP", "ETCH/BOTTOM", "SOLDERMASK_TOP", "SOLDERMASK_BOTTOM")
 
+    def _pin_pads(_pin):
+        return [_pd for _pd in _pin.get("pads", []) if isinstance(_pd, dict)]
+
+    def _has_layer(_pin, suffix):
+        return any(
+            str(_pd.get("layer", "")).upper() == suffix
+            or str(_pd.get("layer", "")).upper().endswith("/" + suffix)
+            for _pd in _pin_pads(_pin)
+        )
+
     def _th_pin_missing(_pin):
+        """四面层只查「真镀通孔」脚（2026-10-13 全量对拍修正）：
+        - 有 DRILL 行 + padstack 名非 NP 前缀 → 镀通孔，查四面层；
+        - 无 DRILL 行 → SMD 脚或 drill 被零化（后者由 2.7b 抓），此处豁免；
+        - NP 前缀 → NPTH 机械孔，无铜是预期，豁免。
+        （此前一刀切查所有 pin，混合封装的 SMD 脚/NPTH 孔成片误 FAIL——
+          全量对拍 17 件实锤：nb_conn75 的 B1-B8、nb_ddr4 的 A11/A12 等）"""
+        _has_drill = _has_layer(_pin, "DRILL")
+        if not _has_drill:
+            return []
+        if str(_pin.get("name", "")).upper().startswith("NP"):
+            return []
         _have = set()
-        for _pd in _pin.get("pads", []):
-            if isinstance(_pd, dict):
-                _have.add(str(_pd.get("layer", "")).upper())
+        for _pd in _pin_pads(_pin):
+            _have.add(str(_pd.get("layer", "")).upper())
         return [l for l in _TH_NEED
                 if not any(h == l or h.endswith("/" + l) for h in _have)]
 
@@ -674,6 +694,99 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
                 detail="",
                 expected="四面层齐全",
                 source="default",
+            ))
+
+        # ---- 2.7b TH 钻孔实义（2026-10-13 第 0 层升级）----
+        # extracta 解析时零尺寸 DRILL 行被丢弃 → pin pads 里没有 DRILL
+        # 条目 = 孔未钻/被静默零化。.pad 的 PadType 字符串是 holeType 残留
+        # 不可信（LYDPJ 二次事故实锤：PadType:through 但 drill 全零被否）。
+        # ★ 只抓「双面铜都在却没有孔」的脚——那是铁定的断孔；单面铜（SMD
+        #   脚/NPTH 孔）无钻孔是合法形态，不能误杀（全量对拍 17 件教训）。
+        _drill_missing = [
+            f"pin{_pin.get('number')}" for _pin in pins
+            if _has_layer(_pin, "ETCH/BOTTOM")
+            and not _has_layer(_pin, "DRILL")
+            and not str(_pin.get("name", "")).upper().startswith("NP")
+        ]
+        if _drill_missing:
+            items.append(_item(
+                "2.7", "TH 焊盘层完整性", "FAIL",
+                value=f"{len(_drill_missing)}/{len(pins)} pin 无 DRILL 实义",
+                rule="TH 件每脚必须有真实钻孔（extracta DRILL 行非零）",
+                detail="pins: " + ",".join(_drill_missing[:8]),
+                expected="DRILL 实义存在且非零",
+                source="default",
+            ))
+
+        # ---- 2.8 / 2.9 / 2.10 构造约定符合性（2026-10-13 第 0 层）----
+        # 真源 knowledge/conventions.json（253 金标准挖掘+裁定），
+        # 与 builder 的 convention_engine 同源——check/create 一份知识。
+        try:
+            from services.convention_engine import (
+                check_padstack_naming, check_pin_conventions,
+            )
+            _hits = []
+            for _pin in pins:
+                _hits.extend(
+                    (lvl, rid, f"pin{_pin.get('number')}: {msg}")
+                    for lvl, rid, msg in check_pin_conventions(_pin)
+                )
+                _nm = check_padstack_naming(_pin)
+                if _nm:
+                    _hits.append(
+                        ("WARN", _nm[0], f"pin{_pin.get('number')}: {_nm[1]}"))
+        except Exception as _ee:  # noqa: BLE001
+            _hits = []
+            items.append(_item(
+                "2.8", "TH 构造约定", "WARN",
+                value=f"约定引擎不可用: {type(_ee).__name__}",
+                rule="convention_engine 异常，规则跳过",
+                detail=str(_ee)[:120],
+                expected=None, source=None,
+            ))
+        for _rid, _title in (("2.8", "TH 环宽约定"), ("2.10", "TH 钢网策略")):
+            _fails = [m for lvl, rid, m in _hits if rid == _rid and lvl == "FAIL"]
+            _warns = [m for lvl, rid, m in _hits if rid == _rid and lvl == "WARN"]
+            _nas = [m for lvl, rid, m in _hits if rid == _rid and lvl == "NA"]
+            if _fails:
+                items.append(_item(
+                    _rid, _title, "FAIL",
+                    value=f"{len(_fails)} 处违反约定",
+                    rule=f"{_title}（真源 conventions.json，check/create 同源）",
+                    detail=" | ".join(_fails[:3]),
+                    expected="见 detail", source="default",
+                ))
+            elif _warns:
+                items.append(_item(
+                    _rid, _title, "WARN",
+                    value=f"{len(_warns)} 处非标准（允许但提示）",
+                    rule=f"{_title}（真源 conventions.json，check/create 同源）",
+                    detail=" | ".join(_warns[:3]),
+                    expected="见 detail", source="default",
+                ))
+            else:
+                items.append(_item(
+                    _rid, _title, "PASS",
+                    value="符合库约定",
+                    rule=f"{_title}（真源 conventions.json，check/create 同源）",
+                    detail="; ".join(_nas[:2]),
+                    expected="见 conventions.json", source="default",
+                ))
+        _n_warns = [m for lvl, rid, m in _hits if rid == "2.9" and lvl == "WARN"]
+        if _n_warns:
+            items.append(_item(
+                "2.9", "TH padstack 命名语法", "WARN",
+                value=f"{len(_n_warns)} 处不合语法（库内存在 legacy 变体，仅提示）",
+                rule="POB{孔长}X{孔短}HOB{盘长}X{盘短}（长轴在前，板面尺寸序）",
+                detail=" | ".join(_n_warns[:3]),
+                expected="主语法或 NP/H省OB/OS偏移变体", source="default",
+            ))
+        else:
+            items.append(_item(
+                "2.9", "TH padstack 命名语法", "PASS",
+                value="符合库命名语法",
+                rule="POB{孔}X{孔}HOB{盘}X{盘}（长轴在前）",
+                detail="", expected="主语法", source="default",
             ))
     else:
         items.append(_item(

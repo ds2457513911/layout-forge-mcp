@@ -1,0 +1,52 @@
+{
+  "schema": "layout-forge-case/1",
+  "name": "CONV-MINE-1-th-construction",
+  "tag": "金标准惯例裁定",
+  "saved_at": "2026-10-13 10:40:00",
+  "family": "CONV-MINE",
+  "source_pdf": "规约挖掘 Data/PCB_Footprint（253 件 451 padstack 全量，2026-10-13 第 0 层+第 2 层裁定）",
+  "fingerprint": null,
+  "check_summary": null,
+  "report_path": "docs/conventions_report.md",
+  "findings": [
+    {
+      "rule_id": "CONV",
+      "issue": "TH oblong 环宽离散：0.3×16 / 0.2×6 / 0.15×1",
+      "verdict": "convention",
+      "reason": "0.3 是标准（audio/dc_jack5/hdmi/rj45/type_c/usb 全系信号脚）；0.2 全部来自 3 个高密度 type_c24 紧凑封装（8d34/8d35/9d17），是允许的紧凑变体不是矛盾。checker 口径：[0.2,0.3] PASS，[0.15,0.2)∪(0.3,0.4] WARN，其余 FAIL。",
+      "affected": 23,
+      "examples": ["POB1D5X0D5HOB2D1X1D1 ring=0.3", "POB1D23X0D52HOB1D64X0D92 ring=0.2(type_c24_8d34)"]
+    },
+    {
+      "rule_id": "CONV",
+      "issue": "NPOB*/NPC* 非金属化孔环宽异常（pad=0.1 占位或负值）",
+      "verdict": "convention",
+      "reason": "NP 前缀 = non-plated 机械安装孔，不受环宽规则约束（NA）；盘段可省略（NPOB2D3X2）。TH 环宽规则必须先看 plated 标志与 NP 前缀。",
+      "affected": 3,
+      "examples": ["NPOB2D3X2", "NPOB2D5X2D2", "NPC1D6"]
+    },
+    {
+      "rule_id": "CONV",
+      "issue": "TH padstack 命名主语法与变体",
+      "verdict": "convention",
+      "reason": "主语法 P OB{孔长}X{孔短} H OB{盘长}X{盘短}（长轴在前、板面尺寸序）26 件中 23 命中；变体：H 后 OB 可省（POB1D9X0D6HO2D3X1D2）、OS{X|Y}{off} 槽偏移尾缀、NP 盘段省略。circle 主语法 PC{孔}HC{盘} 12 件中 8 命中。命名规则取 WARN（库内存在 legacy 变体，金标准自身不能 FAIL）。SMD 命名多套并存（R*/SMD_R*/ob*/c*），弱约定暂不强制。",
+      "affected": 49,
+      "examples": ["POB1D5X0D5HOB2D1X1D1", "PC1D4HC2D05", "POB1D25X0D7HOB1D65X1D1OSY0D1"]
+    },
+    {
+      "rule_id": "CONV",
+      "issue": "TH paste 层策略",
+      "verdict": "convention",
+      "reason": "TH 有顶面钢网：~TPM = 焊盘尺寸（有 paste 的件 23/23 等大）；~BPM 无（25/26）。推翻 2026-10-12 spec 里 'TH 件不放钢网层' 的旧口径。mask 单边外扩 0.05（22/26，另有 0.075×2 变体）。",
+      "affected": 26,
+      "examples": ["POB1D7X0D5HOB2D3X1D1: TPM 1.1x2.3 = pad, BPM 0"]
+    }
+  ],
+  "lessons": [
+    "TH oblong 环宽标准 0.3/边，紧凑 0.2（高密度 type-c 专用）；NP 非金属化机械孔豁免",
+    "TH 命名 P OB{孔}X{孔} H OB{盘}X{盘} 长轴在前板面尺寸序；NP/H省OB/OS偏移为合法变体；命名规则 WARN 不 FAIL",
+    "TH 钢网：顶面=焊盘尺寸，底面无——'TH 不放钢网'旧口径作废",
+    "mask 单边外扩 0.05 为主流（与 checker_rules.json 的 soldermask_expand 0.08 口径需在规则里统一为单边值）"
+  ],
+  "verdict": "convention"
+}
