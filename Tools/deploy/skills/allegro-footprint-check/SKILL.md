@@ -81,7 +81,15 @@ check 与 create 读同一份约定）：
 1. **双面铜箔**：`ETCH/TOP` + `ETCH/BOTTOM` —— 缺 BOTTOM = 双面板底面无铜，无法焊接
 2. **双面阻焊**：`SOLDERMASK_TOP` + `SOLDERMASK_BOTTOM`（单边外扩 0.05）
 3. **钢网**：顶面 `PASTEMASK_TOP` = 焊盘尺寸；底面无（25/26 金标准口径）。
-   ~~"TH 不放钢网"~~ 旧口径作废（2026-10-13 修正）
+   ~~"TH 不放钢网"~~ 旧口径作废（2026-10-13 修正）。
+   **家族例外**：个别金标准（LYDPJ/audio 族）自带 `BPM=焊盘尺寸`——须 spec
+   显式声明 `paste_bottom: true`，引擎放行并出 WARN 提示（2.10），不静默。
+   ★ 构造 API 层名陷阱：内层要传 `DEFAULT_INTERNAL`（db/extracta 显示为
+   `internal_pad_def`）；直接传视图名会被 no_check **静默忽略**（缺内层焊盘）。
+   另：pad 层 figure 名会被 API 按 figureSize 方向**自动改写**
+   （OBLONG_X+竖尺寸→OBLONG_Y，no_check 不报）——金标准 Editor 手工路径
+   才能保留 OBLONG_X+竖尺寸；形状/尺寸一致，仅名字不同，验收对拍时
+   此列差异需单独向工程师说明，不可当作"全字段一致"。
 4. **DRILL 实义是生死线（四次静默陷阱实锤）**：
    - **oblong 槽孔必须用 `?holeType 'OVAL_SLOT`**（第 4 课，2026-10-13 工程师
      否决第 3 版）：合法 holeType 只有 `CIRCLE_DRILL / SQUARE_DRILL /
@@ -238,7 +246,12 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
 
 ### C4 收尾
 
-- 重跑 `Tools/selfcheck_geometry.py`（239 项）+ `Tools/selfcheck_skill_syntax.py`（222 项）回归。
+- 重跑 `Tools/selfcheck_geometry.py`（239 项）+ `Tools/selfcheck_skill_syntax.py`（222 项）
+  + `Tools/selfcheck_conventions.py`（约定链路：数据管道契约 + 消费覆盖率）回归。
+- **验收对拍强制工具化**：声明「与金标准一致」必须附
+  `Tools/compare_extracta.py <金标准dump目录> <重建dump目录> --ignore-col 13`
+  的完整输出（逐列 diff，非零退出码即未通过）；**禁止肉眼比对后手写"一致"**
+  （holeType 差异曾在输出里被肉眼放过）。忽略列须逐列说明理由。
 - commit 顺序：代码修复 → 案例库 → （第 3 层）案例修正，分开提交便于回溯。
 - **Allegro 用完必须按 `allegro-skillbridge-ops` 规矩关闭**（`Tools/stop_allegro.py`）。
 
@@ -268,6 +281,15 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
 
 ### 第 3 步：AI 读图提取 datasheet 理论参数
 
+> ★ **先判形态**（2026-10-13 起）：调 `pdf_probe(pdf_file_path)` 一次拿到
+> `form` ∈ {`cad_vector` | `printed` | `scan` | `thin_text`} 与 `read_hint`，按提示选读法：
+> - `cad_vector`（如 AutoCAD 出图，尺寸是字形轮廓、文本层无数字）→ **跳过定位，直接 `render_pdf_region`**
+> - `printed` → 可提文本层表格；land pattern 用 `render_pdf_region`
+> - `scan` → `render_pdf_contact_sheet` 定位页 → `render_pdf_region` 读数
+> - `thin_text` → 关键词定位，失配则走拼版
+>
+> `form` 是启发式、可能误判；**它只决定"先试哪条路"**，不影响结果（区域裁剪对任何 PDF 都可用）。
+
 1. 读 resource `datasheet://<pdf_stem>/page/<page>` 拿到 PDF 该页图片
 2. 按下方"提取规则"读图，输出 JSON
 3. 调用 `validate_land_pattern_json` 校验
@@ -282,7 +304,8 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
   实测同一份规格书（3S48000163 p5 LAND PATTERN）：
   - 200 dpi 整页渲染 → 把纵向间隙 `0.5` 读成了 `0.7`（**读错**）
   - 450 dpi **区域裁剪放大** → 读对 `1.2 | 0.5 | 1.2`
-  正确做法：先整页定位区域 → 用 `render_pdf_page` 或 PyMuPDF `clip` **裁到该区域 + 提高 dpi（≥400）** → 再读数。
+  正确做法：先定位区域 → 用 MCP 工具 `render_pdf_region(pdf_file_path, page, rect, dpi)` **裁到该区域 + 提高 dpi（≥400）** → 再读数。
+  （旧写法"用 PyMuPDF `clip`"已废止：手写解析与禁止条 5 冲突，且 `render_pdf_page` 固定 150 dpi、做不到区域裁剪。）
 - **★ 交叉校验（读完之后必做，至少两条）**：
   1. **图纸内自洽**：相邻标注求和是否等于总尺寸（如 `1.2 + 0.5 + 1.2` 应等于标注的总高）
   2. **与既有产物比对**：同名件若已有 `.dra` / 历史 `checklist_report_*.json`（报告默认落在图纸子目录，历史归档在项目 `Tools/log/`），用它的实测值反查本次读数
@@ -552,7 +575,10 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
 5. **禁止用 Python 直接解析 PDF 内部结构**（如 `pg.get_images()`、
    `get_image_info()`、`page.get_drawings()`）。
    PDF 图纸必须通过 MCP resource `datasheet://<pdf_stem>/page/<page>` 读图，
-   或通过 `render_pdf_page` tool 渲染后读图。
+   或通过 `render_pdf_page` / `render_pdf_region` tool 渲染后读图。
+   **判文件形态**用 MCP 工具 `pdf_probe`（内部复用同一套判据，是合规出口），
+   不要为了"看看是不是扫描件/CAD 图"自己写 Python 解析 PDF 结构。
+   `pdf_probe` 返回 `ok:false` 时**回退旧流程**，不要中断整个检查（见本条第 4 款的例外）。
 
 6. **禁止调用 `read_allegro_footprint` + `check_land_pattern_tolerance`**。
    这两个 tool 是旧版流程，已废弃，会导致焊盘尺寸误判（阻焊开窗 vs 铜箔）。
@@ -610,7 +636,10 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
 | `list_folder_files` | 列出 PDF / .dra / .pad | `folder_path` |
 | `list_subfolders` | 列出父文件夹的子文件夹（批量模式） | `parent_path` |
 | `locate_land_pattern_page` | 定位 land pattern 页 | `pdf_file_path` |
-| `render_pdf_page` | 渲染 PDF 页为图片（客户端不支持 resource 时用） | `pdf_file_path`, `page` |
+| `render_pdf_page` | 渲染 PDF 页为图片（客户端不支持 resource 时用；**固定 150 dpi 整页**） | `pdf_file_path`, `page` |
+| `pdf_probe` | ★ 开跑前判 PDF 形态（CAD 矢量 / 印刷 / 扫描件），决定走哪条读法 | `pdf_file_path` |
+| `render_pdf_region` | ★ **区域裁剪 + 高 dpi 重渲染** —— 读尺寸数字的主力（缩视野、不缩密度） | `pdf_file_path`, `page`, `rect`, `dpi`（默认 600，上限 1200） |
+| `measure_region` | ★ 矢量量距（图元包围盒），与读数做**交叉校验**；非主读数 | `pdf_file_path`, `page`, `rect` |
 | `validate_land_pattern_json` | 校验 AI 输出的 JSON | `raw_json` |
 | `read_full_footprint` | 提取 .dra 原始数据（pins/layers）供语义检查 | `dra_file_path` |
 | **`check_footprint_by_rules`** | **跑 6 大项数值检查 + 存档 + 渲染 markdown** | `dra_file_path`, `theoretical_payload`, `semantic_result`, `save_report`, `compact`（默认 True，精简返回） |
@@ -649,7 +678,7 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
 ## 客户端配置示例
 
 本技能与 `allegro-skillbridge-ops` 共用同一个 MCP 服务 `layout-forge-mcp`
-（31 个工具：建封装 18 + spec/案例库 7 + 读 PDF/目录 4 + 检查 2）。已经注册过就不用再配。
+（34 个工具：建封装 18 + spec/案例库 7 + 读 PDF/目录 7 + 检查 2）。已经注册过就不用再配。
 
 下面给的是**换机器 / 给同事**时的写法。
 

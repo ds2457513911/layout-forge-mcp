@@ -115,8 +115,10 @@ SK="C:/Users/ds245/.workbuddy/skills/allegro-skillbridge-ops"
   用项目 venv 的 python 拉起、`-c` 注入 `sys.path` 所以不依赖 cwd）。
   23 个工具已冒烟实测：注册 23/23、schema 23/23、离线工具实调全通过、
   Allegro 不在时返回规范错误而非崩溃。
+  （★ 2026-10-13：工具数已增至 **34** —— 新增 `pdf_probe` / `render_pdf_region` /
+  `measure_region` 三个读规格书工具，注册与实调均已通过。）
 - **仍走 CLI 的四件**：启动/关闭 Allegro、离线自检、归档、收尾 ——
-  因为 **23 个 MCP 工具里没有启停 Allegro 的能力**。
+  因为 **MCP 工具里没有启停 Allegro 的能力**。
 
 ★ 启用注册后需在 WorkBuddy「连接器管理」页对新 server 点**信任**才生效，
 且改动 `mcp.json` 后要重启客户端才加载。

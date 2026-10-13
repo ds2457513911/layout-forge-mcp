@@ -70,3 +70,7 @@ Tools/collect_logs.py
 .vscode/
 .DS_Store
 Thumbs.db
+# ---------- 约定链路自检与对拍工具（2026-10-13） ----------
+!Tools/selfcheck_conventions.py
+!Tools/compare_extracta.py
+!Tools/testdata/

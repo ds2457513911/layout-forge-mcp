@@ -7,22 +7,25 @@
 
 ## 这个文件是干什么的
 
-`layout-forge-mcp` 是**服务层**（fastmcp / stdio / 28 个工具），本技能是**知识层**。
+`layout-forge-mcp` 是**服务层**（fastmcp / stdio / 34 个工具），本技能是**知识层**。
 两者不是替代关系：MCP 负责"谁来调 Allegro"，本技能负责"调的时候别踩哪些坑"。
 
 本文件记三件事：走 MCP 建封装的完整工具链、归档怎么落位、以及
 **MCP 工具与既有 SKILL 规则的已知差异**（这块最容易踩，且会随代码变动）。
 
-## 1. 建封装的完整工具链（★ 已实测 28/28 可用）
+## 1. 建封装的完整工具链（★ 2026-10-13：34 个工具，新增 3 个读规格书工具）
 
 ```
 list_specs() / find_spec(...)          ← ★ 先查 spec 库，命 exact 就零读图（见 spec-library.md）
 inspect_allegro_environment()          ← 先探，Allegro 不在会返回规范错误而非崩溃
+pdf_probe(pdf)                         → ★ 第 0 步：判形态（cad_vector/printed/scan/thin_text），决定读法
 locate_land_pattern_page(pdf)          → 定位规格书页码
                                          ★ 返回 page:null 时看它的 hint —— 扫描件走下面这条
 render_pdf_contact_sheet(pdf)          → ★ 扫描件兜底：整份拼成一张缩略图，扫一眼定位页码
-render_pdf_page(pdf, page)             → 渲染，供 AI 读图取参
+render_pdf_region(pdf, page, rect, dpi)→ ★ 读尺寸数字主力：区域裁剪 + 高 dpi（缩视野、不缩密度）
+render_pdf_page(pdf, page)             → 整页渲染（固定 150 dpi），仅客户端不支持 resource 时用
   …（AI 读图，产出参数 JSON）
+measure_region(pdf, page, rect)        → ★ 交叉校验：量区域内图元包围盒，与读数对拍（非主读数）
 validate_land_pattern_json(raw_json)   → 守门员，防格式漂移  ※参数是 str 不是 dict
 solve_footprint_geometry(...)          → 算几何（焊盘/本体/丝印/位号）
 new_symbol_drawing(target_name)        → 建图纸
@@ -38,7 +41,7 @@ save_spec(name, spec_json, family, source_pdf, notes)      → ★ 建完存档�
 ```
 
 **spec 库四件套**（`save_spec` / `load_spec` / `find_spec` / `list_specs`）：
-真源在 MCP 项目 `Data\specs\*.json`，用法与判据见 **`spec-library.md`** ——
+真源在 MCP 项目 `knowledge\specs\*.json`，用法与判据见 **`spec-library.md`** ——
 一句话：**建之前先查（能省读图），建之后必存（下次才有得省）**。
 
 想一次成型就调 `build_footprint_from_params(padstack, pins, silk, body,
@@ -119,3 +122,38 @@ lessons 写教训。**裁定一次、全族受益**。真源 `knowledge/cases/`�
 
 规则阈值外置 `knowledge/rules/checker_rules.json`：改数字立即生效（不用重启 MCP），
 判定逻辑仍在 `rule_checker.py`。
+
+## 读规格书三件套（2026-10-13 新增，Tool 32~34）
+
+建封装的真实成本在「读规格书提参数」，这三件把这一步从"靠眼力"变成"有梯子"。
+
+| 工具 | 干什么 | 什么时候用 |
+|--|--|--|
+| `pdf_probe(pdf_file_path)` | 判 PDF 形态：`pages / bitmaps / text_chars / drawings` → `form` + `read_hint` | **每次读规格书的第一步**（零成本）。判错读法的代价不对称：对 CAD 图做文本提取、对扫描件提文本层都是纯白工 |
+| `render_pdf_region(pdf_file_path, page, rect, dpi=600)` | 按 PDF 坐标裁一块区域、高 dpi 重渲染 | **读尺寸数字的主力**。缩的是**视野**不是**像素密度**（拼版把单页稀释到 72 dpi，本工具保住 600–1200 dpi） |
+| `measure_region(pdf_file_path, page, rect)` | 量区域内矢量图元的包围盒（pt） | **交叉校验**：几何比值 vs 标注比值对拍。**非主读数**（焊盘与器件本体轮廓常粘连） |
+
+### ★ 坐标系陷阱（2026-10-13 实测踩中）
+
+`page.get_pixmap(clip=...)` 吃的是**显示坐标**（含 rotation，与 `page.rect` 同系），
+而 `page.get_drawings()` 返回的是**未旋转坐标**（与 `mediabox` 同系）。
+旋转页（LYDPJ 样本 rotation=270：显示 842×595 vs mediabox 595×842）不做转换，
+几何量距会与任何图元都不相交（实测 `n_in_rect = 0`）。
+`measure_region` 内部已用 `derotation_matrix` / `rotation_matrix` 完成转换，
+对外统一用**显示坐标**（与 `rect` 参数、`render_pdf_region` 同系）。
+
+### 形态分类是启发式
+
+实测 17 份真实规格书 → `printed` 12 / `cad_vector` 3 / `scan` 1（另有 1 份重复文件）。
+阈值会误判（如 TF 卡座仅 325 字符被判 `printed`），所以 `form` 只作"先试哪条路"的建议 ——
+区域裁剪对任何 PDF 都可用，是通用兜底，**误判只影响选路、不影响结果**。
+
+### 动工约束（防副作用，务必遵守）
+
+以后改这三个工具、或再加 PDF 工具时：
+
+1. **不要动** `pdf_renderer.DEFAULT_PYMUPDF_DPI`（150）—— 改它会波及所有既有整页渲染与缓存；
+2. 写盘必须走 `config.RENDER_OUTPUT_ROOT` 绝对路径；区域图落 `<stem>/regions/`，
+   与既有 `<stem>/pymupdf_pages/` 分开，**避免缓存互相覆盖**；
+3. 新工具**必须 try/except 返回 `ok:false`、绝不 raise** ——
+   SKILL 规则「tool 报错即停止检查」会把一个 probe 的 bug 放大成"所有封装都检查不了"。

@@ -57,8 +57,8 @@ deploy.bat /dry                     只打印要做什么，一个文件都不�
 - **B 装 Skill** —— `deploy\skills\*` → `%USERPROFILE%\.workbuddy\skills\`
 - **C 配 SkillBridge** —— 调 `Tools\install_skillbridge.py --non-interactive`，
   往 `allegro.ilinit` 写自动加载块，起 7777 端口
-- **D 冒烟验收** —— import 四个依赖、读 MCP 工具总数（期望 28）、
-  跑两个离线自检（231/231、222/222）
+- **D 冒烟验收** —— import 四个依赖、读 MCP 工具总数（期望 **34**）、
+  跑两个离线自检（239/239、222/222）
 
 ## 文件清单
 
@@ -85,7 +85,7 @@ deploy.bat /dry                     只打印要做什么，一个文件都不�
    → 别把它们挪走，也别把 `Tools/*` 改回 `Tools/`（目录级忽略会让 `!` 例外全部失效）。
 6. ★ **走 clone 模式前，先把本地改动 commit + push**。
    仓库目前只有一次初始提交，spec 库、新工具等大量改动还没提交，
-   clone 下来会拿到旧代码（工具数不是 28）。
+   clone 下来会拿到旧代码（工具数会少于 `setup_agent.py` 的 `EXPECTED_TOOLS`）。
 7. **新电脑从没启动过 Allegro → 没有 pcbenv**：C 步会失败并打印指引，
    但**不算部署失败**（MCP 本身已可用）。启动一次 Allegro PCB Editor
    生成 pcbenv 后，重跑一次脚本即可。
@@ -97,6 +97,17 @@ deploy.bat /dry                     只打印要做什么，一个文件都不�
 9. 部署完**必须重启 Agent 客户端**：MCP 是长驻进程，改配置不重启不生效。
 10. 与 `Tools/start_allegro.cmd` 的分工：那个只管**启动一次** Allegro，
     这里管**持久化配置 + 环境**。
+11. ★ **同一份 SKILL 有两个副本，改的时候别只改一边**（2026-10-13 定）：
+    - **真源 = 本目录 `deploy/skills/*`**（在 git 里、受版本控制）
+    - **部署目标 = `%USERPROFILE%\.workbuddy\skills\*`**（客户端实际加载的那份）
+
+    `setup_agent.py::install_skills` 是 **单向 `copytree`（deploy → 用户目录）**。
+    所以**只改用户目录那份、不更新 deploy 副本 → 下次跑部署会被静默回退**。
+    正确做法：**改 `deploy/skills/*` → 跑部署**（或两边同步改）。
+    ★ 另注意 `deploy.bat` **同时会重写 `mcp.json`**（合并、先备份），
+    只是同步 SKILL 时不要跑整个 deploy.bat，直接复制文件即可。
+    （2026-10-13 实测过一次双向陈旧：`mcp-tools.md` / `spec-library.md` 里
+    `Data\specs` 与 `knowledge\specs` **两侧各对一半**，已统一。）
 
 ## 常见报错对照
 
@@ -105,7 +116,7 @@ deploy.bat /dry                     只打印要做什么，一个文件都不�
 | `[X] skillbridge is NOT importable from the project venv` | 装错解释器了。删 `.venv` 重跑；确认 `pyproject.toml` 的 `requires-python` 没被改窄 |
 | `[X] uv sync failed` | 网络 / 代理 / Python 版本问题。看上面的输出；可改用系统 python 模式（把 uv 从 PATH 摘掉再跑） |
 | `[!] SkillBridge 自动加载未配成` | 通常是没 pcbenv。启动一次 Allegro 再重跑，或用 `/pcbenv` 指定 |
-| 工具数不是 28 | 多半是 clone 到了旧提交，`git pull` 后重启客户端 |
+| 工具数与 `setup_agent.py` 的 `EXPECTED_TOOLS`（现 34）不符 | 少于期望 → 多半 clone 到了旧提交，`git pull` 后重启客户端；多于期望 → 本地加了新工具，去更新 `EXPECTED_TOOLS` |
 | `[X] git clone failed` | GitHub 不通。配代理，或手工把整个项目拷到 `/dir` 指定的目录再跑 |
 
 ## 相关目录

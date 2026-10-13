@@ -1,6 +1,6 @@
 # spec 库 —— 让「读规格书」这件事只做一次
 
-> 建立：2026-10-09 ｜ 真源在 MCP 项目 `layout-forge-mcp\Data\specs\`（本文件只讲怎么用）
+> 建立：2026-10-09 ｜ 真源在 MCP 项目 `layout-forge-mcp\knowledge\specs\`（本文件只讲怎么用）
 > 配套 MCP 工具：`save_spec` / `load_spec` / `find_spec` / `list_specs`
 
 ## 1. 为什么有这个库

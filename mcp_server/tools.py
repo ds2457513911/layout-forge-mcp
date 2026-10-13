@@ -13,6 +13,7 @@ mcp_server/tools.py —— MCP 工具定义
 工具列表（v4.1）：
   - list_subfolders / list_folder_files         批量侦察
   - locate_land_pattern_page / render_pdf_page  定位 & 渲染
+  - pdf_probe / render_pdf_region / measure_region  ★ 读规格书三件套（2026-10-13 加）
   - read_full_footprint                         拿 pins/layers 供 AI 语义检查
   - check_footprint_by_rules                    主用：检查 + 存档 + 渲染 markdown
   - validate_land_pattern_json                  校验 AI 输出的 JSON
@@ -1617,3 +1618,88 @@ def register(mcp: FastMCP) -> None:
         return pdf_service.build_contact_sheet(
             pdf, config.RENDER_OUTPUT_ROOT, cols=cols,
             thumb_width=thumb_width, max_pages=max_pages)
+
+    # ============================================================
+    # Tool 32: pdf_probe —— ★ 开跑前判形态（零成本）
+    # ============================================================
+    @mcp.tool()
+    def pdf_probe(pdf_file_path: str) -> dict:
+        """
+        ★ 读规格书的第一步：判这份 PDF 是哪种形态，决定用哪条读法（零成本，只读元数据）。
+
+        **为什么先做这一步**：判错读法的代价不对称 ——
+          对 CAD 矢量图做文本提取、对扫描件提文本层，都是纯白工；
+          按形态选对读法，能整条省掉无效路径。
+
+        :param pdf_file_path: 规格书 PDF 路径（完整路径或 stem 均可）
+        :return: {"ok", "pages", "bitmaps", "text_chars", "drawings",
+                  "form": "scan"|"printed"|"cad_vector"|"thin_text",
+                  "read_hint": str, "error"}
+                 form 是启发式建议、可能误判；三条读法对任何 PDF 都可用
+                 （区域裁剪是通用兜底），误判只影响"先试哪条路"。
+        ★ 本工具失败时返回 `ok:false`，调用方应**回退旧流程**，不要中断整个检查。
+        """
+        pdf = pdf_service.resolve_pdf(pdf_file_path, config.PDF_SEARCH_ROOTS)
+        if pdf is None:
+            return {"ok": False, "error": f"找不到 PDF: {pdf_file_path}"}
+        return pdf_service.probe_pdf(pdf)
+
+    # ============================================================
+    # Tool 33: render_pdf_region —— ★ 区域高 dpi 重渲染（读尺寸数字主力）
+    # ============================================================
+    @mcp.tool()
+    def render_pdf_region(
+        pdf_file_path: str,
+        page: int,
+        rect: list,
+        dpi: int = 600,
+    ) -> dict:
+        """
+        ★ 按 PDF 坐标裁一块区域、高 dpi 重渲染 —— **读尺寸数字的主力手段**。
+
+        **为什么需要它**：`render_pdf_page` 只能整页渲染（固定 150 dpi），
+          小号尺寸数字在低分辨率下会读错（实测 200 dpi 把 `0.5` 读成 `0.7`）。
+          本工具缩的是**视野**而非像素密度，可保住 600–1200 dpi。
+
+        :param pdf_file_path: 规格书 PDF 路径（完整路径或 stem 均可）
+        :param page: 人眼 1-based 页码
+        :param rect: [x0, y0, x1, y1] PDF 显示坐标 pt（与 page.rect 同系，已含 rotation）
+        :param dpi: 渲染 dpi（默认 600；亚毫米标注/公差带用 900–1200；上限 1200）
+        :return: {"ok", "image_path", "size": [w, h], "rect", "dpi", "error"}
+                 拿到 image_path 后用多模态能力读数字。
+        ★ 本工具失败时返回 `ok:false`，调用方回退旧流程。
+        """
+        pdf = pdf_service.resolve_pdf(pdf_file_path, config.PDF_SEARCH_ROOTS)
+        if pdf is None:
+            return {"ok": False, "error": f"找不到 PDF: {pdf_file_path}"}
+        return pdf_service.render_region(
+            pdf, page, rect, config.RENDER_OUTPUT_ROOT, dpi=dpi)
+
+    # ============================================================
+    # Tool 34: measure_region —— ★ 矢量量距（交叉校验，非主读数）
+    # ============================================================
+    @mcp.tool()
+    def measure_region(
+        pdf_file_path: str,
+        page: int,
+        rect: list,
+    ) -> dict:
+        """
+        ★ 量取区域内矢量图元的包围盒（PDF pt），用于**与读图结果交叉校验**。
+
+        典型用法：把几何量出的比值（如 ①→②:②→⑤ = 1.770）与图上标注的比值
+        （2.80:4.95 = 1.768）对拍，吻合则读数可信。
+
+        ★ 不作主读数（焊盘与器件本体轮廓常粘连，直接量距会并成一块）；
+          pt→mm 必须自行标定（标题栏 SCALE 不可信）。
+
+        :param pdf_file_path: 规格书 PDF 路径（完整路径或 stem 均可）
+        :param page: 人眼 1-based 页码
+        :param rect: [x0, y0, x1, y1] PDF 显示坐标 pt
+        :return: {"ok", "unit", "n_total", "n_in_rect", "boxes", "note", "error"}
+        ★ 本工具失败时返回 `ok:false`，调用方回退旧流程。
+        """
+        pdf = pdf_service.resolve_pdf(pdf_file_path, config.PDF_SEARCH_ROOTS)
+        if pdf is None:
+            return {"ok": False, "error": f"找不到 PDF: {pdf_file_path}"}
+        return pdf_service.measure_region(pdf, page, rect)

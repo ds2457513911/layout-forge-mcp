@@ -49,12 +49,13 @@ description: |
   图元消失、图元没画出来、静默返回 nil、只挂 1 步、extents、绘图范围、
   outside the new extents、axlDBCreateRectangle 返回 nil、Place_Bound 画不出、
   axlDBGetDesign 的 bBox、模板页框、空图纸 bBox、页框当内容框。
-  (13) ★ MCP 服务层（31 个工具）+ spec 库：工具链怎么配合本技能、哪些参数 /
+  (13) ★ MCP 服务层（34 个工具）+ spec 库：工具链怎么配合本技能、哪些参数 /
   默认落点与既有规则冲突；同封装零读图复用与建完存档；扫描件定位兜底。
   触发词：MCP、layout-forge-mcp、solve_footprint_geometry、extra_spec、
   参数透传、install_shadow_library、归档口径、new_symbol_drawing、change_drawing_extents、
   spec 库、save_spec、load_spec、find_spec、零读图、几何指纹、locate 失配、
-  page 为 null、扫描件、文本层为空、contact sheet、缩略图拼版。
+  page 为 null、扫描件、文本层为空、contact sheet、缩略图拼版、
+  ★ 判形态、pdf_probe、render_pdf_region、measure_region、CAD 矢量图、读尺寸数字。
   (14) ★ 引脚号字号不一致（随脚号变大）：`make_axlPinText` 简化写法的坑，
   见 drawing-ops.md 5.4.2b。触发词：引脚号字号、pin number 大小不一、
   text block、make_axlPinText、PIN_NUMBER。
@@ -164,7 +165,7 @@ C:\Users\ds245\Documents\Work_Bmorn\Layout\layout-forge-mcp
 | Allegro（GUI 进程） | bash 命令 | 那条 bash 命令 | **需要** |
 
 MCP 只接管了「谁来调 Allegro」，**接管不了「Allegro 这个进程怎么活下来」** ——
-23 个工具里**没有任何启停 Allegro 的能力**。bash 命令一结束，
+34 个工具里**没有任何启停 Allegro 的能力**。bash 命令一结束，
 它拉起的 GUI 子进程会被命令边界回收（沙箱内外一样，见 `lifecycle.md`）。
 
 ```bash
@@ -179,15 +180,17 @@ echo "=== 挂住中 ==="; while true; do sleep 20; done     # run_in_background=
 （`start ""` 已让它脱离父进程树）—— 后台挂住解决的是「**启动瞬间**被命令边界
 回收」，Allegro 一旦起来就独立了。**别指望 `TaskStop` 顺带关掉它**，收尾 A 必须单独做。
 
-### 3.1 主流程走 MCP 工具（★ 已实测 28/28 可用）
+### 3.1 主流程走 MCP 工具（★ 2026-10-13：34 个工具全部注册通过）
 
 **建封装一律走 MCP 工具，不要越过服务层去跑 `Tools/e2e_*.py`。**
-主干见下（完整 17 行工具清单见 **`references/mcp-tools.md` 第 1 节**）：
+主干见下（完整工具链见 **`references/mcp-tools.md` 第 1 节**）：
 
 ```
 list_specs() / find_spec(...)   → ★ 先查库：命 exact 就零读图（spec-library.md）
 inspect_allegro_environment()   → 先探（Allegro 不在会返规范错误，不崩）
-  ↓ AI 读规格书取参（定位不到页 → render_pdf_contact_sheet 拼图扫一眼）
+  ↓ pdf_probe 判形态（CAD/印刷/扫描件）→ AI 读规格书取参
+      · 读数主力 render_pdf_region（区域裁剪+高 dpi）
+      · 定位不到页 → render_pdf_contact_sheet 拼图扫一眼
   ↓ validate_land_pattern_json(raw_json)   ※参数是 str 不是 dict
 solve_footprint_geometry(...)   → 算几何；一次成型用 build_footprint_from_params(...)
   ↓ 建图纸 / 焊盘 / 图元 → ★ change_drawing_extents(...) 必须先扩，否则静默丢弃
@@ -239,7 +242,7 @@ install_shadow_library(symbol_name="<符号名>", pn="<符号名>",
 | 项 | 值 / 规则 |
 |--|--|
 | 项目根 | `C:\Users\ds245\Documents\Work_Bmorn\Layout\layout-forge-mcp`（本技能只服务这一个项目） |
-| 调用方式 | **MCP 为主**（已注册到 `~/.workbuddy/mcp.json`，31 个工具已冒烟实测）+ **CLI 补位**（启停 / 自检 / 归档） |
+| 调用方式 | **MCP 为主**（已注册到 `~/.workbuddy/mcp.json`，34 个工具已冒烟实测）+ **CLI 补位**（启停 / 自检 / 归档） |
 | Python | 走 MCP 时**由 server 管**，调用方不碰解释器。★ 但跑 CLI 那三件事**只能用项目 `.venv/Scripts/python.exe`** —— 系统 Python 与托管 Python 都没装 `skillbridge`，一 import 就 ImportError |
 | MCP 拉起方式 | 项目 `.venv/Scripts/python.exe -c "import sys; sys.path.insert(0, <项目根>); from mcp_server.server import main; main()"`。**不依赖 cwd**（`config.py` 的 `PROJECT_ROOT` 按 `__file__` 解析） |
 | 服务 | SkillBridge 在 **7777** 端口；Allegro 侧的 pythonw 服务随 Allegro 生灭 |

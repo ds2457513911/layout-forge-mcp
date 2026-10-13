@@ -103,7 +103,7 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 
 ## 工具清单
 
-### 生成类（本 MCP 新增，共 21 个）
+### 生成类（本 MCP 新增，共 27 个）
 
 | 工具 | 作用 |
 |--|--|
@@ -124,6 +124,9 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 | **`solve_footprint_geometry`** | ★ **参数 → 几何**（纯离线）：把器件参数算成 padstack/pins/silk/body/place_bound/refdes + 两个名字，带 `derivations` 审计。★ **尺寸取值口径**：图上标注了具体值 → 取标注值；图上没标需查表 → 取表 MAX（无 MAX 用 TYP + 告警）。命名永远用中值。`build_footprint_from_params` 的**前置编译器** |
 | `build_footprint_from_params` | **顶层接口**：一次调用建出完整封装。★ 支持 `fresh_symbol=True` **先自动新建干净图纸**；`silk`/`body`/`place_bound` 接受**列表**（多段轮廓） |
 | `render_pdf_contact_sheet` | ★ **整份 PDF 拼一张缩略图**（2026-10-09 新增）。`locate_land_pattern_page` 在**扫描件上会失配**（13 份实测只强命中 4 份），用它一次读图定位尺寸页 |
+| `pdf_probe` | ★ **判 PDF 形态**（2026-10-13 新增）：返回 `form` = `cad_vector` / `printed` / `scan` / `thin_text` + 建议读法。零成本（只读元数据），**每次读规格书第一步** |
+| **`render_pdf_region`** | ★ **区域裁剪 + 高 dpi 重渲染**（2026-10-13 新增）—— **读尺寸数字的主力**。缩的是*视野*不是*像素密度*，600–1200 dpi；`render_pdf_page` 固定 150 dpi 做不到 |
+| `measure_region` | ★ **矢量量距**（2026-10-13 新增）：返回区域内图元包围盒（pt），与读数做**交叉校验**。非主读数（焊盘与本体轮廓常粘连） |
 | `save_spec` | ★ **spec 库**：把本次解析出的 spec 存档到 `knowledge/specs/<符号名>.json`（含 family / source_pdf / notes 方法论） |
 | `load_spec` | 按名字取回 spec —— **同封装不同料号可零读图复用** |
 | `find_spec` | 按几何指纹（mount / pin_count / pitch / body / pad，容差 0.05）找同族 spec，返回 `exact` / `family` / `keyword` 三档 |

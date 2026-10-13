@@ -262,3 +262,203 @@ def build_contact_sheet(
                  "渲染该页原图（必要时再裁剪放大）"),
         "error": None,
     }
+
+
+# ---------- ★ 判形态（pdf_probe） ----------
+# 形态判定只需三个数：位图数 / 文本字符数 / 矢量图元数。判错读法的代价不对称：
+# 对 CAD 图做文本提取、对扫描件提文本层，都是纯白工；反之区域裁剪对任何 PDF 都可用。
+def probe_pdf(pdf_path: Path) -> dict:
+    """
+    探测 PDF 形态，用于**开跑前决定读法**（零成本，只读元数据）。
+
+    :param pdf_path: PDF 绝对路径
+    :return: {"ok", "pages", "bitmaps", "text_chars", "drawings",
+              "drawings_capped", "form", "read_hint", "error"}
+
+    form 判据（用 17 份真实规格书校准）：
+      - scan       位图 ≥1 且文本 0 字符      → 缩略图拼版定位 → 区域裁剪读数
+      - printed    文本 ≥200 字符             → 文本层提表 + 区域裁剪读图
+      - cad_vector 文本 <200 且矢量图元 ≥200  → 跳过定位，直接区域高 dpi 读数
+      - thin_text  其余                        → 关键词定位 → 区域裁剪读数
+
+    ★ form 是**启发式建议**、可能误判；三条读法对任何 PDF 都可用（区域裁剪是通用兜底），
+      误判只影响"先试哪条路"，不影响最终结果。
+    """
+    try:
+        import pymupdf                                     # noqa: PLC0415
+    except ImportError:
+        return {"ok": False, "error": "PyMuPDF 未安装"}
+
+    try:
+        with pymupdf.open(str(pdf_path)) as doc:
+            pages = len(doc)
+            bitmaps = 0
+            text_chars = 0
+            for page in doc:
+                bitmaps += len(page.get_images(full=True))
+                text_chars += len(page.get_text() or "")
+            # 矢量图元数只在"文本稀薄"时才需要统计，
+            # 避免在 100+ 页的印刷规格书上白跑 get_drawings（很贵）。
+            drawings = 0
+            drawings_capped = False
+            if text_chars < 200:
+                for page in doc:
+                    drawings += len(page.get_drawings())
+                    if drawings >= 20000:                  # 上限保护
+                        drawings_capped = True
+                        break
+    except Exception as e:                                 # noqa: BLE001
+        return {"ok": False, "error": f"{type(e).__name__}: {e}"}
+
+    if bitmaps >= 1 and text_chars == 0:
+        form = "scan"
+        hint = "纯位图/扫描件：先 contact_sheet 定位页，再 render_pdf_region 读数"
+    elif text_chars >= 200:
+        form = "printed"
+        hint = "印刷规格书：可提文本层表格；land pattern 走 render_pdf_region 读数"
+    elif drawings >= 200:
+        form = "cad_vector"
+        hint = ("CAD 矢量出图：尺寸被 plot 成字形轮廓、文本层拿不到；"
+                "跳过定位，直接 render_pdf_region 高 dpi 读数")
+    else:
+        form = "thin_text"
+        hint = ("薄文本层：关键词定位可能失配，失配则走 contact_sheet；"
+                "读数用 render_pdf_region")
+
+    return {"ok": True, "pages": pages, "bitmaps": bitmaps,
+            "text_chars": text_chars, "drawings": drawings,
+            "drawings_capped": drawings_capped,
+            "form": form, "read_hint": hint, "error": ""}
+
+
+# ---------- ★ 区域高 dpi 重渲染（render_pdf_region） ----------
+# 与"整页缩小拼版"的区别：缩的是**视野**，不是**像素密度**。
+# 拼版把 N 页塞一张图、单页稀释到 72 dpi；区域裁剪保住 600–1200 dpi。
+# 输出命名空间刻意与 get_or_render_image 的 <stem>/pymupdf_pages/ 分开，避免缓存互相覆盖。
+def render_region(
+    pdf_path: Path,
+    page: int,
+    rect: tuple,
+    out_root: Path,
+    dpi: int = 600,
+) -> dict:
+    """
+    按 PDF 坐标裁一块区域，高 dpi 重渲染成 PNG（★ 读尺寸数字的主力手段）。
+
+    :param pdf_path: PDF 绝对路径
+    :param page: 人眼 1-based 页码
+    :param rect: (x0, y0, x1, y1) PDF 显示坐标 pt（与 page.rect 同系，已含 rotation）
+    :param out_root: 输出根目录（调用方传 config.RENDER_OUTPUT_ROOT）
+    :param dpi: 渲染 dpi；常规尺寸 600 起，亚毫米标注/公差带用 900–1200
+    :return: {"ok", "image_path", "size": [w, h], "rect", "dpi", "error"}
+    """
+    try:
+        import pymupdf                                     # noqa: PLC0415
+    except ImportError:
+        return {"ok": False, "error": "PyMuPDF 未安装"}
+
+    try:
+        x0, y0, x1, y1 = (float(v) for v in rect)
+    except Exception:                                      # noqa: BLE001
+        return {"ok": False, "error": f"rect 需为 4 个数: {rect!r}"}
+
+    dpi = max(72, min(int(dpi), 1200))                     # ★ 上限保护，防超大图
+
+    try:
+        with pymupdf.open(str(pdf_path)) as doc:
+            if page < 1 or page > len(doc):
+                return {"ok": False, "error": f"页码越界: {page}/{len(doc)}"}
+            pg = doc[page - 1]
+            clip = pymupdf.Rect(x0, y0, x1, y1) & pg.rect   # 夹到页面内，防越界裁空
+            if clip.is_empty:
+                return {"ok": False,
+                        "error": f"rect 与页面无交集: {rect} vs {pg.rect}"}
+            pm = pg.get_pixmap(dpi=dpi, clip=clip)
+            out_dir = Path(out_root) / Path(pdf_path).stem / "regions"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            tag = (f"p{page}_{clip.x0:.0f}-{clip.y0:.0f}-"
+                   f"{clip.x1:.0f}-{clip.y1:.0f}@{dpi}")
+            out = out_dir / f"{tag}.png"
+            pm.save(str(out))
+    except Exception as e:                                 # noqa: BLE001
+        return {"ok": False, "error": f"{type(e).__name__}: {e}"}
+
+    return {"ok": True, "image_path": str(out),
+            "size": [pm.width, pm.height],
+            "rect": [clip.x0, clip.y0, clip.x1, clip.y1],
+            "dpi": dpi, "error": ""}
+
+
+# ---------- ★ 矢量量距（measure_region，档 2 交叉校验） ----------
+# 用途：量出区域内图元的包围盒，**与读图结果对拍**（如几何比 ①→②:②→⑤ 是否等于标注比）。
+# 图纸等比时几何比值可用，但 **pt/mm 必须自行标定**（标题栏 SCALE 常年不可信）。
+# ★ 不作主读数：焊盘与器件本体轮廓在几何上常粘连，直接量距会并成一块。
+def measure_region(
+    pdf_path: Path,
+    page: int,
+    rect: tuple,
+    max_boxes: int = 200,
+) -> dict:
+    """
+    量取区域内矢量图元的包围盒（PDF pt），供与读图结果交叉校验。
+
+    :param pdf_path: PDF 绝对路径
+    :param page: 人眼 1-based 页码
+    :param rect: (x0, y0, x1, y1) PDF 显示坐标 pt
+    :param max_boxes: 最多返回多少个包围盒（默认 200，防返回爆炸）
+    :return: {"ok", "unit", "n_total", "n_in_rect", "boxes", "note", "error"}
+    """
+    try:
+        import pymupdf                                     # noqa: PLC0415
+    except ImportError:
+        return {"ok": False, "error": "PyMuPDF 未安装"}
+
+    try:
+        x0, y0, x1, y1 = (float(v) for v in rect)
+    except Exception:                                      # noqa: BLE001
+        return {"ok": False, "error": f"rect 需为 4 个数: {rect!r}"}
+
+    try:
+        with pymupdf.open(str(pdf_path)) as doc:
+            if page < 1 or page > len(doc):
+                return {"ok": False, "error": f"页码越界: {page}/{len(doc)}"}
+            pg = doc[page - 1]
+            clip_disp = pymupdf.Rect(x0, y0, x1, y1)
+            # ★ 坐标系陷阱（2026-10-13 实测，本样本 rotation=270 / 842x595 vs 595x842）：
+            #     page.get_pixmap(clip=...) 吃的是**显示坐标**（与 page.rect 同系）；
+            #     page.get_drawings() 返回的却是**未旋转坐标**（与 mediabox 同系）。
+            #   旋转页不做这次转换 → 与任何图元都不相交（原型实测 n_in_rect = 0）。
+            clip_draw = clip_disp * pg.derotation_matrix
+            if clip_draw.is_empty:
+                return {"ok": False, "error": f"rect 无效（与页面无交集）: {clip_disp}"}
+            all_ds = pg.get_drawings()
+            # 用「相交」而非「包含」：图元包围盒常跨出区域，
+            # 用 contains 会把它们全部滤掉。
+            inside = [d for d in all_ds
+                      if not d["rect"].is_empty
+                      and d["rect"].intersects(clip_draw)]
+            boxes = []
+            for d in inside[:max_boxes]:
+                # 从「未旋转坐标」转回「显示坐标」，与 rect 参数口径一致
+                r = d["rect"] * pg.rotation_matrix
+                boxes.append([round(r.x0, 3), round(r.y0, 3),
+                              round(r.x1, 3), round(r.y1, 3),
+                              round(r.x1 - r.x0, 3), round(r.y1 - r.y0, 3)])
+            n_total = len(all_ds)
+            n_in_rect = len(inside)
+    except Exception as e:                                 # noqa: BLE001
+        return {"ok": False, "error": f"{type(e).__name__}: {e}"}
+
+    return {
+        "ok": True,
+        "unit": "pt",
+        "space": "display（与 page.rect / render_pdf_region 的 rect 同系）",
+        "n_total": n_total,
+        "n_in_rect": n_in_rect,
+        "boxes": boxes,
+        "note": ("★ 仅供参考、不作主读数：① 焊盘与器件本体轮廓可能粘连，"
+                 "直接量距会并成一块；② pt→mm 必须自行标定（标题栏 SCALE 不可信，"
+                 "用一条已知标注的两条界线反推）；③ 适合做「几何比值 vs 标注比值」"
+                 "的交叉校验。"),
+        "error": "",
+    }

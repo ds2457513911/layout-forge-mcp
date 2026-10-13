@@ -1,6 +1,6 @@
 # mcp_server/ —— MCP 工具层（对外门面）
 
-> 最后更新：2026-09-30
+> 最后更新：2026-10-13（新增 `pdf_probe` / `render_pdf_region` / `measure_region`，共 34 个工具）
 
 ## 这个目录是干什么的
 
@@ -12,7 +12,7 @@
 
 | 文件 | 功能 | 影响 / 依赖 |
 |--|--|--|
-| `tools.py` | ★ **工具注册总表（最大文件）**。生成类 13 个 + 检查类 7 个，每个工具 = 一个 `@mcp.tool()` 函数 + 完整 docstring（**docstring 就是给 AI 看的说明书，改行为必须同步改它**） | 会 import `services/geometry_solver` / `footprint_builder` / `library_install` / `footprint_extractor` 等 |
+| `tools.py` | ★ **工具注册总表（最大文件）**。**共 34 个工具**（2026-10-13；其中读规格书三件套 `pdf_probe` / `render_pdf_region` / `measure_region` 为当日新增），每个工具 = 一个 `@mcp.tool()` 函数 + 完整 docstring（**docstring 就是给 AI 看的说明书，改行为必须同步改它**） | 会 import `services/geometry_solver` / `footprint_builder` / `library_install` / `footprint_extractor` / `pdf_service` 等 |
 | `prompts.py` | 预置提示词 | 纯文本，无副作用 |
 | `resources.py` | MCP 资源（只读暴露） | 纯读 |
 | `config.py` | 配置读取 | — |

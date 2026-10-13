@@ -136,7 +136,7 @@ SkillBridge 自动加载由 `Tools\deploy\setup_agent.py` 的 C 步负责，
 .venv\Scripts\python.exe Tools\selfcheck_skill_syntax.py    # 222/222
 
 # ② MCP 工具注册数（离线，不需要 Allegro）
-#    期望 28
+#    期望 34（2026-10-13 起；此前 31/28）
 ```
 
 ```bash

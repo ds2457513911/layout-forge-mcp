@@ -174,6 +174,7 @@ def derive_th_oblong_padstack(hole_board: Tuple[float, float],
                               plated: bool = True,
                               name: Optional[str] = None,
                               slot_offset: Optional[Tuple[float, float]] = None,
+                              paste_bottom: bool = False,
                               ) -> Tuple[Dict[str, Any], List[str]]:
     """
     从孔的板面尺寸 (长, 短) 派生符合库约定的 TH oblong padstack。
@@ -181,6 +182,8 @@ def derive_th_oblong_padstack(hole_board: Tuple[float, float],
     返回 (ps_dict, notes)。ps_dict 与 spec padstack 字典同构（builder 直接消费）：
       layers 为**本地竖向帧**（金标准口径），drill 带 figure=OBLONG_Y。
     pad_board 缺省时按标准环宽派生；显式给 pad 时做环宽约定校验。
+    paste_bottom=True = spec 显式覆盖（库 25/26 底面无钢网；个别家族金标准
+    带 BPM=焊盘尺寸，如 LYDPJ/audio 族——须 spec 声明，不走默认）。
     """
     p = th_oblong_params()
     notes: List[str] = []
@@ -210,12 +213,20 @@ def derive_th_oblong_padstack(hole_board: Tuple[float, float],
 
     layers = [
         {"layer": "TOP", "figure": "OBLONG_X", "size": list(pad_local)},
-        {"layer": "internal_pad_def", "figure": "OBLONG_X", "size": list(pad_local)},
+        # ★ 层名必须用 API 名 DEFAULT_INTERNAL（db/extracta 视图显示为
+        #   internal_pad_def）。直接传 "internal_pad_def" 会被 no_check
+        #   静默忽略 → 内层焊盘缺失（2026-10-13 compare_extracta 首跑实锤）。
+        {"layer": "DEFAULT_INTERNAL", "figure": "OBLONG_X", "size": list(pad_local)},
         {"layer": "BOTTOM", "figure": "OBLONG_X", "size": list(pad_local)},
         {"layer": "SOLDERMASK_TOP", "figure": "OBLONG_X", "size": list(mask_local)},
         {"layer": "SOLDERMASK_BOTTOM", "figure": "OBLONG_X", "size": list(mask_local)},
         {"layer": "PASTEMASK_TOP", "figure": "OBLONG_X", "size": list(pad_local)},
     ]
+    if paste_bottom:
+        layers.append({"layer": "PASTEMASK_BOTTOM", "figure": "OBLONG_X",
+                       "size": list(pad_local)})
+        notes.append("spec 显式声明底面钢网（PASTEMASK_BOTTOM=焊盘尺寸）——"
+                     "与库 25/26「底面无」惯例不同，属金标准家族例外，已放行")
     drill = {
         "size": list(drill_local),          # 本地竖向帧（X宽 Y长）
         # ★ 2026-10-13 工程师否决第 4 课：oblong 槽孔必须是 OVAL_SLOT
@@ -277,6 +288,8 @@ def apply_conventions(spec: Dict[str, Any]) -> Tuple[Dict[str, Any], List[str]]:
             plated=bool(drill.get("plated", True)),
             name=ps.get("name"),
             slot_offset=tuple(offset) if offset else None,
+            paste_bottom=bool(ps.get("paste_bottom")
+                              or spec.get("paste_bottom")),
         )
         notes.extend(ns)
         oblong_names.add(derived["name"].upper())

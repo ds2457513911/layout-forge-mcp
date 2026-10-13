@@ -4,7 +4,7 @@
   "saved_at": "2026-10-12 11:19:52",
   "family": "3.5mm 耳机座 (LYD-PJ-35)",
   "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/Data/footprint/NB_LYDPJ_5P_12X6/LYDPJ-H23CB1Y-053N.pdf",
-  "notes": "5 脚全为椭圆形金属化槽孔（DIP 插腿）：①②⑤ 槽 1.50x0.50，③④ 槽 1.70x0.50（板面帧，长轴在 X）。2026-10-13 起改约定引擎口径：spec 只声明孔尺寸/pin 布局，焊盘（环宽 0.3→2.10x1.10 / 2.30x1.10）、mask(+0.05/边)、顶面钢网、OBLONG_Y 本地竖孔 + OVAL_SLOT 槽孔+pin 旋转 90°、命名 POB{孔}X{孔}HOB{盘}X{盘} 全部由 knowledge/conventions.json 派生。｜槽心距 8.10 为图纸标注（2026-10-12 版误用像素实测 8.00，上下排 ±4.05 已修正）；焊盘中心 x=3.65/6.45/11.40（上排）、4.93/11.40（下排）从左基准线量（本 spec 原点居中，x 已平移 -6.0）。本体顶视 12.00x6.00，左 -1.04 插头套凸出无焊盘未建。首跑 Place_Bound 浮点贴边 FAIL，外扩 1.85→1.90 修复。",
+  "notes": "5 脚全为椭圆形金属化槽孔（DIP 插腿）：①②⑤ 槽 1.50x0.50，③④ 槽 1.70x0.50（板面帧，长轴在 X）。2026-10-13 起改约定引擎口径：spec 只声明孔尺寸/pin 布局，焊盘（环宽 0.3→2.10x1.10 / 2.30x1.10）、mask(+0.05/边)、顶面钢网、OBLONG_Y 本地竖孔 + OVAL_SLOT 槽孔+pin 旋转 90°、命名 POB{孔}X{孔}HOB{盘}X{盘} 全部由 knowledge/conventions.json 派生。｜槽心距 8.10 为图纸标注（2026-10-12 版误用像素实测 8.00，上下排 ±4.05 已修正）；焊盘中心 x=3.65/6.45/11.40（上排）、4.93/11.40（下排）从左基准线量（本 spec 原点居中，x 已平移 -6.0）。本体顶视 12.00x6.00，左 -1.04 插头套凸出无焊盘未建。首跑 Place_Bound 浮点贴边 FAIL，外扩 1.85→1.90 修复。｜底面钢网 BPM=焊盘尺寸：金标准家族例外（库 25/26 底面无），spec 显式声明 paste_bottom 覆盖。",
   "fingerprint": {
     "mount": "tht",
     "pin_count": 5,
@@ -39,7 +39,8 @@
         ],
         "drill_type": "OVAL_SLOT",
         "plated": true
-      }
+      },
+      "paste_bottom": true
     },
     "extra_padstacks": [
       {
@@ -52,7 +53,8 @@
           ],
           "drill_type": "OVAL_SLOT",
           "plated": true
-        }
+        },
+        "paste_bottom": true
       }
     ],
     "pins_override": [
@@ -105,6 +107,7 @@
         ]
       ]
     },
-    "symbol_name": "NB_LYDPJ_5P_12X6"
+    "symbol_name": "NB_LYDPJ_5P_12X6",
+    "paste_bottom": true
   }
 }

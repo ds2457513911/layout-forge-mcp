@@ -304,11 +304,16 @@ def smoke_test(project_root: Path) -> bool:
         if isinstance(tools, (dict, list, tuple)):
             count = len(tools)
 
+    # 当前版本的期望值（2026-10-13：31 → 34，新增读规格书三件套）
+    EXPECTED_TOOLS = 34
+
     if count:
-        log(f"MCP 工具总数：{count}（当前版本期望 28）", "OK")
-        if count != 28:
-            log("  数字对不上多半是仓库版本旧，不是装坏了；", "WARN")
+        log(f"MCP 工具总数：{count}（当前版本期望 {EXPECTED_TOOLS}）", "OK")
+        if count < EXPECTED_TOOLS:
+            log(f"  少了 {EXPECTED_TOOLS - count} 个，多半是仓库版本旧，不是装坏了；", "WARN")
             log("  到仓库根 git pull 拉最新代码后重连客户端。", "WARN")
+        elif count > EXPECTED_TOOLS:
+            log("  比期望多 —— 可能是你本地加了新工具，更新本脚本的 EXPECTED_TOOLS。", "WARN")
     else:
         log("读不到工具总数（不阻塞部署，请重连客户端后自行确认）。", "WARN")
 
@@ -399,7 +404,7 @@ def main() -> int:
     hr("收尾")
     print("  下一步：")
     print("    1. 完全退出并重启你的 Agent 客户端（MCP 是长驻进程，必须重启才加载）")
-    print("    2. 客户端里确认 layout-forge-mcp 已连接，工具数为 28")
+    print("    2. 客户端里确认 layout-forge-mcp 已连接，工具数为 34")
     print("    3. 启动 Allegro PCB Editor，命令行执行 netstat -ano | findstr 7777")
     print("       有 LISTENING 说明 SkillBridge 通道已通")
     print()

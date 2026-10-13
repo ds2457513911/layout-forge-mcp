@@ -51,6 +51,17 @@
         "POB1D5X0D5HOB2D1X1D1",
         "POB1D7X0D5HOB2D3X1D1"
       ]
+    },
+    {
+      "rule_id": "2.10",
+      "issue": "compare_extracta 首跑抓到两处残余差异：① internal_pad_def 缺失——API 层名必须传 DEFAULT_INTERNAL（db 视图名 internal_pad_def），传视图名被 no_check 静默忽略；② 底面钢网 BPM——本件金标准（LYDPJ/audio 族）自带 BPM=焊盘尺寸，恰是约定库 paste_bottom_present 1/26 的唯一例外，「底面无」的通用裁定对该族不成立",
+      "verdict": "convention",
+      "reason": "TESTPB 实验：PASTEMASK_BOTTOM 层名合法可建；DEFAULT_INTERNAL → db internal_pad_def 成功。家族例外走 spec 显式声明 paste_bottom=true，引擎放行 + 2.10 WARN 提示，不静默",
+      "affected": 2,
+      "examples": [
+        "POB1D5X0D5HOB2D1X1D1",
+        "POB1D7X0D5HOB2D3X1D1"
+      ]
     }
   ],
   "lessons": [
@@ -58,7 +69,8 @@
     "oblong 孔 drill figure = OBLONG_Y（本地竖向），'OBLONG 非法且静默零化；横槽靠 pin 旋转 90° 实现",
     "axlDBCreatePadStack(no_check=t) 对非法字段静默降级已三次实锤（丢 drill→丢 figure→零化），任何 padstack 创建后必须 extracta 回读验证",
     "异形孔 drill 三件套：?holeType + ?drillDiameter(槽宽) + ?figure/?figureSize——缺 ?drillDiameter 也静默零化（第三次实锤）",
-    "oblong 槽孔 holeType 必须 OVAL_SLOT（OBLONG_DRILL 非法→静默回落 CIRCLE_DRILL/Thru Pin）；slotSize=(X宽 Y长) 本地帧，反序变横槽；extracta DRILL 行 holeType 列必须进对拍清单"
+    "oblong 槽孔 holeType 必须 OVAL_SLOT（OBLONG_DRILL 非法→静默回落 CIRCLE_DRILL/Thru Pin）；slotSize=(X宽 Y长) 本地帧，反序变横槽；extracta DRILL 行 holeType 列必须进对拍清单",
+    "API 层名 DEFAULT_INTERNAL（视图名 internal_pad_def）；pad 层 figure 名被 API 按尺寸方向自动改写（OBLONG_X+竖→OBLONG_Y），金标准 Editor 手工路径才保留 OBLONG_X——此列差异验收时单独向工程师说明；家族例外（BPM）须 spec 显式声明 paste_bottom"
   ],
   "verdict": "real_defect_rule_gap"
 }

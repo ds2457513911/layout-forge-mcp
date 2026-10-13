@@ -1,6 +1,6 @@
 # services/ —— 生成侧核心（编译器 + 执行器 + 读取层）
 
-> 最后更新：2026-09-30
+> 最后更新：2026-10-13（`pdf_service.py` 新增读规格书三件套）
 
 ## 这个目录是干什么的
 
@@ -35,7 +35,7 @@
 | `report_renderer.py` | 把检查结果渲染成报告 | 只读输入，不写 `.dra` |
 | `cdsroot_locator.py` | 定位 Cadence `CDSROOT` / `extracta.exe` | extracta 与 Allegro 都要它 |
 | `allegro_service.py` | Allegro 进程/环境相关小服务 | — |
-| `pdf_locate.py` / `pdf_renderer.py` / `pdf_service.py` | 规格书 PDF 定位 / 渲染 / 解析入口 | 给"读图纸"阶段用 |
+| `pdf_locate.py` / `pdf_renderer.py` / `pdf_service.py` | 规格书 PDF 定位 / 渲染 / 解析入口。★ `pdf_service.py` 另有**读规格书三件套**（2026-10-13）：`probe_pdf`（判形态）/ `render_region`（区域高 dpi 重渲染）/ `measure_region`（矢量量距交叉校验） | 给"读图纸"阶段用；三件套均为**纯读**、try/except 返回 `ok:false`、绝不 raise |
 | `__init__.py` | 包标记 | — |
 
 ## 关键约定与坑
@@ -53,6 +53,14 @@
 5. **`axlSaveDesign` / `create symbol` 写的是 Allegro 工作目录**，不是 `.dra` 所在目录。
    `getWorkingDir()` 读、`axlShell("cd <dir>")` 改（唯一方法）。
 6. **位号默认口径**（2026-09-30）：`#REF` @ `REF DES/ASSEMBLY_TOP`、居中于本体、LEFT 对齐。
+7. **★ PDF 坐标系陷阱**（2026-10-13 实测）：`page.get_pixmap(clip=...)` 吃**显示坐标**
+   （含 rotation，与 `page.rect` 同系），而 `page.get_drawings()` 返回**未旋转坐标**
+   （与 `mediabox` 同系）。旋转页（LYDPJ：rotation=270，显示 842×595 vs mediabox 595×842）
+   不做转换 → 几何量距与任何图元都不相交（实测 `n_in_rect = 0`）。
+   `measure_region` 已用 `derotation_matrix` / `rotation_matrix` 转换，**对外统一显示坐标**。
+8. **★ 不要动 `pdf_renderer.DEFAULT_PYMUPDF_DPI`（150）** —— 它是 `render_pdf_page` /
+   `datasheet://` resource 的整页渲染默认值，改它会波及所有既有渲染与缓存。
+   要高 dpi 请用 `render_region(dpi=...)`（参数级，上限 1200）。
 
 ## 相关目录
 
