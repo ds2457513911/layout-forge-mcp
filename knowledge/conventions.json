@@ -1,6 +1,6 @@
 {
   "schema": "layout-forge-conventions/1",
-  "mined_at": "2026-10-13 16:39:33",
+  "mined_at": "2026-10-13 17:19:34",
   "corpus": {
     "root": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\PCB_Footprint",
     "dra_count": 253,
@@ -150,12 +150,6 @@
         "nonempty": 3894,
         "example": "v",
         "exempt_reason": "VIAFLAG 标志位"
-      },
-      {
-        "column": "r12",
-        "nonempty": 106,
-        "example": "JOPEN25X30_S-L-P",
-        "exempt_reason": "PADSHAPENAME flash 型焊盘引用名（语料 106 行有值；不建模 flash 焊盘，显式豁免待后续裁定）"
       },
       {
         "column": "r13",

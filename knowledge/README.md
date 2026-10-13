@@ -1,6 +1,6 @@
 # knowledge/ —— 项目知识库（会越用越厚的部分）
 
-> 最后更新：2026-10-13（conventions.json 增列守卫块 column_guard + drillChar 聚合；engine 缓存 mtime 失效）
+> 最后更新：2026-10-13（SHAPE 型焊盘建模：PADSHAPENAME 透传 → checker 0.2 显名；PADFLASH 全语料 0 行；builder spec 未知键守卫）
 
 ## 这个目录是干什么的
 
@@ -17,6 +17,11 @@
   ★ **列守卫**（2026-10-13）：`column_guard` 块记录 pads.txt 27 列普查结果，
   "未消费且未豁免"的非空列必须显名——新字段/schema 漂移不可能静默丢失；
   `th_*.drill_char` 为 report-only（设计级钻头表字符，随图纸变，不强制）。
+  ★ **SHAPE 型焊盘**（2026-10-13 建模裁定）：LAYER 行 PADSHAPENAME（r12）
+  非 0 = 自绘轮廓焊盘（语料 106 行/38 个 padstack，如 JOPEN25X30_S-L-P），
+  reader 透传 `shape_name` → miner facts → checker **0.2 WARN** 显名
+  （轮廓几何 extracta 不给顶点，形状类目测须人工复核）；真 flash 引用
+  （PADFLASH r11）全语料 **0 行**。
 - **specs/** —— 参数层：每颗料解析出的 spec（喂 `solve_footprint_geometry` 复用，同封装零读图）。用法见 `specs/README.md` 与 `services/spec_library.py`。
 - **cases/** —— 经验层：每次检测的**人工裁定**沉淀（指纹 + 报告摘要 + findings + lessons）。检查前 `find_case` 按几何指纹召回同封装/同族案例做预警——裁定一次、全族受益。代码在 `services/case_library.py`。
 - **rules/** —— 阈值层：`rule_checker` 的阈值外置真源（`checker_rules.json`）。**改数字立即生效，不用重启 MCP**；判定逻辑（怎么比）仍在 `services/rule_checker.py`，改逻辑必须改代码。

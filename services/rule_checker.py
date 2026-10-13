@@ -1413,6 +1413,46 @@ def check_spec_unconsumed(theoretical: Optional[Dict]) -> List[Dict]:
     return items
 
 
+def check_shape_pads(footprint_data: Dict) -> List[Dict]:
+    """0.2 SHAPE 自定义轮廓焊盘显名（2026-10-13 建模裁定）。
+
+    figure='SHAPE' = 自绘轮廓焊盘（语料 106 行，如 JOPEN25X30_S-L-P）：
+    extracta 只给包围盒尺寸，轮廓几何在 shape symbol 里、本工具不建模。
+    2.x 尺寸/间距规则按包围盒近似仍然成立，但形状类目测项（轮廓与
+    规格书一致性等）必须人工复核——显名，不做无声近似。
+    """
+    if not isinstance(footprint_data, dict):
+        return []
+    hits: List[str] = []
+    seen = set()
+    for pin in footprint_data.get("pins") or []:
+        if not isinstance(pin, dict):
+            continue
+        for pd in pin.get("pads") or []:
+            if not isinstance(pd, dict):
+                continue
+            if (pd.get("figure_name") or "").strip().upper() != "SHAPE":
+                continue
+            sn = pd.get("shape_name") or ""
+            key = (pin.get("number"), sn)
+            if key in seen:
+                continue
+            seen.add(key)
+            hits.append(f"pin{pin.get('number')}:{sn}" if sn
+                        else f"pin{pin.get('number')}:（无 PADSHAPENAME）")
+    if not hits:
+        return []
+    shown = ", ".join(hits[:8]) + ("…" if len(hits) > 8 else "")
+    return [_item(
+        "0.2", "SHAPE 自定义轮廓焊盘", "WARN",
+        value=shown,
+        detail=f"{len(hits)} 处焊盘为自绘轮廓（extracta 仅给包围盒，"
+               f"轮廓几何未建模），形状相关目测项需人工复核",
+        expected="显名并人工复核",
+        source=None,
+    )]
+
+
 def run_numeric_checks(
     footprint_data: Dict,
     theoretical: Optional[Dict] = None,
@@ -1441,6 +1481,7 @@ def run_numeric_checks(
 
     all_items: List[Dict] = []
     all_items += check_spec_unconsumed(theoretical)
+    all_items += check_shape_pads(footprint_data)
     all_items += check_naming(footprint_data, rules)
     all_items += check_pad_size(footprint_data, theoretical, rules)
     all_items += check_pitch(footprint_data, theoretical, rules)

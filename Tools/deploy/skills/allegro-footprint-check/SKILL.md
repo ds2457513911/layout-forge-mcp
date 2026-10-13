@@ -357,6 +357,14 @@ schema 没有字段承载的约束（如安装扭矩、平面度、非常规公�
 检查器把每条作为 WARN 打进报告（0.1 spec 守卫）供工程师裁定——
 忽略可以，忽略而不告诉你不行。没有就留空数组。
 
+**★ SHAPE 型焊盘（0.2 显名，2026-10-13 建模）**：读图或 extracta 里
+`figure_name='SHAPE'` 的焊盘是**自绘轮廓**（如开口焊盘
+JOPEN25X30_S-L-P），工具只拿得到包围盒、轮廓几何未建模——检查器
+自动出 0.2 WARN，报告解读时这类件的形状类目测项（轮廓与规格书
+一致性）必须提示人工复核，不得宣称"形状已验证"。喂
+`solve_footprint_geometry` 的 spec 也不接受未知键（builder 未知键
+守卫会 WARN 显名）。
+
 ### 第 4 步：提取 .dra 原始数据（供语义检查用）
 
 调用 `read_full_footprint(dra_file_path=<dra>, pad_file_paths=<pads>)`。

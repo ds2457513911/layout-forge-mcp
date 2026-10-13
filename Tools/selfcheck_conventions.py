@@ -117,6 +117,19 @@ def section_a(r: R) -> None:
                 "A12 NPTH 行 drill_diameter=3.0 / plated=N 透传",
                 f"实际 dia={n.get('drill_diameter')} plated={n.get('plated')!r}")
 
+    # A13 SHAPE 型焊盘（2026-10-13 建模裁定）：PADSHAPENAME（官方列 r12 /
+    # 解析后 r[11]）必须透传——SHAPE 焊盘轮廓几何 extracta 不给顶点，
+    # shape_name 是唯一可辨识特征，checker 0.2 显名与 miner facts 依赖它。
+    shape_entries = [pd for entries in pads.values() for pd in entries
+                     if pd.get("shape_name")]
+    r.check(bool(shape_entries), "A13 SHAPE 型焊盘 shape_name 透传",
+            "PADSHAPENAME 列被丢弃，0.2 显名规则与挖掘 facts 将失效")
+    if shape_entries:
+        r.check(shape_entries[0].get("shape_name") == "JOPEN25X30_S-L-P"
+                and shape_entries[0].get("figure_name", "").upper() == "SHAPE",
+                "A13b shape_name=JOPEN25X30_S-L-P 且 figure=SHAPE",
+                f"实际={shape_entries[0]!r:.200}")
+
     # 透传断言：pin pads 组装（pads_attached）必须把 hole_type 带出去。
     # pads_attached 内嵌在 read_via_extracta（需 Allegro，不可离线跑），
     # 这里用源码契约断言兜底：组装处必须显式透传 hole_type。
@@ -127,6 +140,21 @@ def section_a(r: R) -> None:
             "pads_attached 构造里丢了透传，2.7c 将查不到字段")
     r.check('"hole_type"' in src and "r[19]" in src,
             "A7 解析器提取 holeType 列（r[19]）")
+    # 2026-10-13 SHAPE 建模：组装处透传 + checker 0.2 消费点 + builder 守卫
+    r.check('"shape_name": pd["shape_name"]' in src,
+            "A14 read_via_extracta 组装处透传 shape_name",
+            "pads_attached 构造丢了透传，0.2 将查不到字段")
+    checker_src = open(os.path.join(_ROOT, "services", "rule_checker.py"),
+                       encoding="utf-8").read()
+    r.check("def check_shape_pads" in checker_src
+            and "check_shape_pads(footprint_data)" in checker_src,
+            "A15 checker 0.2 SHAPE 显名规则已接线",
+            "SHAPE 焊盘将回到静默近似")
+    gs_src = open(os.path.join(_ROOT, "services", "geometry_solver.py"),
+                  encoding="utf-8").read()
+    r.check("guard_spec_keys(spec)" in gs_src and "SPEC_KNOWN_KEYS" in gs_src,
+            "A16 builder spec 未知键守卫已接线",
+            "spec 未知键回到静默丢弃")
 
 
 # ============================================================

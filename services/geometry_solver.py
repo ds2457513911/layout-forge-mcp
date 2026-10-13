@@ -1286,6 +1286,53 @@ def solve_refdes(
 # ============================================================
 # 7. 总入口
 # ============================================================
+# ★ spec 顶层键面白名单（2026-10-13 未知键守卫）：solver + convention_engine
+#   消费的全部键 + 工具层信息键。新增消费点时必须同步本清单——
+#   守卫哲学与 pads.txt 列守卫/spec 守卫一致：忽略可以，忽略而不告诉你不行。
+SPEC_KNOWN_KEYS = frozenset({
+    # ---- 符号 / 命名 ----
+    "symbol_base", "symbol_name", "symbol_name_hint", "suffix",
+    "component_type", "pin_count",
+    # ---- 尺寸来源口径（resolve_all_dims）----
+    "dim_source", "dim_sources", "dim_tables", "dim_tols",
+    "use_max_for_geometry",
+    # ---- 焊盘 / 阵列 / 孔 ----
+    "pad", "array", "pitch", "drill_diameter", "mount",
+    "pins_override", "pin_names",            # pin_names 仅记录（tools.py 写入）
+    # ---- TH 约定引擎（apply_conventions）----
+    "padstack", "paste_bottom", "extra_padstacks",
+    # ---- 轮廓 ----
+    "body", "body_center", "body_max", "body_tol",
+    "place_bound_expand_mm",
+    "pin1_corner", "pin1_mark", "pin1_mark_axis", "pin1_mark_center",
+    "pin1_mark_clearance", "pin1_mark_height", "pin1_mark_layers",
+    "pin1_mark_width",
+    # ---- 丝印 ----
+    "silk_style", "silk_width", "silk_pad_clearance",
+    "silk_min_clearance", "silk_min_seg_len",
+    # ---- 位号 ----
+    "refdes_place", "refdes_text", "refdes_x", "refdes_y",
+    "refdes_dx", "refdes_dy", "refdes_gap", "refdes_justify",
+    "refdes_side", "refdes_targets", "refdes_text_block",
+    "refdes_text_height",
+})
+
+
+def guard_spec_keys(spec: Dict[str, Any]) -> List[str]:
+    """spec 未知键守卫：返回 warnings（每批未知键一条 WARN 文案）。
+
+    下划线前缀键（_resolved 等内部键）不告警。
+    """
+    unknown = sorted(
+        k for k in spec
+        if k not in SPEC_KNOWN_KEYS and not str(k).startswith("_")
+    )
+    if not unknown:
+        return []
+    return [f"spec 含 {len(unknown)} 个未消费键（本工具不认识、已忽略，"
+            f"若为规格书约束请人工裁定）: {', '.join(unknown)}"]
+
+
 def solve(
     spec: Dict[str, Any], rules: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -1309,6 +1356,7 @@ def solve(
     rules = rules or DEFAULT_RULES
     deriv: List[Dict[str, Any]] = []
     warnings: List[str] = []
+    warnings += guard_spec_keys(spec)     # ★ 未知键显名（不阻断）
 
     # ---- 0) ★ 尺寸来源口径：先一次性解析「规格书来源」的尺寸 ----
     #   用户口径（2026-09-29）：

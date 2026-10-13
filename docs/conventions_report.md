@@ -1,6 +1,6 @@
 # 构造规约挖掘报告（第 0 层）
 
-- 挖掘时间：2026-10-13 16:39:33
+- 挖掘时间：2026-10-13 17:19:34
 - 语料库：`C:\Users\ds245\Documents\Work_Bmorn\Layout\Data\PCB_Footprint`（253 件 .dra，失败 0）
 - 机器真源：`knowledge/conventions.json`；逐件事实：`Tools/log/conventions_padstacks.json`
 
@@ -81,7 +81,6 @@
 - `r2` 非空×4592 —— 记录序号
 - `r4` 非空×4592 —— FIXFLAG 标志位
 - `r5` 非空×3894 —— VIAFLAG 标志位
-- `r12` 非空×106 —— PADSHAPENAME flash 型焊盘引用名（语料 106 行有值；不建模 flash 焊盘，显式豁免待后续裁定）
 - `r13` 非空×66 —— TRELSHAPE1 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）
 - `r14` 非空×1435 —— TRELWIDTH 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）
 - `r15` 非空×1435 —— TRELHGHT 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）

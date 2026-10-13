@@ -128,6 +128,7 @@ def read_padstacks(dra: Path, exe: Path, cdsroot: Path, view: Path):
         #   留档后补收任何字段可离线重算（--reaggregate），列守卫也吃这份。
         RAW_DUMP_DIR.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(outs[1], RAW_DUMP_DIR / f"{dra.stem}.pads.txt")
+        shutil.copyfile(outs[0], RAW_DUMP_DIR / f"{dra.stem}.pins.txt")
         header = _read_extracta_header(outs[0])
         pins = _parse_pins_file(outs[0])
         pads_by_name = _parse_pads_file(outs[1])
@@ -137,7 +138,8 @@ def read_padstacks(dra: Path, exe: Path, cdsroot: Path, view: Path):
     scale = MIL2MM if header.get("units") == "mil" else 1.0
     padstacks: dict = {}
     for name, entries in pads_by_name.items():
-        ps = {"rows": {}, "drill": None, "plated": "", "slot_type": ""}
+        ps = {"rows": {}, "drill": None, "plated": "", "slot_type": "",
+              "shape_names": {}}
         for e in entries:
             if e["layer"] == "DRILL":
                 fig_w, fig_h = e["size"]    # DRILL 行 size 语义 = figureSize [W,H]
@@ -153,6 +155,9 @@ def read_padstacks(dra: Path, exe: Path, cdsroot: Path, view: Path):
                 continue
             ps["rows"][e["layer"]] = (e["figure_name"],
                                       e["size"][0] * scale, e["size"][1] * scale)
+            # SHAPE 型焊盘的轮廓定义名（PADSHAPENAME，语料 106 行）
+            if e.get("shape_name"):
+                ps["shape_names"][e["layer"]] = e["shape_name"]
 
         # mount 判定：有实义 drill（任一尺寸>0 或 槽型≠NONE）→ TH。
         # ★ reader 跳过零尺寸行：全零 DRILL（静默零化产物）不会进 drill，
@@ -261,15 +266,15 @@ def naming_match_th(f) -> str:
 #   r21~r26 APAD*(负片隔离盘)
 # ------------------------------------------------------------------
 GUARD_CONSUMED = {
-    "LAYER": {"r1", "r3", "r6", "r7", "r8", "r9", "r10"},
+    # r11 PADFLASH / r12 PADSHAPENAME 2026-10-13 建模（reader 透传
+    # pad_flash/shape_name → miner facts.shape_name → checker 0.2）
+    "LAYER": {"r1", "r3", "r6", "r7", "r8", "r9", "r10", "r11", "r12"},
     "DRILL": {"r1", "r3", "r6", "r7", "r8", "r11", "r12", "r13", "r20"},
 }
 _GUARD_TREL = "负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
 GUARD_EXEMPT = {
     "LAYER": {
         "r0": "行标记", "r2": "记录序号", "r4": "FIXFLAG 标志位", "r5": "VIAFLAG 标志位",
-        "r11": "PADFLASH flash 型焊盘引用标志（当前消费链不建模 flash 焊盘，显式豁免）",
-        "r12": "PADSHAPENAME flash 型焊盘引用名（语料 106 行有值；不建模 flash 焊盘，显式豁免待后续裁定）",
         "r13": "TRELSHAPE1 " + _GUARD_TREL, "r14": "TRELWIDTH " + _GUARD_TREL,
         "r15": "TRELHGHT " + _GUARD_TREL, "r16": "TRELXOFF " + _GUARD_TREL,
         "r17": "TRELYOFF " + _GUARD_TREL, "r18": "TRELFLASH " + _GUARD_TREL,
@@ -564,6 +569,7 @@ def main() -> int:
                 "hole_diameter": round(drill["diameter"], 4) if drill else None,
                 "drill_char": drill.get("drill_char", "") if drill else "",
                 "plated": ps["plated"],
+                "shape_name": ps["shape_names"].get("ETCH/TOP", ""),
                 "mask_w": round(tsm[1], 4) if tsm else None,
                 "mask_h": round(tsm[2], 4) if tsm else None,
                 "paste_top": (round(tpm[1], 4), round(tpm[2], 4)) if tpm else None,

@@ -294,6 +294,18 @@ def _parse_pads_file(path: Path) -> Dict[str, List[Dict[str, Any]]]:
             "size": [w, h],
             "offset": [xoff or 0.0, yoff or 0.0],
         }
+        # ★ PADFLASH / PADSHAPENAME 透传（2026-10-13 建模裁定）：
+        #   PADFLASH 非 0 = flash 型焊盘（全语料 0 行，透传备查）；
+        #   PADSHAPENAME 非 0 = SHAPE 型焊盘（figure 名为 'SHAPE' 的自绘
+        #   轮廓，语料 106 行，如 JOPEN25X30_S-L-P）——轮廓几何在 shape
+        #   symbol 里 extracta 不给顶点，shape_name 是唯一可辨识特征，
+        #   检查规则靠它把"自定义轮廓焊盘"与标准 figure 焊盘区分开。
+        pad_flash = r[10] if len(r) > 10 else ""
+        shape_name = r[11] if len(r) > 11 else ""
+        if pad_flash.strip():
+            entry["pad_flash"] = pad_flash.strip()
+        if shape_name.strip():
+            entry["shape_name"] = shape_name.strip()
         pads_by_name.setdefault(pad_name, []).append(entry)
 
     return pads_by_name
@@ -676,6 +688,10 @@ def read_via_extracta(dra_path: str) -> Dict[str, Any]:
                     # 2.7c 校验 oblong 槽孔必须 OVAL SLOT（2026-10-13）
                     **({"hole_type": pd["hole_type"]}
                        if pd.get("hole_type") else {}),
+                    # SHAPE 型焊盘的轮廓定义名（2026-10-13 建模）：
+                    # 0.2 显名规则与人工复核定位依赖
+                    **({"shape_name": pd["shape_name"]}
+                       if pd.get("shape_name") else {}),
                 })
                 # ★ pin bbox 用**铜箔（ETCH/TOP）**尺寸 —— 阻焊/钢网比铜箔大，
                 #   拿它们推 bbox 会把焊盘虚胖，3.3 重叠检查成片假 FAIL
