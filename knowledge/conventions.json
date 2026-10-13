@@ -1,6 +1,6 @@
 {
   "schema": "layout-forge-conventions/1",
-  "mined_at": "2026-10-13 10:31:08",
+  "mined_at": "2026-10-13 16:39:33",
   "corpus": {
     "root": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\PCB_Footprint",
     "dra_count": 253,
@@ -69,25 +69,176 @@
       }
     }
   },
+  "column_guard": {
+    "files": 253,
+    "unconsumed_unexempt": [],
+    "exempt_nonempty": [
+      {
+        "column": "r0",
+        "nonempty": 451,
+        "example": "S",
+        "exempt_reason": "行标记"
+      },
+      {
+        "column": "r2",
+        "nonempty": 451,
+        "example": "00011",
+        "exempt_reason": "记录序号"
+      },
+      {
+        "column": "r4",
+        "nonempty": 451,
+        "example": "o",
+        "exempt_reason": "FIXFLAG 标志位"
+      },
+      {
+        "column": "r5",
+        "nonempty": 384,
+        "example": "v",
+        "exempt_reason": "VIAFLAG 标志位"
+      },
+      {
+        "column": "r9",
+        "nonempty": 451,
+        "example": "0.00",
+        "exempt_reason": "XOFF（drill 行恒 0）"
+      },
+      {
+        "column": "r10",
+        "nonempty": 451,
+        "example": "0.00",
+        "exempt_reason": "YOFF（drill 行恒 0）"
+      },
+      {
+        "column": "r14",
+        "nonempty": 451,
+        "example": "n",
+        "exempt_reason": "TRELWIDTH 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+      },
+      {
+        "column": "r22",
+        "nonempty": 451,
+        "example": "0.00",
+        "exempt_reason": "APADHGHT 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+      },
+      {
+        "column": "r23",
+        "nonempty": 451,
+        "example": "0.00",
+        "exempt_reason": "APADXOFF 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+      },
+      {
+        "column": "r0",
+        "nonempty": 4592,
+        "example": "S",
+        "exempt_reason": "行标记"
+      },
+      {
+        "column": "r2",
+        "nonempty": 4592,
+        "example": "00001",
+        "exempt_reason": "记录序号"
+      },
+      {
+        "column": "r4",
+        "nonempty": 4592,
+        "example": "o",
+        "exempt_reason": "FIXFLAG 标志位"
+      },
+      {
+        "column": "r5",
+        "nonempty": 3894,
+        "example": "v",
+        "exempt_reason": "VIAFLAG 标志位"
+      },
+      {
+        "column": "r12",
+        "nonempty": 106,
+        "example": "JOPEN25X30_S-L-P",
+        "exempt_reason": "PADSHAPENAME flash 型焊盘引用名（语料 106 行有值；不建模 flash 焊盘，显式豁免待后续裁定）"
+      },
+      {
+        "column": "r13",
+        "nonempty": 66,
+        "example": "OBLONG_Y",
+        "exempt_reason": "TRELSHAPE1 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+      },
+      {
+        "column": "r14",
+        "nonempty": 1435,
+        "example": "0.00",
+        "exempt_reason": "TRELWIDTH 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+      },
+      {
+        "column": "r15",
+        "nonempty": 1435,
+        "example": "0.00",
+        "exempt_reason": "TRELHGHT 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+      },
+      {
+        "column": "r16",
+        "nonempty": 1435,
+        "example": "0.00",
+        "exempt_reason": "TRELXOFF 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+      },
+      {
+        "column": "r17",
+        "nonempty": 1435,
+        "example": "0.00",
+        "exempt_reason": "TRELYOFF 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+      },
+      {
+        "column": "r20",
+        "nonempty": 72,
+        "example": "OBLONG_Y",
+        "exempt_reason": "APADSHAPE1 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+      },
+      {
+        "column": "r21",
+        "nonempty": 1435,
+        "example": "0.00",
+        "exempt_reason": "APADWIDTH 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+      },
+      {
+        "column": "r22",
+        "nonempty": 1435,
+        "example": "0.00",
+        "exempt_reason": "APADHGHT 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+      },
+      {
+        "column": "r23",
+        "nonempty": 1435,
+        "example": "0.00",
+        "exempt_reason": "APADXOFF 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+      },
+      {
+        "column": "r24",
+        "nonempty": 1435,
+        "example": "0.00",
+        "exempt_reason": "APADYOFF 负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+      }
+    ],
+    "header_drift": []
+  },
   "conventions": {
     "smd": {
       "sample_count": 384,
       "used_count": 359,
       "layers": [
         [
-          "TOP+~TPM+~TSM",
+          "ETCH/TOP+PIN/PASTEMASK_TOP+PIN/SOLDERMASK_TOP",
           344
         ],
         [
-          "TOP+~TSM",
+          "ETCH/TOP+PIN/SOLDERMASK_TOP",
           11
         ],
         [
-          "TOP+~TFM+~TSM",
+          "ETCH/TOP+PIN/FILMMASK_TOP+PIN/SOLDERMASK_TOP",
           3
         ],
         [
-          "TOP",
+          "ETCH/TOP",
           1
         ]
       ],
@@ -105,12 +256,8 @@
       ],
       "plated": [
         [
-          "P",
-          187
-        ],
-        [
-          "N",
-          172
+          "",
+          359
         ]
       ]
     },
@@ -119,31 +266,31 @@
       "used_count": 12,
       "layers": [
         [
-          "BOTTOM+TOP+internal_pad_def+~BSM+~TPM+~TSM+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+PIN/PASTEMASK_TOP+PIN/SOLDERMASK_BOTTOM+PIN/SOLDERMASK_TOP+internal_pad_def+DRILL",
           5
         ],
         [
-          "BOTTOM+TOP+internal_pad_def+~BSM+~TSM+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+PIN/SOLDERMASK_BOTTOM+PIN/SOLDERMASK_TOP+internal_pad_def+DRILL",
           2
         ],
         [
-          "BOTTOM+TOP+internal_pad_def+~BPM+~BSM+~TPM+~TSM+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+PIN/PASTEMASK_BOTTOM+PIN/PASTEMASK_TOP+PIN/SOLDERMASK_BOTTOM+PIN/SOLDERMASK_TOP+internal_pad_def+DRILL",
           1
         ],
         [
-          "BOTTOM+GND+TOP+VCC+internal_pad_def+~BSM+~TSM+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+GND+PIN/SOLDERMASK_BOTTOM+PIN/SOLDERMASK_TOP+VCC+internal_pad_def+DRILL",
           1
         ],
         [
-          "BOTTOM+GND+TOP+VCC+internal_pad_def+~BPM+~BSM+~TPM+~TSM+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+GND+PIN/PASTEMASK_BOTTOM+PIN/PASTEMASK_TOP+PIN/SOLDERMASK_BOTTOM+PIN/SOLDERMASK_TOP+VCC+internal_pad_def+DRILL",
           1
         ],
         [
-          "BOTTOM+TOP+internal_pad_def+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+internal_pad_def+DRILL",
           1
         ],
         [
-          "BOTTOM+L10+L11GND+L2GND+L3_VAL+L4_VAL+L5GND+L6DEBUG+L7DEBUG+L8GND+L9+TOP+internal_pad_def+~BSM+~TSM+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+L10+L11GND+L2GND+L3_VAL+L4_VAL+L5GND+L6DEBUG+L7DEBUG+L8GND+L9+PIN/SOLDERMASK_BOTTOM+PIN/SOLDERMASK_TOP+internal_pad_def+DRILL",
           1
         ]
       ],
@@ -257,16 +404,42 @@
           2
         ]
       ],
+      "drill_char": [
+        [
+          "",
+          6
+        ],
+        [
+          "E",
+          2
+        ],
+        [
+          "H",
+          1
+        ],
+        [
+          "U",
+          1
+        ],
+        [
+          "L",
+          1
+        ],
+        [
+          "NA",
+          1
+        ]
+      ],
       "paste_top_size_eq_pad": 7,
       "paste_top_present": 7,
       "paste_bottom_present": 2,
       "rotation": [
         [
-          "0",
+          0,
           59
         ],
         [
-          "90",
+          90,
           1
         ]
       ],
@@ -286,15 +459,15 @@
       "used_count": 26,
       "layers": [
         [
-          "BOTTOM+TOP+internal_pad_def+~BSM+~TPM+~TSM+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+PIN/PASTEMASK_TOP+PIN/SOLDERMASK_BOTTOM+PIN/SOLDERMASK_TOP+internal_pad_def+DRILL",
           22
         ],
         [
-          "BOTTOM+TOP+internal_pad_def+~BSM+~TSM+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+PIN/SOLDERMASK_BOTTOM+PIN/SOLDERMASK_TOP+internal_pad_def+DRILL",
           3
         ],
         [
-          "BOTTOM+TOP+internal_pad_def+~BPM+~BSM+~TPM+~TSM+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+PIN/PASTEMASK_BOTTOM+PIN/PASTEMASK_TOP+PIN/SOLDERMASK_BOTTOM+PIN/SOLDERMASK_TOP+internal_pad_def+DRILL",
           1
         ]
       ],
@@ -412,16 +585,62 @@
           1
         ]
       ],
+      "drill_char": [
+        [
+          "",
+          7
+        ],
+        [
+          "OE",
+          5
+        ],
+        [
+          "if",
+          4
+        ],
+        [
+          "OJ",
+          2
+        ],
+        [
+          "%",
+          2
+        ],
+        [
+          "OA",
+          1
+        ],
+        [
+          "A",
+          1
+        ],
+        [
+          "^",
+          1
+        ],
+        [
+          "~",
+          1
+        ],
+        [
+          "Z",
+          1
+        ],
+        [
+          "H",
+          1
+        ]
+      ],
       "paste_top_size_eq_pad": 23,
       "paste_top_present": 23,
       "paste_bottom_present": 1,
       "rotation": [
         [
-          "0",
+          0,
           53
         ],
         [
-          "90",
+          90,
           7
         ]
       ],
@@ -441,19 +660,19 @@
       "used_count": 18,
       "layers": [
         [
-          "BOTTOM+TOP+internal_pad_def+~BSM+~TSM+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+PIN/SOLDERMASK_BOTTOM+PIN/SOLDERMASK_TOP+internal_pad_def+DRILL",
           13
         ],
         [
-          "BOTTOM+TOP+internal_pad_def+~BSM+~TPM+~TSM+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+PIN/PASTEMASK_TOP+PIN/SOLDERMASK_BOTTOM+PIN/SOLDERMASK_TOP+internal_pad_def+DRILL",
           3
         ],
         [
-          "BOTTOM+GND+TOP+VCC+internal_pad_def+~BSM+~TSM+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+GND+PIN/SOLDERMASK_BOTTOM+PIN/SOLDERMASK_TOP+VCC+internal_pad_def+DRILL",
           1
         ],
         [
-          "BOTTOM+L10+L11GND+L2GND+L3_VAL+L4_VAL+L5GND+L6DEBUG+L7DEBUG+L8GND+L9+TOP+internal_pad_def+~BSM+~TSM+~DRILL",
+          "ETCH/BOTTOM+ETCH/TOP+L10+L11GND+L2GND+L3_VAL+L4_VAL+L5GND+L6DEBUG+L7DEBUG+L8GND+L9+PIN/SOLDERMASK_BOTTOM+PIN/SOLDERMASK_TOP+internal_pad_def+DRILL",
           1
         ]
       ],
@@ -663,16 +882,46 @@
           1
         ]
       ],
+      "drill_char": [
+        [
+          "",
+          6
+        ],
+        [
+          "A",
+          4
+        ],
+        [
+          "L",
+          2
+        ],
+        [
+          "G",
+          2
+        ],
+        [
+          "N",
+          2
+        ],
+        [
+          "SE",
+          1
+        ],
+        [
+          "SA",
+          1
+        ]
+      ],
       "paste_top_size_eq_pad": 3,
       "paste_top_present": 3,
       "paste_bottom_present": 0,
       "rotation": [
         [
-          "0",
+          0,
           54
         ],
         [
-          "90",
+          90,
           3
         ]
       ],

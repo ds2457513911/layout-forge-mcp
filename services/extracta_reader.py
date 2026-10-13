@@ -244,6 +244,46 @@ def _parse_pads_file(path: Path) -> Dict[str, List[Dict[str, Any]]]:
         # 层名映射
         layer = _PAD_LAYER_MAP.get(raw_layer, raw_layer)
 
+        # ---- DRILL 行：有效性锚点 = drillDiameter/figureSize 任一 > 0 ----
+        # ★ 不能套用普通行的"双尺寸>0"过滤（2026-10-13 收割回归实锤）：
+        #   NPTH 圆孔（NPC*/_NP 族，语料 4 件：NPC3/NPC6D5/PC2D5HC5D5_NP/
+        #   NPC3D3）figureSize 可全零，只有 drillDiameter 有值——按普通行
+        #   过滤会连孔径一起丢，mount 误判 smd、plated 断供。
+        if raw_layer == "~DRILL":
+            dia = _to_float(r[5], 0.0)
+            fw = _to_float(r[6], 0.0) if len(r) > 6 else 0.0
+            fh = _to_float(r[7], 0.0) if len(r) > 7 else 0.0
+            if dia <= 0 and fw <= 0 and fh <= 0:
+                continue          # 真空 drill 行（SMD padstack 的占位行）
+            # DRILL 行字段与焊盘行不同：
+            #   r[5]=drillDiameter 字符串（非图形名）、r[10]=drill figure、
+            #   r[12]=drillChar、r[19]=holeType（"OVAL SLOT" / "CIRCLE_DRILL"…）。
+            #   entry["size"] 在 DRILL 行语义是 figureSize [W, H]（可为 0）。
+            # ★ holeType 是 2026-10-13 工程师否决 LYDPJ 的第 4 个静默差异：
+            #   OBLONG_DRILL 是非法 holeType，被静默回落成 CIRCLE_DRILL
+            #   （Editor 显示 Thru Pin），必须 OVAL_SLOT 才是槽孔。
+            entry = {
+                "layer": layer,
+                "figure_name": r[10] if len(r) > 10 else "",
+                "size": [fw, fh],
+                "offset": [
+                    _to_float(r[8], 0.0) if len(r) > 8 else 0.0,
+                    _to_float(r[9], 0.0) if len(r) > 9 else 0.0,
+                ],
+            }
+            entry["hole_figure"] = entry["figure_name"]
+            entry["hole_type"] = r[19] if len(r) > 19 else ""
+            entry["drill_char"] = r[12] if len(r) > 12 else ""
+            # ★ drillDiameter 单独透传（2026-10-13）：此前只留在局部 shape 变量里
+            #   被 figure_name 覆盖丢弃，miner 复用本解析时拿不到孔径。
+            entry["drill_diameter"] = dia
+            # ★ plated（P/N）透传（2026-10-13）：DRILL 行该列在 r[11]
+            #   （PADSHAPENAME 位置被挪用），旧 miner 内联解析读的就是它；
+            #   不透传则 miner 切到本解析后 NP/金属化判定断供。
+            entry["plated"] = r[11] if len(r) > 11 else ""
+            pads_by_name.setdefault(pad_name, []).append(entry)
+            continue
+
         # 跳过无尺寸定义（如 internal_pad_def / 空的 BOTTOM）
         if w is None or h is None or w <= 0 or h <= 0:
             continue
@@ -254,17 +294,6 @@ def _parse_pads_file(path: Path) -> Dict[str, List[Dict[str, Any]]]:
             "size": [w, h],
             "offset": [xoff or 0.0, yoff or 0.0],
         }
-        if raw_layer == "~DRILL":
-            # DRILL 行字段与焊盘行不同：
-            #   r[5]=drillDiameter 字符串（非图形名）、r[10]=drill figure、
-            #   r[12]=drillChar、r[19]=holeType（"OVAL SLOT" / "CIRCLE_DRILL"…）。
-            # ★ holeType 是 2026-10-13 工程师否决 LYDPJ 的第 4 个静默差异：
-            #   OBLONG_DRILL 是非法 holeType，被静默回落成 CIRCLE_DRILL
-            #   （Editor 显示 Thru Pin），必须 OVAL_SLOT 才是槽孔。
-            entry["figure_name"] = r[10] if len(r) > 10 else ""
-            entry["hole_figure"] = entry["figure_name"]
-            entry["hole_type"] = r[19] if len(r) > 19 else ""
-            entry["drill_char"] = r[12] if len(r) > 12 else ""
         pads_by_name.setdefault(pad_name, []).append(entry)
 
     return pads_by_name

@@ -11,25 +11,34 @@ Tools/mine_conventions.py —— 第 0 层：构造规约收割器（2026-10-13�
 
 方法（确定性，0 AI token）：
   1. 扫描金标准库全部 *.dra（Layout\\Data\\PCB_Footprint）
-  2. 每件跑一次 extracta（cwd=专用临时目录，不污染项目根）
-  3. 逐 padstack 提取：层集/figure/尺寸/drill 实义/plated/槽型，
+  2. 每件跑一次 extracta（cwd=专用临时目录，不污染项目根），
+     原始 pads.txt 归档到 Tools/log/conventions_raw/（补字段免重跑）
+  3. 解析单一真源 = services/extracta_reader._parse_pads_file
+     （2026-10-13 改造：删除本脚本内联 DRILL 解析——它与 reader 漂移、
+     五字段写死漏 drillChar，是 drillChar 断供的根因）
+  4. 逐 padstack 提取：层集/figure/尺寸/drill 实义/plated/槽型/drillChar，
      推导环宽、mask 外扩、paste 策略（padstack 本地坐标系）
-  4. 按 mount × 孔形聚合，输出每个约定值的支持度计数与例外清单
-  5. 命名语法：由尺寸反推候选名，与实际名比对得语法命中率
+  5. 按 mount × 孔形聚合，输出每个约定值的支持度计数与例外清单
+  6. 命名语法：由尺寸反推候选名，与实际名比对得语法命中率
+  7. 列守卫：pads.txt 27 列全普查，"未消费且未豁免"的非空列显名——
+     新字段/(schema 漂移)不可能再静默丢失
 
 用法（项目根或任意目录）：
     .venv\\Scripts\\python.exe Tools\\mine_conventions.py [目录]
+    .venv\\Scripts\\python.exe Tools\\mine_conventions.py --reaggregate
 
 输出：
     knowledge/conventions.json           机器可读约定库（真源）
     docs/conventions_report.md           人读报告
     Tools/log/conventions_padstacks.json 逐 padstack 原始事实（裁定用）
+    Tools/log/conventions_raw/*.pads.txt 原始 dump 归档（列守卫+离线补收）
 """
 from __future__ import annotations
 
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -42,18 +51,18 @@ sys.path.insert(0, str(ROOT))
 
 from services.cdsroot_locator import find_cdsroot, extracta_path  # noqa: E402
 from services.extracta_reader import (  # noqa: E402
+    _parse_pads_file,
     _parse_pins_file,
     _read_extracta_header,
-    _read_extracta_output,
 )
 
 DEFAULT_SRC = ROOT.parent / "Data" / "PCB_Footprint"
 OUT_JSON = ROOT / "knowledge" / "conventions.json"
 OUT_MD = ROOT / "docs" / "conventions_report.md"
 OUT_RAW = ROOT / "Tools" / "log" / "conventions_padstacks.json"
+RAW_DUMP_DIR = ROOT / "Tools" / "log" / "conventions_raw"
 
 MIL2MM = 0.0254
-DRILL_LAYER = "~DRILL"
 
 # ------------------------------------------------------------------
 # 第 2 层 AI 裁定结论（2026-10-13，Phase 2）
@@ -96,6 +105,8 @@ ADJUDICATED = {
 
 # ------------------------------------------------------------------
 # 单件读取：跑一次 extracta，返回 (units, pins_raw, padstacks)
+# ★ 解析单一真源 = extracta_reader._parse_pads_file（勿再内联解析：
+#   2026-10-13 前的双份实现曾漂移漏掉 drillChar——drillChar 断供根因）。
 # padstacks: {name: {"rows": {layer: (figure, w, h)},
 #                    "drill": {...} or None, "plated": str, "slot_type": str}}
 # ------------------------------------------------------------------
@@ -113,61 +124,47 @@ def read_padstacks(dra: Path, exe: Path, cdsroot: Path, view: Path):
         )
         if not outs[0].is_file() or outs[0].read_text(encoding="utf-8", errors="replace").strip() == "":
             return None, [], {}
+        # ★ 原始 pads.txt 归档（2026-10-13）：tmp 用完即删曾致证据丢失；
+        #   留档后补收任何字段可离线重算（--reaggregate），列守卫也吃这份。
+        RAW_DUMP_DIR.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(outs[1], RAW_DUMP_DIR / f"{dra.stem}.pads.txt")
         header = _read_extracta_header(outs[0])
         pins = _parse_pins_file(outs[0])
-        rows = _read_extracta_output(outs[1])
+        pads_by_name = _parse_pads_file(outs[1])
     finally:
-        try:
-            import shutil
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-        except Exception:
-            pass
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
     scale = MIL2MM if header.get("units") == "mil" else 1.0
-    padstacks: dict = defaultdict(lambda: {"rows": {}, "drill": None,
-                                           "plated": "", "slot_type": ""})
-    for r in rows:
-        if len(r) < 8:
-            continue
-        name, rec, layer = r[0], r[1], r[2]
-        ps = padstacks[name]
-        if layer == DRILL_LAYER:
-            # DRILL 行字段序与普通层行不同：
-            #   r[5]=drillDiameter(槽宽) r[6]=figureSizeW r[7]=figureSizeH
-            #   r[10]=figure r[11]=plated(P/N) r[19]=槽型(OVAL SLOT/CIRCLE_DRILL/NONE)
-            def f(i):
-                try:
-                    return float(r[i]) * scale
-                except (ValueError, IndexError):
-                    return 0.0
-            drill = {
-                "diameter": f(5), "fig_w": f(6), "fig_h": f(7),
-                "figure": r[10] if len(r) > 10 else "",
-                "slot_type": r[19] if len(r) > 19 else "",
-            }
-            ps["drill"] = drill
-            ps["plated"] = r[11] if len(r) > 11 else ""
-            ps["slot_type"] = drill["slot_type"]
-            continue
-        shape = r[5] if len(r) > 5 else ""
-        try:
-            w = float(r[6]) * scale
-            h = float(r[7]) * scale
-        except (ValueError, IndexError):
-            continue
-        if w <= 0 or h <= 0:
-            continue
-        ps["rows"][layer] = (shape, w, h)
+    padstacks: dict = {}
+    for name, entries in pads_by_name.items():
+        ps = {"rows": {}, "drill": None, "plated": "", "slot_type": ""}
+        for e in entries:
+            if e["layer"] == "DRILL":
+                fig_w, fig_h = e["size"]    # DRILL 行 size 语义 = figureSize [W,H]
+                ps["drill"] = {
+                    "diameter": (e.get("drill_diameter") or 0.0) * scale,
+                    "fig_w": fig_w * scale, "fig_h": fig_h * scale,
+                    "figure": e.get("figure_name", ""),
+                    "slot_type": e.get("hole_type", ""),
+                    "drill_char": e.get("drill_char", ""),
+                }
+                ps["plated"] = (e.get("plated") or "").strip()
+                ps["slot_type"] = ps["drill"]["slot_type"]
+                continue
+            ps["rows"][e["layer"]] = (e["figure_name"],
+                                      e["size"][0] * scale, e["size"][1] * scale)
 
-    # mount 判定：drill 行存在且(任一尺寸>0 或 槽型≠NONE) → TH
-    for ps in padstacks.values():
+        # mount 判定：有实义 drill（任一尺寸>0 或 槽型≠NONE）→ TH。
+        # ★ reader 跳过零尺寸行：全零 DRILL（静默零化产物）不会进 drill，
+        #   判 smd——与旧内联解析"drill 存在但全零"的判定结果等价。
         d = ps["drill"]
         if d and (d["diameter"] > 0 or d["fig_w"] > 0 or d["fig_h"] > 0
                   or d["slot_type"] not in ("", "NONE")):
             ps["mount"] = "th"
         else:
             ps["mount"] = "smd"
-    return header.get("units"), pins, dict(padstacks)
+        padstacks[name] = ps
+    return header.get("units"), pins, padstacks
 
 
 def hole_dims(drill: dict) -> tuple:
@@ -250,6 +247,112 @@ def naming_match_th(f) -> str:
     return "other"
 
 
+# ------------------------------------------------------------------
+# 列守卫（2026-10-13）：pads.txt 全列普查 vs 消费/豁免登记
+# 目标：任何"未被消费也未被豁免"的非空列必须显名——drillChar 式的
+#       静默丢失在架构上不再可能。列位以原始行（含 S/A 标记列）计。
+# 原始 27 列（A! 头行给名；DRILL 行挪用部分列位，括号注 DRILL 语义）：
+#   r0 标记(S/A) | r1 PAD_NAME | r2 REC_NUMBER | r3 LAYER(~DRILL)
+#   r4 FIXFLAG | r5 VIAFLAG | r6 PADSHAPE1(DRILL: drillDiameter)
+#   r7 PADWIDTH(DRILL: figureSizeW) | r8 PADHGHT(DRILL: figureSizeH)
+#   r9 PADXOFF | r10 PADYOFF | r11 PADFLASH(DRILL: figure 名)
+#   r12 PADSHAPENAME(DRILL: plated P/N) | r13 TRELSHAPE1(DRILL: drillChar)
+#   r14~r19 TREL*(负片热焊盘) | r20 APADSHAPE1(DRILL: holeType)
+#   r21~r26 APAD*(负片隔离盘)
+# ------------------------------------------------------------------
+GUARD_CONSUMED = {
+    "LAYER": {"r1", "r3", "r6", "r7", "r8", "r9", "r10"},
+    "DRILL": {"r1", "r3", "r6", "r7", "r8", "r11", "r12", "r13", "r20"},
+}
+_GUARD_TREL = "负片热焊盘/隔离盘家族（豁免：检查范围不含负片连接定义）"
+GUARD_EXEMPT = {
+    "LAYER": {
+        "r0": "行标记", "r2": "记录序号", "r4": "FIXFLAG 标志位", "r5": "VIAFLAG 标志位",
+        "r11": "PADFLASH flash 型焊盘引用标志（当前消费链不建模 flash 焊盘，显式豁免）",
+        "r12": "PADSHAPENAME flash 型焊盘引用名（语料 106 行有值；不建模 flash 焊盘，显式豁免待后续裁定）",
+        "r13": "TRELSHAPE1 " + _GUARD_TREL, "r14": "TRELWIDTH " + _GUARD_TREL,
+        "r15": "TRELHGHT " + _GUARD_TREL, "r16": "TRELXOFF " + _GUARD_TREL,
+        "r17": "TRELYOFF " + _GUARD_TREL, "r18": "TRELFLASH " + _GUARD_TREL,
+        "r19": "TRELSHAPENAME " + _GUARD_TREL,
+        "r20": "APADSHAPE1 " + _GUARD_TREL, "r21": "APADWIDTH " + _GUARD_TREL,
+        "r22": "APADHGHT " + _GUARD_TREL, "r23": "APADXOFF " + _GUARD_TREL,
+        "r24": "APADYOFF " + _GUARD_TREL, "r25": "APADFLASH " + _GUARD_TREL,
+        "r26": "APADSHAPENAME " + _GUARD_TREL,
+    },
+    "DRILL": {
+        "r0": "行标记", "r2": "记录序号", "r4": "FIXFLAG 标志位", "r5": "VIAFLAG 标志位",
+        "r9": "XOFF（drill 行恒 0）", "r10": "YOFF（drill 行恒 0）",
+        "r14": "TRELWIDTH " + _GUARD_TREL, "r15": "TRELHGHT " + _GUARD_TREL,
+        "r16": "TRELXOFF " + _GUARD_TREL, "r17": "TRELYOFF " + _GUARD_TREL,
+        "r18": "TRELFLASH " + _GUARD_TREL, "r19": "TRELSHAPENAME " + _GUARD_TREL,
+        "r21": "APADWIDTH " + _GUARD_TREL, "r22": "APADHGHT " + _GUARD_TREL,
+        "r23": "APADXOFF " + _GUARD_TREL, "r24": "APADYOFF " + _GUARD_TREL,
+        "r25": "APADFLASH " + _GUARD_TREL, "r26": "APADSHAPENAME " + _GUARD_TREL,
+    },
+}
+GUARD_EXPECTED_HEADER = [
+    "PAD_NAME", "REC_NUMBER", "LAYER", "FIXFLAG", "VIAFLAG",
+    "PADSHAPE1", "PADWIDTH", "PADHGHT", "PADXOFF", "PADYOFF",
+    "PADFLASH", "PADSHAPENAME", "TRELSHAPE1", "TRELWIDTH", "TRELHGHT",
+    "TRELXOFF", "TRELYOFF", "TRELFLASH", "TRELSHAPENAME",
+    "APADSHAPE1", "APADWIDTH", "APADHGHT", "APADXOFF", "APADYOFF",
+    "APADFLASH", "APADSHAPENAME",
+]
+
+
+def column_guard(dump_dir: Path) -> dict:
+    """普查 dump_dir 下全部 *.pads.txt 的每一列。
+
+    产出三块：
+      unconsumed_unexempt —— ★ 未消费且未豁免的非空列（新字段/schema 漂移，
+                              必须人工裁定后纳入消费或豁免登记）
+      exempt_nonempty     —— 已豁免且确实有值的列（知悉性列出）
+      header_drift        —— A! 头行列名/列数与预期不符（Cadence 版本漂移）
+    """
+    stats: dict = defaultdict(Counter)   # kind -> r[i] -> 非空计数
+    examples: dict = {}
+    n_files = 0
+    drift = []
+    for dump in sorted(dump_dir.glob("*.pads.txt")):
+        try:
+            lines = dump.read_text(encoding="utf-8", errors="replace").splitlines()
+        except Exception:
+            continue
+        n_files += 1
+        for line in lines:
+            line = line.rstrip()
+            if line.startswith("A!"):
+                header_cols = [x for x in line[2:].split("!") if x]
+                if header_cols != GUARD_EXPECTED_HEADER:
+                    drift.append({"file": dump.name, "columns": header_cols})
+                continue
+            if not line.startswith("S!"):
+                continue
+            r = line.split("!")            # 含标记列，r[0]='S'
+            kind = "DRILL" if len(r) > 3 and r[3] == "~DRILL" else "LAYER"
+            for i, v in enumerate(r):
+                if v.strip():
+                    stats[kind][i] += 1
+                    examples.setdefault((kind, i), v[:40])
+    findings, known = [], []
+    for kind in ("DRILL", "LAYER"):
+        consumed = GUARD_CONSUMED[kind]
+        exempt = GUARD_EXEMPT[kind]
+        for i in sorted(stats[kind]):
+            key = f"r{i}"
+            if key in consumed:
+                continue
+            item = {"column": key, "nonempty": stats[kind][i],
+                    "example": examples.get((kind, i), "")}
+            if key in exempt:
+                item["exempt_reason"] = exempt[key]
+                known.append(item)
+            else:
+                findings.append(item)
+    return {"files": n_files, "unconsumed_unexempt": findings,
+            "exempt_nonempty": known, "header_drift": drift}
+
+
 def aggregate(facts: list, errors: list, src: Path) -> dict:
     def group_key(f):
         if f["mount"] == "th":
@@ -299,6 +402,9 @@ def aggregate(facts: list, errors: list, src: Path) -> dict:
             conv["ring_y"] = hist(used, "ring_y")
             conv["mask_expand_x"] = hist(used, "mask_expand_x")
             conv["mask_expand_y"] = hist(used, "mask_expand_y")
+            # drillChar 仅聚合可见（信息性）：设计级钻头表字符，随图纸变，
+            # 不作为 padstack 构造约定强制（WIRING 登记为 report-only）。
+            conv["drill_char"] = hist(used, "drill_char")
             conv["paste_top_size_eq_pad"] = sum(
                 1 for f in used if f["paste_top"]
                 and abs(f["paste_top"][0] - (f["pad_w"] or 0)) < 0.01
@@ -318,6 +424,9 @@ def aggregate(facts: list, errors: list, src: Path) -> dict:
             conv["naming"] = gram.most_common()
         conventions[gname] = conv
 
+    # ---------- 列守卫（读归档 dump，两种模式都能跑） ----------
+    guard = column_guard(RAW_DUMP_DIR)
+
     # ---------- 输出 ----------
     try:
         dra_count = len(list(Path(src).glob("*.dra")))
@@ -329,6 +438,7 @@ def aggregate(facts: list, errors: list, src: Path) -> dict:
         "corpus": {"root": str(src), "dra_count": dra_count,
                    "error_count": len(errors)},
         "adjudicated": ADJUDICATED,
+        "column_guard": guard,
         "conventions": conventions,
     }
     OUT_JSON.parent.mkdir(exist_ok=True)
@@ -346,7 +456,7 @@ def aggregate(facts: list, errors: list, src: Path) -> dict:
         md.append("")
         md.append("| 约定项 | 取值 → 支持度 |")
         md.append("|--|--|")
-        for key in ("layers", "hole_figure", "slot_type", "plated",
+        for key in ("layers", "hole_figure", "slot_type", "plated", "drill_char",
                     "ring_x", "ring_y", "mask_expand_x", "mask_expand_y"):
             if key in conv:
                 vals = ", ".join(f"{k}×{v}" for k, v in conv[key][:5])
@@ -357,6 +467,19 @@ def aggregate(facts: list, errors: list, src: Path) -> dict:
         if conv.get("naming"):
             md.append(f"| 命名语法 | {conv['naming']} |")
         md.append("")
+    if guard["unconsumed_unexempt"] or guard["header_drift"]:
+        md.append("## ★ 列守卫：未消费且未豁免（需人工裁定）")
+        md.append("")
+        for it in guard["unconsumed_unexempt"]:
+            md.append(f"- `{it['column']}` 非空×{it['nonempty']}，例：`{it['example']}`")
+        for d in guard["header_drift"]:
+            md.append(f"- ★ 头行漂移 `{d['file']}`：{d['columns']}")
+        md.append("")
+    md.append("## 列守卫：已豁免且实际有值（知悉项）")
+    md.append("")
+    for it in guard["exempt_nonempty"]:
+        md.append(f"- `{it['column']}` 非空×{it['nonempty']} —— {it['exempt_reason']}")
+    md.append("")
     if errors:
         md.append("## 读取失败清单")
         md.append("")
@@ -364,6 +487,9 @@ def aggregate(facts: list, errors: list, src: Path) -> dict:
             md.append(f"- `{e['file']}`: {e['error']}")
     OUT_MD.write_text("\n".join(md), encoding="utf-8")
 
+    if guard["unconsumed_unexempt"] or guard["header_drift"]:
+        print(f"[mine] ★ 列守卫：{len(guard['unconsumed_unexempt'])} 个未消费未豁免列"
+              f" + {len(guard['header_drift'])} 头行漂移 —— 见报告，需人工裁定")
     print(f"[mine] ✓ {OUT_JSON}")
     print(f"[mine] ✓ {OUT_MD}")
     return out
@@ -416,10 +542,12 @@ def main() -> int:
                 use[nm]["count"] += 1
                 use[nm]["rotations"][round(rot) % 180] += 1
         for name, ps in padstacks.items():
-            top = ps["rows"].get("TOP")
-            tsm = ps["rows"].get("~TSM")
-            tpm = ps["rows"].get("~TPM")
-            bpm = ps["rows"].get("~BPM")
+            # ★ 层键 = reader 映射后的层名（_PAD_LAYER_MAP）：
+            #   ETCH/TOP、PIN/SOLDERMASK_TOP、PIN/PASTEMASK_TOP、PIN/PASTEMASK_BOTTOM
+            top = ps["rows"].get("ETCH/TOP")
+            tsm = ps["rows"].get("PIN/SOLDERMASK_TOP")
+            tpm = ps["rows"].get("PIN/PASTEMASK_TOP")
+            bpm = ps["rows"].get("PIN/PASTEMASK_BOTTOM")
             drill = ps["drill"] if ps["mount"] == "th" else None
             hole = hole_dims(drill)
             fact = {
@@ -434,12 +562,13 @@ def main() -> int:
                 "hole_w": round(hole[0], 4) if hole else None,
                 "hole_h": round(hole[1], 4) if hole else None,
                 "hole_diameter": round(drill["diameter"], 4) if drill else None,
+                "drill_char": drill.get("drill_char", "") if drill else "",
                 "plated": ps["plated"],
                 "mask_w": round(tsm[1], 4) if tsm else None,
                 "mask_h": round(tsm[2], 4) if tsm else None,
                 "paste_top": (round(tpm[1], 4), round(tpm[2], 4)) if tpm else None,
                 "paste_bottom": (round(bpm[1], 4), round(bpm[2], 4)) if bpm else None,
-                "layers": sorted(ps["rows"].keys()) + ([DRILL_LAYER] if drill else []),
+                "layers": sorted(ps["rows"].keys()) + (["DRILL"] if drill else []),
                 "pin_count": use.get(name, {}).get("count", 0),
                 "rotations": dict(use.get(name, {}).get("rotations", {})),
             }

@@ -42,6 +42,7 @@ def validate_land_pattern(data: Any) -> tuple[bool, list[str], dict]:
         "spacing_x": None,
         "spacing_y": None,
         "note": "",
+        "unconsumed": [],
     }
 
     if not isinstance(data, dict):
@@ -102,6 +103,28 @@ def validate_land_pattern(data: Any) -> tuple[bool, list[str], dict]:
 
     # ---------- note ----------
     normalized["note"] = str(data.get("note") or "")[:500]
+
+    # ---------- unconsumed（spec 守卫，2026-10-13）----------
+    # ★ AI 读图时看到、但本 schema 未建模的约束必须在此显名声明，
+    #   禁止静默丢弃。检查器会把每条作为 WARN 打进报告（0.1 spec 守卫），
+    #   与 pads.txt 列守卫同一哲学：忽略可以，忽略而不告诉你不行。
+    raw_unc = data.get("unconsumed")
+    if raw_unc is None:
+        normalized["unconsumed"] = []
+    elif not isinstance(raw_unc, list):
+        errors.append("unconsumed 不是列表（应为 [{item, value, note}, ...]）")
+    else:
+        if len(raw_unc) > 20:
+            errors.append(f"unconsumed 超过 20 条（{len(raw_unc)}），请合并同类项")
+        for i, it in enumerate(raw_unc[:20]):
+            if not isinstance(it, dict) or not str(it.get("item") or "").strip():
+                errors.append(f"unconsumed[{i}] 缺 item（约束名称）")
+                continue
+            normalized["unconsumed"].append({
+                "item": str(it.get("item"))[:80],
+                "value": str(it.get("value", ""))[:120],
+                "note": str(it.get("note", ""))[:200],
+            })
 
     is_valid = (len(errors) == 0 and len(normalized["pads"]) > 0)
     return is_valid, errors, normalized

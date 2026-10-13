@@ -92,6 +92,31 @@ def section_a(r: R) -> None:
     r.check(w > 0 and h > 0, "A5 DRILL 尺寸非零（实义存在）",
             f"size={d.get('size')}")
 
+    # 2026-10-13 新增透传字段（miner 复用 reader 解析后依赖的完整字段集）
+    r.check(d.get("drill_char") == "OA",
+            "A8 drill_char == 'OA'（钻头表字符透传）",
+            f"实际={d.get('drill_char')!r}")
+    dd = d.get("drill_diameter")
+    r.check(dd is not None and abs(dd - 0.5) < 0.01,
+            "A9 drill_diameter ≈ 0.5（孔径透传，此前被局部变量丢弃）",
+            f"实际={dd!r}")
+    r.check(d.get("plated") == "P",
+            "A10 plated == 'P'（金属化透传，NP 判定依赖）",
+            f"实际={d.get('plated')!r}")
+
+    # A11 NPTH 退化行（2026-10-13 收割回归实锤后新增）：figureSize 全零、
+    # 仅 drillDiameter 有值的真实非金属化孔，不得被普通行零尺寸过滤丢弃。
+    npth = [pd for entries in pads.values() for pd in entries
+            if pd.get("drill_diameter") and pd.get("drill_diameter") > 0
+            and (pd.get("size") or [0, 0])[0] == 0]
+    r.check(bool(npth), "A11 figureSize 全零的 NPTH DRILL 行不被丢弃",
+            "reader 对 DRILL 行误用普通行零尺寸过滤，mount 将误判 smd")
+    if npth:
+        n = npth[0]
+        r.check(abs(n["drill_diameter"] - 3.0) < 0.01 and n.get("plated") == "N",
+                "A12 NPTH 行 drill_diameter=3.0 / plated=N 透传",
+                f"实际 dia={n.get('drill_diameter')} plated={n.get('plated')!r}")
+
     # 透传断言：pin pads 组装（pads_attached）必须把 hole_type 带出去。
     # pads_attached 内嵌在 read_via_extracta（需 Allegro，不可离线跑），
     # 这里用源码契约断言兜底：组装处必须显式透传 hole_type。
@@ -150,10 +175,13 @@ KNOWN_UNWIRED = {
     "th_circle",                    # 圆孔 TH 约定组（同上，整组未消费）
     "th_other",                     # 异形 TH 约定组（同上，整组未消费）
     "smd",                          # SMD 约定组（同上，整组未消费）
+    "th_oblong.drill_char",         # drillChar 仅聚合可见（report-only）：
+                                    # 设计级钻头表字符，随图纸变（audio6 空/if、
+                                    # 圆孔 H），不作为 padstack 构造约定强制
 }
 
 # conventions.json 里允许存在、但明确不属于消费链路的键（B1 白名单）
-NON_CONSUMED_OK = {"schema", "mined_at", "corpus"}
+NON_CONSUMED_OK = {"schema", "mined_at", "corpus", "column_guard"}
 
 
 def _conv_keys(obj, prefix=""):

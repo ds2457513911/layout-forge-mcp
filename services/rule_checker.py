@@ -1385,6 +1385,34 @@ def check_silkscreen(data: Dict, rules: Dict) -> List[Dict]:
 # ============================================================
 # 主入口
 # ============================================================
+def check_spec_unconsumed(theoretical: Optional[Dict]) -> List[Dict]:
+    """0.1 spec 守卫（2026-10-13）：AI 读图声明"schema 未消费的约束"逐条显名。
+
+    与 pads.txt 列守卫同一哲学：规格书里存在、但本工具建模范围没有的约束，
+    忽略可以，忽略而不告诉你不行。每条 WARN，不翻转结论，但必须出现在报告里
+    供工程师裁定（可能沉淀为 save_case 或新规则）。
+    """
+    if not isinstance(theoretical, dict):
+        return []
+    payload = theoretical.get("theoretical_land_params") or theoretical
+    raw = payload.get("unconsumed")
+    if not isinstance(raw, list) or not raw:
+        return []
+    items: List[Dict] = []
+    for i, it in enumerate(raw):
+        if not isinstance(it, dict):
+            continue
+        items.append(_item(
+            "0.1", "spec 守卫（未消费声明）", "WARN",
+            value=str(it.get("item", "")),
+            detail=f"规格书约束未被本工具建模，需人工裁定：{it.get('value', '')}"
+                   + (f"（{it.get('note', '')}）" if it.get("note") else ""),
+            expected="显名并人工裁定",
+            source="datasheet",
+        ))
+    return items
+
+
 def run_numeric_checks(
     footprint_data: Dict,
     theoretical: Optional[Dict] = None,
@@ -1412,6 +1440,7 @@ def run_numeric_checks(
     comp_type = _classify_component(footprint_data.get("symbol_name", ""))
 
     all_items: List[Dict] = []
+    all_items += check_spec_unconsumed(theoretical)
     all_items += check_naming(footprint_data, rules)
     all_items += check_pad_size(footprint_data, theoretical, rules)
     all_items += check_pitch(footprint_data, theoretical, rules)

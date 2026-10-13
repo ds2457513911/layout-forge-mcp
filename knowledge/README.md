@@ -1,6 +1,6 @@
 # knowledge/ —— 项目知识库（会越用越厚的部分）
 
-> 最后更新：2026-10-13（新增 conventions.json 构造约定真源，第 0 层落地）
+> 最后更新：2026-10-13（conventions.json 增列守卫块 column_guard + drillChar 聚合；engine 缓存 mtime 失效）
 
 ## 这个目录是干什么的
 
@@ -12,7 +12,11 @@
   builder `services/convention_engine.py::apply_conventions` 按它派生 TH padstack
   （spec 只声明孔位/pin），checker 规则 2.7b/2.8/2.9/2.10 按它校验，
   出厂自检 `verify_built_footprint` 按它放行。人读版 `docs/conventions_report.md`；
-  逐件事实 `Tools/log/conventions_padstacks.json`（reaggregate 可秒级重算）。
+  逐件事实 `Tools/log/conventions_padstacks.json`（reaggregate 可秒级重算；
+  原始 dump 归档 `Tools/log/conventions_raw/`）。
+  ★ **列守卫**（2026-10-13）：`column_guard` 块记录 pads.txt 27 列普查结果，
+  "未消费且未豁免"的非空列必须显名——新字段/schema 漂移不可能静默丢失；
+  `th_*.drill_char` 为 report-only（设计级钻头表字符，随图纸变，不强制）。
 - **specs/** —— 参数层：每颗料解析出的 spec（喂 `solve_footprint_geometry` 复用，同封装零读图）。用法见 `specs/README.md` 与 `services/spec_library.py`。
 - **cases/** —— 经验层：每次检测的**人工裁定**沉淀（指纹 + 报告摘要 + findings + lessons）。检查前 `find_case` 按几何指纹召回同封装/同族案例做预警——裁定一次、全族受益。代码在 `services/case_library.py`。
 - **rules/** —— 阈值层：`rule_checker` 的阈值外置真源（`checker_rules.json`）。**改数字立即生效，不用重启 MCP**；判定逻辑（怎么比）仍在 `services/rule_checker.py`，改逻辑必须改代码。

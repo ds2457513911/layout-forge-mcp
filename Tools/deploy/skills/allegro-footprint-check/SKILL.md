@@ -108,6 +108,11 @@ check 与 create 读同一份约定）：
      （`.pad` 仍显示 `PadType: through`！holeType 残留会骗人）。
    - 金标准口径：本地竖孔 + pin 旋转 90° → 板面横槽；槽型 OVAL SLOT；
      环宽标准 0.3/边（紧凑 0.2 仅高密度 type-c）
+   - **drillChar（钻头表字符）是设计级数据，不照抄不强制**（2026-10-13 定性）：
+     extracta DRILL 行的 drillChar（金标准=OA）是 NC 钻头表引用，**随图纸变**
+     （语料实锤：同族槽孔有空/OA/if，圆孔=H），不是 padstack 构造约定——
+     builder 不设置、规则不校验；验收对拍时该列差异属设计级预期差异，
+     与 figure 名 X/Y 差异一样需单独说明，不得当作"全字段一致"。
    - **验证口诀：`.pad` 的 PadType 字符串不可信，必须 extracta 回读 DRILL 行
      （size>0 + figure 非空 + holeType 列）**——规则 2.7 已内置 holeType 校验
      （oblong 孔 holeType≠OVAL SLOT 即 FAIL）
@@ -198,10 +203,11 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
 
 | 步骤 | 做什么 | 产出 |
 |---|---|---|
-| 收割 | `Tools/mine_conventions.py`（全量 extracta，cwd=临时目录不污染根） | `Tools/log/conventions_padstacks.json` 逐件事实 |
+| 收割 | `Tools/mine_conventions.py`（全量 extracta，cwd=临时目录不污染根；原始 pads.txt 逐件归档 `Tools/log/conventions_raw/`） | `Tools/log/conventions_padstacks.json` 逐件事实 + 原始 dump 归档 |
 | 聚合 | `Tools/mine_conventions.py --reaggregate`（调语法/阈值后秒级重算，不必重跑收割） | `knowledge/conventions.json`（带支持度）+ `docs/conventions_report.md` |
+| 列守卫 | 聚合时对归档 dump 做 27 列全普查（2026-10-13 起） | "未消费且未豁免"的非空列显名进报告——新字段/schema 漂移必须人工裁定，不可能静默丢失 |
 | 裁定 | 支持度不收敛的参数分组裁定（环宽 0.3 标准/0.2 紧凑、NP 豁免、命名变体） | 裁定写进 miner 的 `ADJUDICATED` 常量 + `save_case` 案例 |
-| 接线 | builder `convention_engine.apply_conventions` 派生 / checker 2.7-2.10 校验 / 出厂自检 `verify_built_footprint` | 一份约定三处消费 |
+| 接线 | builder `convention_engine.apply_conventions` 派生 / checker 2.7-2.10 校验 / 出厂自检 `verify_built_footprint` | 一份约定三处消费（drillChar 例外：设计级钻头表字符，report-only 不强制） |
 
 ### C1 数值对拍漏斗（严格按层推进，不得跳层）
 
@@ -340,8 +346,16 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
         "spacing_x": {"min": -0.05, "max": 0.05},
         "spacing_y": null
       },
+      "unconsumed": [],
       "note": ""
     }
+
+**★ `unconsumed`（spec 守卫，2026-10-13 起）**：规格书里看到、但上面
+schema 没有字段承载的约束（如安装扭矩、平面度、非常规公差基准、
+特殊镀层要求），**必须**逐条声明在这里（`{"item": 名称, "value": 值,
+"note": 说明}`），禁止静默丢弃。`validate_land_pattern_json` 会校验格式，
+检查器把每条作为 WARN 打进报告（0.1 spec 守卫）供工程师裁定——
+忽略可以，忽略而不告诉你不行。没有就留空数组。
 
 ### 第 4 步：提取 .dra 原始数据（供语义检查用）
 

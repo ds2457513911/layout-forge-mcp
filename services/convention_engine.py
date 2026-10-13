@@ -43,13 +43,25 @@ FALLBACK = {
 
 _LOCK = threading.Lock()
 _CACHE: Optional[Dict[str, Any]] = None
+_CACHE_STAMP: Optional[tuple] = None
 
 
 def load_conventions(force: bool = False) -> Dict[str, Any]:
-    """读约定库（带缓存）。文件缺失/损坏 → {"fallback": True}，用内置兜底值。"""
-    global _CACHE
+    """读约定库（带缓存 + mtime/size 失效检查）。
+
+    ★ 2026-10-13：原实现首次加载后进程内缓存永不过期，conventions.json
+      更新需重启 MCP 才生效（与 rules/cases 的"每次现读盘"不一致，
+      会出现"入库了但检查端仍用旧值"）。现在每次调用 stat 一次，
+      mtime/size 变了就重读——入库即生效。文件缺失/损坏 → {"fallback": True}。
+    """
+    global _CACHE, _CACHE_STAMP
     with _LOCK:
-        if _CACHE is not None and not force:
+        try:
+            st = CONV_PATH.stat()
+            stamp: Optional[tuple] = (st.st_mtime_ns, st.st_size)
+        except OSError:
+            stamp = None
+        if _CACHE is not None and not force and stamp == _CACHE_STAMP:
             return _CACHE
         try:
             data = json.loads(CONV_PATH.read_text(encoding="utf-8"))
@@ -58,7 +70,9 @@ def load_conventions(force: bool = False) -> Dict[str, Any]:
             data["fallback"] = False
         except Exception:
             data = {"fallback": True, "adjudicated": {}, "conventions": {}}
+            stamp = None          # 文件不可用时下次再试，不锁 stamp
         _CACHE = data
+        _CACHE_STAMP = stamp
         return data
 
 
