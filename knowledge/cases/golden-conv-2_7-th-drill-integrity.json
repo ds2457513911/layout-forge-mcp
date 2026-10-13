@@ -40,13 +40,25 @@
         "POB1D5X0D5HOB2D1X1D1 rebuild 实测",
         "pad.il CreateThru 官方范例"
       ]
+    },
+    {
+      "rule_id": "2.7",
+      "issue": "第 4 次静默差异（工程师否决第三版）：holeType 传 OBLONG_DRILL——该值根本不在合法列表（CIRCLE_DRILL/SQUARE_DRILL/OVAL_SLOT/RECTANGLE_SLOT，官方 axlDBCreatePadStack.txt），被静默回落 CIRCLE_DRILL，尺寸/figure 全对但 Padstack Editor 显示 Thru Pin 而非 Slot",
+      "verdict": "convention",
+      "reason": "SLOTA/SLOTB/SLOTC 三变体实验 + extracta 逐字段对拍金标准：OVAL_SLOT + slotSize(X宽:Y长) + figure OBLONG_Y + figureSize 与金标准 DRILL 行逐字段一致（slotSize 反序会变 OBLONG_X 横槽）。金标准另有 drillChar=OA（钻头表字符，设计级）",
+      "affected": 2,
+      "examples": [
+        "POB1D5X0D5HOB2D1X1D1",
+        "POB1D7X0D5HOB2D3X1D1"
+      ]
     }
   ],
   "lessons": [
     "TH padstack 必查 DRILL 实义（size>0+figure+槽型≠NONE）；.pad 的 PadType 字符串是 holeType 残留不可信——LYDPJ 二次事故的验证盲区",
     "oblong 孔 drill figure = OBLONG_Y（本地竖向），'OBLONG 非法且静默零化；横槽靠 pin 旋转 90° 实现",
     "axlDBCreatePadStack(no_check=t) 对非法字段静默降级已三次实锤（丢 drill→丢 figure→零化），任何 padstack 创建后必须 extracta 回读验证",
-    "异形孔 drill 三件套：?holeType + ?drillDiameter(槽宽) + ?figure/?figureSize——缺 ?drillDiameter 也静默零化（第三次实锤）"
+    "异形孔 drill 三件套：?holeType + ?drillDiameter(槽宽) + ?figure/?figureSize——缺 ?drillDiameter 也静默零化（第三次实锤）",
+    "oblong 槽孔 holeType 必须 OVAL_SLOT（OBLONG_DRILL 非法→静默回落 CIRCLE_DRILL/Thru Pin）；slotSize=(X宽 Y长) 本地帧，反序变横槽；extracta DRILL 行 holeType 列必须进对拍清单"
   ],
   "verdict": "real_defect_rule_gap"
 }

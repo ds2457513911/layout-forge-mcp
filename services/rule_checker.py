@@ -772,6 +772,17 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
                     detail="; ".join(_nas[:2]),
                     expected="见 conventions.json", source="default",
                 ))
+        # ---- 2.7c 转播：约定引擎里的 2.7 FAIL（holeType 等）----
+        _27_fails = [m for lvl, rid, m in _hits if rid == "2.7" and lvl == "FAIL"]
+        if _27_fails:
+            items.append(_item(
+                "2.7", "TH 钻孔 holeType", "FAIL",
+                value=f"{len(_27_fails)} 处违反约定",
+                rule="oblong 槽孔必须 OVAL_SLOT（'OBLONG_DRILL 非法，静默回落 "
+                     "CIRCLE_DRILL → Editor 显示 Thru Pin）",
+                detail=" | ".join(_27_fails[:3]),
+                expected="holeType=OVAL SLOT", source="default",
+            ))
         _n_warns = [m for lvl, rid, m in _hits if rid == "2.9" and lvl == "WARN"]
         if _n_warns:
             items.append(_item(

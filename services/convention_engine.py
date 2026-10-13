@@ -155,6 +155,20 @@ def derive_th_name(hole_board: Tuple[float, float],
 # ------------------------------------------------------------------
 # builder 侧：按约定派生 TH oblong padstack（正变换）
 # ------------------------------------------------------------------
+def _oblong_hole_type() -> str:
+    """TH oblong 的 holeType（约定库 slot_type → SKILL 符号；默认 OVAL_SLOT）。
+
+    ★ 约定库 26/26 金标准都是 'OVAL SLOT'；SKILL 端合法符号是 'OVAL_SLOT。
+      'OBLONG_DRILL 是非法值会被静默回落 CIRCLE_DRILL（2026-10-13 实锤）。
+    """
+    conv = load_conventions()
+    hist = ((conv.get("conventions") or {}).get("th_oblong") or {}).get("slot_type") or []
+    for val, _n in hist:
+        if "OVAL" in str(val).upper():
+            return "OVAL_SLOT"
+    return "OVAL_SLOT"
+
+
 def derive_th_oblong_padstack(hole_board: Tuple[float, float],
                               pad_board: Optional[Tuple[float, float]] = None,
                               plated: bool = True,
@@ -203,8 +217,11 @@ def derive_th_oblong_padstack(hole_board: Tuple[float, float],
         {"layer": "PASTEMASK_TOP", "figure": "OBLONG_X", "size": list(pad_local)},
     ]
     drill = {
-        "size": list(drill_local),          # figureSize（本地竖向：宽:长）
-        "drill_type": "OBLONG_DRILL",
+        "size": list(drill_local),          # 本地竖向帧（X宽 Y长）
+        # ★ 2026-10-13 工程师否决第 4 课：oblong 槽孔必须是 OVAL_SLOT
+        #   （'OBLONG_DRILL 是非法 holeType，被静默回落 CIRCLE_DRILL，
+        #   Editor 显示 Thru Pin）。约定库 slot_type='OVAL SLOT'×26 支撑。
+        "drill_type": _oblong_hole_type(),
         "figure": "OBLONG_Y",
         "plated": bool(plated),
     }
@@ -246,7 +263,10 @@ def apply_conventions(spec: Dict[str, Any]) -> Tuple[Dict[str, Any], List[str]]:
     def _one(ps: Dict[str, Any], pad_board=None) -> None:
         drill = ps.get("drill") or {}
         size = drill.get("size") or []
-        if "OBLONG" not in str(drill.get("drill_type", "")).upper() or len(size) != 2:
+        # oblong 槽孔两写法都接：OBLONG_DRILL（旧，非法会被回落）与
+        # OVAL_SLOT（正确）；其余（circle 等）不归本引擎
+        _dt = str(drill.get("drill_type", "")).upper()
+        if ("OBLONG" not in _dt and "SLOT" not in _dt) or len(size) != 2:
             return
         offset = drill.get("offset")
         hole_board = (max(size), min(size))
@@ -321,6 +341,14 @@ def check_pin_conventions(pin: Dict[str, Any]) -> List[Tuple[str, str, str]]:
     hw, hh = (drill.get("size") or [0, 0])
     if hw <= 0 or hh <= 0:
         out.append(("FAIL", "2.7", f"DRILL 实义为零（孔未钻/被静默零化）"))
+        return out
+    # ★ 2.7c holeType 校验（2026-10-13 工程师否决第 4 课）：oblong 孔必须是
+    #   OVAL SLOT 槽孔；'OBLONG_DRILL 被静默回落 CIRCLE_DRILL（Thru Pin）。
+    ht = str(drill.get("hole_type") or "").upper().replace("_", " ")
+    if ht and "OVAL SLOT" not in ht:
+        out.append(("FAIL", "2.7",
+                    f"oblong 孔 holeType={drill.get('hole_type')}——应建成 "
+                    f"Slot（OVAL_SLOT + slotSize），当前 Editor 显示 Thru Pin"))
         return out
     p = th_oblong_params()
     rx, ry = (pw - hw) / 2, (ph - hh) / 2

@@ -248,12 +248,24 @@ def _parse_pads_file(path: Path) -> Dict[str, List[Dict[str, Any]]]:
         if w is None or h is None or w <= 0 or h <= 0:
             continue
 
-        pads_by_name.setdefault(pad_name, []).append({
+        entry = {
             "layer": layer,
             "figure_name": shape,
             "size": [w, h],
             "offset": [xoff or 0.0, yoff or 0.0],
-        })
+        }
+        if raw_layer == "~DRILL":
+            # DRILL 行字段与焊盘行不同：
+            #   r[5]=drillDiameter 字符串（非图形名）、r[10]=drill figure、
+            #   r[12]=drillChar、r[19]=holeType（"OVAL SLOT" / "CIRCLE_DRILL"…）。
+            # ★ holeType 是 2026-10-13 工程师否决 LYDPJ 的第 4 个静默差异：
+            #   OBLONG_DRILL 是非法 holeType，被静默回落成 CIRCLE_DRILL
+            #   （Editor 显示 Thru Pin），必须 OVAL_SLOT 才是槽孔。
+            entry["figure_name"] = r[10] if len(r) > 10 else ""
+            entry["hole_figure"] = entry["figure_name"]
+            entry["hole_type"] = r[19] if len(r) > 19 else ""
+            entry["drill_char"] = r[12] if len(r) > 12 else ""
+        pads_by_name.setdefault(pad_name, []).append(entry)
 
     return pads_by_name
 
@@ -631,6 +643,10 @@ def read_via_extracta(dra_path: str) -> Dict[str, Any]:
                     "figure_name": pd.get("figure_name", ""),
                     "bbox": pad_bbox,
                     "size": size,
+                    # DRILL 行透传 holeType（"OVAL SLOT"/"CIRCLE_DRILL"…），
+                    # 2.7c 校验 oblong 槽孔必须 OVAL SLOT（2026-10-13）
+                    **({"hole_type": pd["hole_type"]}
+                       if pd.get("hole_type") else {}),
                 })
                 # ★ pin bbox 用**铜箔（ETCH/TOP）**尺寸 —— 阻焊/钢网比铜箔大，
                 #   拿它们推 bbox 会把焊盘虚胖，3.3 重叠检查成片假 FAIL
