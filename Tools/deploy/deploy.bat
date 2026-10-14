@@ -332,7 +332,7 @@ echo   venv python  : %VENV_PYTHON%
 echo.
 echo   Next steps
 echo     1. Restart your Agent client - MCP is a long-lived process
-echo     2. Confirm layout-forge-mcp is connected, 28 tools
+echo     2. Confirm layout-forge-mcp is connected, 34 tools
 echo     3. Start Allegro PCB Editor, then check the port:
 echo          netstat -ano ^| findstr 7777
 echo.

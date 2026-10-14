@@ -90,19 +90,19 @@ def pick_config_target() -> tuple[str, Path, bool]:
     """
     返回 (客户端名, 配置文件路径, 是既有文件还是新建)。
 
-    选法：先找**已存在**的（按优先级）；一个都没有就用 WorkBuddy 的路径新建。
-    全都没有客户端目录时，退回 deploy\mcp-config.json，让用户手工复制。
+    选法：先找**已存在**的配置文件（按优先级）；一个都没有时，
+    默认在 WorkBuddy 固定路径新建 ~/.workbuddy/mcp.json。
+    ★ 空电脑（客户端还没装过）也直接写这个路径：目录由 write_mcp_config
+      创建，客户端装好后启动即读取，不需要等客户端先装好。
+      （旧行为：退化成生成 deploy\mcp-config.json 让用户手工合并，
+       违背"空电脑一键部署"目标，2026-10-14 删除。）
     """
     home = Path.home()
     for name, path in candidate_config_files():
         if path.exists():
             return name, path, True
 
-    wb = home / ".workbuddy"
-    if wb.is_dir():
-        return "WorkBuddy", wb / "mcp.json", False
-
-    return "manual", DEPLOY_DIR / "mcp-config.json", False
+    return "WorkBuddy", home / ".workbuddy" / "mcp.json", False
 
 
 def build_server_entry(project_root: Path, venv_python: Path) -> dict:
@@ -121,12 +121,7 @@ def build_server_entry(project_root: Path, venv_python: Path) -> dict:
 def write_mcp_config(project_root: Path, venv_python: Path, dry_run: bool) -> tuple[bool, Path, str]:
     name, target, existed = pick_config_target()
 
-    if name == "manual":
-        log("没找到已知的客户端配置目录，改为生成独立的配置文件：", "WARN")
-        log(f"  {target}")
-        log("  装完请手工把里面的 mcpServers 合并进你的客户端配置。", "WARN")
-        data: dict = {"mcpServers": {}}
-    elif existed:
+    if existed:
         try:
             data = json.loads(target.read_text(encoding="utf-8-sig"))
             log(f"发现 {name} 的现有配置：{target}")
@@ -172,13 +167,11 @@ def install_skills(dry_run: bool) -> bool:
 
     home = Path.home()
     dst_root = home / ".workbuddy" / "skills"
-    if not (home / ".workbuddy").is_dir():
-        log("未发现 %USERPROFILE%\\.workbuddy\\ 目录，跳过 Skill 安装。", "WARN")
-        log(f"如需手工安装，把下面这俩目录整体复制到你的 Agent skills 目录：", "WARN")
-        for d in sorted(src_root.iterdir()):
-            if d.is_dir():
-                log(f"  {d}")
-        return False
+    # ★ 空电脑上客户端可能还没装过（没有 .workbuddy 目录）。
+    #   直接创建目录并把 skill 放进去 —— 客户端装好后启动即认。
+    #   （旧行为：目录不存在就跳过、让用户手工复制，违背一键部署目标。）
+    if not dry_run:
+        dst_root.mkdir(parents=True, exist_ok=True)
 
     ok = True
     for src in sorted(src_root.iterdir()):
@@ -381,10 +374,11 @@ def main() -> int:
 
     if not args.no_mcp:
         hr("A. 注册 MCP")
-        results["mcp"], cfg_path, client = write_mcp_config(
+        ok, cfg_path, client = write_mcp_config(
             project_root, venv_python, args.dry_run
         )
-        results["mcp"] = True
+        results["mcp"] = ok
+        log(f"配置目标：{cfg_path}（{client}）")
 
     if not args.no_skills:
         hr("B. 安装 Skill")

@@ -1,6 +1,6 @@
 # deploy/ —— 一键部署
 
-> 最后更新：2026-10-09（v7 重构：从 layout-check-mcp 的旧脚本改成 forge 口径，并拆出 Python 配置器）
+> 最后更新：2026-10-14（v7.1：消灭空电脑手工环节——客户端没装过也直接自动写配置装 Skill）
 
 ## 这个目录是干什么的
 
@@ -51,10 +51,12 @@ deploy.bat /dry                     只打印要做什么，一个文件都不�
 
 `setup_agent.py` 的四段：
 
-- **A 注册 MCP** —— 写客户端的 `mcp.json`（`~/.workbuddy/mcp.json` 优先，
-  其次 Claude / Cursor / Trae 的现有配置；都没有就在 `deploy\` 下生成
-  `mcp-config.json` 让你手工合并）
+- **A 注册 MCP** —— 自动找客户端配置并**合并写入**（优先级：已存在的
+  `~/.workbuddy/mcp.json` → Claude Desktop → Cursor → Trae；
+  ★ 全都不存在（客户端还没装过）→ 直接在 `~/.workbuddy/mcp.json` **新建**，
+  目录自动创建，客户端装好后启动即生效，**没有任何手工环节**）
 - **B 装 Skill** —— `deploy\skills\*` → `%USERPROFILE%\.workbuddy\skills\`
+  （★ `.workbuddy` 目录不存在就自动创建，不再跳过）
 - **C 配 SkillBridge** —— 调 `Tools\install_skillbridge.py --non-interactive`，
   往 `allegro.ilinit` 写自动加载块，起 7777 端口
 - **D 冒烟验收** —— import 四个依赖、读 MCP 工具总数（期望 **34**）、
@@ -89,15 +91,22 @@ deploy.bat /dry                     只打印要做什么，一个文件都不�
 7. **新电脑从没启动过 Allegro → 没有 pcbenv**：C 步会失败并打印指引，
    但**不算部署失败**（MCP 本身已可用）。启动一次 Allegro PCB Editor
    生成 pcbenv 后，重跑一次脚本即可。
-8. Skill 目标已存在同名目录 → 先备份成 `<名字>.bak_<时间戳>` 再覆盖。
+8. **空电脑（Agent 客户端还没装过）也能一键到底**（2026-10-14 v7.1 起）：
+   A 步直接新建 `~/.workbuddy/mcp.json`、B 步自动创建 skills 目录，
+   **不再退化为生成 mcp-config.json 让用户手工合并**（旧行为已删）。
+   客户端后装也生效——WorkBuddy 的配置/skill 路径是固定的，
+   装好后启动即读取。验证方式：临时改 `USERPROFILE` 指向空目录跑
+   `--dry-run`，应看到「未发现既有配置，将在 WorkBuddy 下新建」+
+   两个 skill「将复制」。
+9. Skill 目标已存在同名目录 → 先备份成 `<名字>.bak_<时间戳>` 再覆盖。
    ★ **`_user_meta.json` 必须保留**：那是客户端给 skill 写的安装元数据
    （`installedAt` / `source`），仓库副本里故意不带它（含本机时间戳）。
    覆盖时丢了这个文件，客户端就认不出它是已安装的 skill。脚本已处理：
    覆盖前取出、复制后写回，备份目录里也留一份。
-9. 部署完**必须重启 Agent 客户端**：MCP 是长驻进程，改配置不重启不生效。
-10. 与 `Tools/start_allegro.cmd` 的分工：那个只管**启动一次** Allegro，
+10. 部署完**必须重启 Agent 客户端**：MCP 是长驻进程，改配置不重启不生效。
+11. 与 `Tools/start_allegro.cmd` 的分工：那个只管**启动一次** Allegro，
     这里管**持久化配置 + 环境**。
-11. ★ **同一份 SKILL 有两个副本，改的时候别只改一边**（2026-10-13 定）：
+12. ★ **同一份 SKILL 有两个副本，改的时候别只改一边**（2026-10-13 定）：
     - **真源 = 本目录 `deploy/skills/*`**（在 git 里、受版本控制）
     - **部署目标 = `%USERPROFILE%\.workbuddy\skills\*`**（客户端实际加载的那份）
 
