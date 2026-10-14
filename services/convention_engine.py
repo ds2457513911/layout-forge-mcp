@@ -262,7 +262,14 @@ def derive_th_oblong_padstack(hole_board: Tuple[float, float],
         final_name = fixed
 
     return (
-        {"name": final_name, "layers": layers, "drill": drill},
+        {
+            "name": final_name, "layers": layers, "drill": drill,
+            # ★ 回填 paste_bottom（2026-10-14）：builder 入口会对已派生的
+            #   padstack 再跑一次 apply_conventions（幂等设计的前提是
+            #   派生结果保留该键）——漏掉时二次推导按 False 处理，
+            #   PASTEMASK_BOTTOM 被静默删除（LYDPJ v5 对拍实锤）。
+            "paste_bottom": bool(paste_bottom),
+        },
         notes,
     )
 

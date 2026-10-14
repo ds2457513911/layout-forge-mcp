@@ -1277,6 +1277,7 @@ def register(mcp: FastMCP) -> None:
         template_path: str | None = None,
         extra_padstacks: list[dict] | None = None,
         assembly: list[dict] | None = None,
+        package_height: float | None = None,
     ) -> dict:
         """
         一次调用建出完整封装：padstack + 所有 pin + 丝印 + 本体 + Place_Bound + 位号。
@@ -1307,6 +1308,10 @@ def register(mcp: FastMCP) -> None:
                       （同样接受列表）
         :param place_bound: {"x1":-1.95,"y1":-1.6,"x2":1.95,"y2":1.6}
                       （同样接受列表）
+        :param package_height: ★ Package Height Max（mm）。给了它，place_bound 的
+                      第一个矩形改走原子路径「建矩形 + 挂 PACKAGE_HEIGHT_MAX +
+                      axlDBGetProperties 回读校验」（LYDPJ 复核第 1 条错误，
+                      2026-10-14）。不给 = Editor 里 Package Height 为空。
         :param assembly: ★★ **推荐**。solver 产出的 Assembly 层图元列表，
                       即 `solve_footprint_geometry` 返回里的 `assembly` 字段
                       （本体矩形 + 1 脚三角标），逐项画到
@@ -1363,6 +1368,7 @@ def register(mcp: FastMCP) -> None:
             template_path=template_path,
             extra_padstacks=extra_padstacks,
             assembly=assembly,
+            package_height=package_height,
         )
 
     # ============================================================

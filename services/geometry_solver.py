@@ -1304,6 +1304,11 @@ SPEC_KNOWN_KEYS = frozenset({
     # ---- 轮廓 ----
     "body", "body_center", "body_max", "body_tol",
     "place_bound_expand_mm",
+    # ★ 显式 Place_Bound（金标准对拍值直接声明，跳过「本体+均匀外扩」推导）
+    #   与 Package Height Max（LYDPJ 工程师复核两项错误，2026-10-14）
+    "place_bound", "package_height",
+    # ★ TH 链（约定引擎 + 手工组装）消费的金标准复刻键（solver 不消费但合法）
+    "silk_lines", "assembly_lines", "refdes",
     "pin1_corner", "pin1_mark", "pin1_mark_axis", "pin1_mark_center",
     "pin1_mark_clearance", "pin1_mark_height", "pin1_mark_layers",
     "pin1_mark_width",

@@ -726,6 +726,60 @@ def build_filled_rect(
     return expr
 
 
+def build_filled_rect_with_height(
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    layer: str,
+    height: float,
+    prop: str = "PACKAGE_HEIGHT_MAX",
+) -> str:
+    """
+    Place_Bound 矩形 + **Package Height 属性**（2026-10-14）。
+
+    ★ 背景：LYDPJ 工程师复核第 1 条错误——Place_Bound 画了但
+      Package Height Max 没设置（Editor 的 Setup→Areas→Package Height
+      本质就是给 PLACE_BOUND shape 挂 PACKAGE_HEIGHT_MAX 属性）。
+
+    ★ 为什么必须单条 let 表达式（不能拆两步 eval）：
+      axlDBCreateRectangle 返回的 dbid 是 SkillBridge Remote 对象引用，
+      **无法回传嵌进下一条 eval 的文本**。所以「建矩形 → 取 dbid →
+      挂属性 → 回读校验」必须合成**一条单行 let**，原子完成。
+
+    ★ API 实锤（2026-10-14 探针三轮 + 官方示例 axldbctprop.il）：
+      · 函数名是 **axlDBAddProp**（axlDBAddProperty 在 17.2 不存在）；
+      · 属性形态 = **flat list**：axlDBAddProp(dbid list("NAME" value))；
+      · ★ 回读必须用 **axlDBGetProperties(dbid)** —— `dbid->PROP` 箭头
+        只暴露系统属性（parentGroups/segments/bBox…），**用户属性读不到
+        也不出现在 `->?`**，首轮实现就是栽在这（挂成功了却误判失败）；
+      · 值落库形态：'4.2 MM'（字符串带单位，design 单位）。
+
+    表达式返回 list(创建结果 属性清单)：
+      · 创建结果 r = axlDBCreateRectangle 原样返回
+      · 属性清单 v = axlDBGetProperties(dbid)（[名, 值] 对列表；
+        挂成功含 [PACKAGE_HEIGHT_MAX, '<H> MM']）
+      调用方按属性名断言成功，不依赖创建返回值形态。
+
+    :param height: Package Height Max 值（**当前 design 单位下的数值**；
+                   调用方负责 mm→design 单位换算，与其它图元一致）
+    """
+    pts = pt_list((x1, y1), (x2, y2))
+    h = fmt_num(height)
+    p = q(prop)
+    # 单行铁律：整条压成一行
+    expr = (
+        "let((r x v) "
+        f"r = axlDBCreateRectangle({pts} t {q(layer)}) "
+        "x = if(r if(listp(car(r)) caar(r) car(r)) nil) "
+        f"axlDBAddProp(x list({p} {h})) "
+        "v = axlDBGetProperties(x) "
+        "list(r v))"
+    )
+    _check_balance(expr)
+    return expr
+
+
 # ============================================================
 # 文字（位号 / 值 / 1 脚标识）
 # ============================================================

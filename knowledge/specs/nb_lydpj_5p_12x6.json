@@ -1,17 +1,17 @@
 {
   "schema": "layout-forge-spec/1",
   "name": "NB_LYDPJ_5P_12X6",
-  "saved_at": "2026-10-12 11:19:52",
+  "saved_at": "2026-10-14 11:05:00",
   "family": "3.5mm 耳机座 (LYD-PJ-35)",
   "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/Data/footprint/NB_LYDPJ_5P_12X6/LYDPJ-H23CB1Y-053N.pdf",
-  "notes": "5 脚全为椭圆形金属化槽孔（DIP 插腿）：①②⑤ 槽 1.50x0.50，③④ 槽 1.70x0.50（板面帧，长轴在 X）。2026-10-13 起改约定引擎口径：spec 只声明孔尺寸/pin 布局，焊盘（环宽 0.3→2.10x1.10 / 2.30x1.10）、mask(+0.05/边)、顶面钢网、OBLONG_Y 本地竖孔 + OVAL_SLOT 槽孔+pin 旋转 90°、命名 POB{孔}X{孔}HOB{盘}X{盘} 全部由 knowledge/conventions.json 派生。｜槽心距 8.10 为图纸标注（2026-10-12 版误用像素实测 8.00，上下排 ±4.05 已修正）；焊盘中心 x=3.65/6.45/11.40（上排）、4.93/11.40（下排）从左基准线量（本 spec 原点居中，x 已平移 -6.0）。本体顶视 12.00x6.00，左 -1.04 插头套凸出无焊盘未建。首跑 Place_Bound 浮点贴边 FAIL，外扩 1.85→1.90 修复。｜底面钢网 BPM=焊盘尺寸：金标准家族例外（库 25/26 底面无），spec 显式声明 paste_bottom 覆盖。",
+  "notes": "5 脚全为椭圆形金属化槽孔（DIP 插腿）：①②③ 槽 1.50x0.50，④⑤ 槽 1.70x0.50（金标准 pins.txt 实锤：③=1.5、⑤=1.7，2026-10-12 读图把 3/5 弄反）（板面帧，长轴在 X）。2026-10-13 起改约定引擎口径：spec 只声明孔尺寸/pin 布局，焊盘（环宽 0.3→2.10x1.10 / 2.30x1.10）、mask(+0.05/边)、顶面钢网、OBLONG_Y 本地竖孔 + OVAL_SLOT 槽孔+pin 旋转 90°、命名 POB{孔}X{孔}HOB{盘}X{盘} 全部由 knowledge/conventions.json 派生。｜★ 2026-10-14 工程师复核后第 5 版重修：①原点改金标准口径（本体左边缘=0，spec 原点从居中改为左基准线，与图纸标注基准一致）；②本体 12.0x6.0 → 12.2x6.7（此前 6.0 是 2026-10-12 读图误值，金标准丝印实测 12.21x6.71、图纸 TOP VIEW 标注 12.20x6.70，侧视图本体长 12.00 为另一视图口径）；③Place_Bound 改显式金标准值 15.11x10.55（bbox x[-1.90,13.21] y[±5.3/5.25]，非对称外扩 左1.90/右1.01/上1.90/下1.95——连接器不能按「本体+均匀外扩」推导，工程师复核第 2 条错误：旧 15.8x9.8 宽 6 即来自误值 body.y=6.0）；④package_height=4.20（规格书侧视图：板面以上本体高 4.20，插头套另凸出 1.05 不计入 Package Height），builder 经 set_package_height 挂 PACKAGE_HEIGHT_MAX 属性（旧版缺该能力=工程师复核第 1 条错误）；⑤丝印/装配层改金标准开放折线原样复刻（丝印左边缘不画避让插头套；装配层带 ±5.08 插头套短线；金标准无 pin1 三角——旧 pin1_mark 删除）；⑥#REF 在 (0.1,0.11) REF DES/ASSEMBLY_TOP justify=LEFT。｜槽心距 8.10 为图纸标注（上下排 ±4.05）；左基准线量 x=3.65/6.45/11.40（上排）、4.93/11.40（下排）。｜底面钢网 BPM=焊盘尺寸：金标准逐 padstack 实况为 **仅主 POB1D5 带、POB1D7 不带**（2026-10-14 对拍实锤），paste_bottom 只声明在主 padstack。",
   "fingerprint": {
     "mount": "tht",
     "pin_count": 5,
     "pitch_x": null,
     "pitch_y": null,
-    "body_x": 12.0,
-    "body_y": 6.0,
+    "body_x": 12.2,
+    "body_y": 6.7,
     "pad_x": 2.1,
     "pad_y": 1.1
   },
@@ -21,14 +21,130 @@
     "mount": "tht",
     "pin_count": 5,
     "body": {
-      "x": 12.0,
-      "y": 6.0
+      "x": 12.2,
+      "y": 6.7
     },
     "body_center": [
-      0,
+      6.1,
       0
     ],
-    "place_bound_expand_mm": 1.9,
+    "package_height": 4.2,
+    "place_bound": {
+      "x1": -1.9,
+      "y1": -5.3,
+      "x2": 13.21,
+      "y2": 5.25
+    },
+    "silk_lines": {
+      "width": 0.15,
+      "segs": [
+        [
+          [
+            0.0,
+            -3.35
+          ],
+          [
+            12.19,
+            -3.35
+          ]
+        ],
+        [
+          [
+            12.19,
+            -3.35
+          ],
+          [
+            12.2,
+            -3.34
+          ]
+        ],
+        [
+          [
+            12.2,
+            -3.34
+          ],
+          [
+            12.2,
+            3.35
+          ]
+        ],
+        [
+          [
+            12.2,
+            3.35
+          ],
+          [
+            12.19,
+            3.36
+          ]
+        ],
+        [
+          [
+            12.19,
+            3.36
+          ],
+          [
+            -0.01,
+            3.36
+          ]
+        ]
+      ]
+    },
+    "assembly_lines": {
+      "width": 0.1,
+      "segs": [
+        [
+          [
+            0.0,
+            -5.08
+          ],
+          [
+            0.0,
+            -3.35
+          ]
+        ],
+        [
+          [
+            0.0,
+            -3.35
+          ],
+          [
+            12.2,
+            -3.35
+          ]
+        ],
+        [
+          [
+            12.2,
+            -3.35
+          ],
+          [
+            12.2,
+            3.35
+          ]
+        ],
+        [
+          [
+            12.2,
+            3.35
+          ],
+          [
+            0.0,
+            3.35
+          ]
+        ],
+        [
+          [
+            0.0,
+            3.35
+          ],
+          [
+            0.0,
+            5.08
+          ]
+        ]
+      ]
+    },
     "padstack": {
       "name": "POB1D5X0D5HOB2D1X1D1",
       "layers": [],
@@ -53,61 +169,51 @@
           ],
           "drill_type": "OVAL_SLOT",
           "plated": true
-        },
-        "paste_bottom": true
+        }
       }
     ],
     "pins_override": [
       {
         "number": "1",
-        "x": -2.35,
+        "x": 3.65,
         "y": 4.05,
         "padstack": "POB1D5X0D5HOB2D1X1D1"
       },
       {
         "number": "2",
-        "x": 0.45,
+        "x": 6.45,
         "y": 4.05,
         "padstack": "POB1D5X0D5HOB2D1X1D1"
       },
       {
         "number": "3",
-        "x": -1.07,
+        "x": 4.93,
         "y": -4.05,
-        "padstack": "POB1D7X0D5HOB2D3X1D1"
+        "padstack": "POB1D5X0D5HOB2D1X1D1"
       },
       {
         "number": "4",
-        "x": 5.4,
+        "x": 11.4,
         "y": -4.05,
         "padstack": "POB1D7X0D5HOB2D3X1D1"
       },
       {
         "number": "5",
-        "x": 5.4,
+        "x": 11.4,
         "y": 4.05,
-        "padstack": "POB1D5X0D5HOB2D1X1D1"
+        "padstack": "POB1D7X0D5HOB2D3X1D1"
       }
     ],
-    "pin1_mark": {
-      "corner": "top-left",
-      "axis": "x",
-      "apex": [
-        -3.55,
-        4.05
-      ],
-      "base": [
-        [
-          -3.85,
-          3.75
-        ],
-        [
-          -3.85,
-          4.35
-        ]
+    "refdes": {
+      "text": "#REF",
+      "x": 0.1,
+      "y": 0.11,
+      "text_block": "1",
+      "justify": "left",
+      "targets": [
+        "refdes_assembly"
       ]
     },
-    "symbol_name": "NB_LYDPJ_5P_12X6",
-    "paste_bottom": true
+    "symbol_name": "NB_LYDPJ_5P_12X6"
   }
 }

@@ -1171,6 +1171,86 @@ def add_outline(
 
 
 # ============================================================
+# 单个动作：Place_Bound 矩形 + Package Height 属性（原子）
+# ============================================================
+def set_package_height(
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    height: float,
+    workspace_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    创建 Place_Bound 填充矩形并挂 **PACKAGE_HEIGHT_MAX** 属性（2026-10-14）。
+
+    ★ 背景：Editor 的 Setup→Areas→Package Height 本质 = 给 PLACE_BOUND_TOP
+      上的 shape 挂 PACKAGE_HEIGHT_MAX 属性。LYDPJ 工程师复核第 1 条错误
+      就是「Place_Bound 画了但高度没设」—— 此前 builder 根本没有这个能力。
+
+    ★ 单 eval 原子：axlDBCreateRectangle 返回的 dbid 是 SkillBridge Remote
+      引用，无法回传嵌进下一条 eval 文本，所以「建矩形→挂属性→回读校验」
+      合成一条单行 let（片段见 skill_snippets.build_filled_rect_with_height）。
+
+    :param height: Package Height Max，**mm**（内部按 design 单位换算）
+    :return: {success, prop_value(回读值), created(bool), ...}
+    """
+    steps: List[Dict[str, Any]] = []
+    layer = "PACKAGE GEOMETRY/PLACE_BOUND_TOP"
+    try:
+        with AllegroSession(workspace_id) as s:
+            unit = s.units()
+            steps.append(_step_entry("units", "(axlDBGetDesignUnits)", True, unit))
+            if unit == "unknown":
+                return _result(False, error="无法确定 drawing 单位", steps=steps)
+
+            expr = S.build_filled_rect_with_height(
+                _mm_to_design(x1, unit), _mm_to_design(y1, unit),
+                _mm_to_design(x2, unit), _mm_to_design(y2, unit),
+                layer, _mm_to_design(height, unit),
+            )
+            raw = s.eval_skill(expr)
+            steps.append(_step_entry("create_rect+attach_prop", expr, True, value=raw))
+
+            created_ok, prop_value = False, None
+            if isinstance(raw, (list, tuple)) and len(raw) == 2:
+                created_ok = _is_creation_ok(raw[0])
+                props = raw[1]
+                # axlDBGetProperties 返回 [名, 值] 对列表；名是 SKILL Symbol
+                # （repr 形如 Symbol('PACKAGE_HEIGHT_MAX')），值如 '4.2 MM'
+                for pair in props or []:
+                    try:
+                        if "PACKAGE_HEIGHT_MAX" in repr(pair[0]):
+                            prop_value = pair[1]
+                            break
+                    except Exception:            # noqa: BLE001
+                        continue
+            else:
+                created_ok = _is_creation_ok(raw)
+
+            if not created_ok:
+                return _result(
+                    False, prop_value=None, unit=unit, steps=steps,
+                    error="Place_Bound 矩形创建失败（axlDBCreateRectangle 返回 nil）",
+                )
+            if prop_value is None:
+                return _result(
+                    False, prop_value=None, unit=unit, steps=steps,
+                    error=("PACKAGE_HEIGHT_MAX 挂接后 axlDBGetProperties 回读"
+                           "未见该属性 —— 挂接未生效，请人工在 Editor 里设置"),
+                )
+            return _result(
+                True, prop_value=prop_value, unit=unit, steps=steps,
+                error=None,
+            )
+    except ConnectionError as e:
+        return _result(False, error=str(e), steps=steps)
+    except Exception as e:
+        logger.exception("set_package_height 未预期异常")
+        return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
+
+
+# ============================================================
 # 单个动作：画线段（丝印任意形状 —— 1 脚标识三角 / 缺口 / 短横线）
 # ============================================================
 def add_line(
@@ -3341,6 +3421,7 @@ def build_footprint(
     workspace_id: Optional[str] = None,
     extra_padstacks: Optional[Sequence[Dict[str, Any]]] = None,
     assembly: Optional[OutlineSpec] = None,
+    package_height: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     一次调用建出完整封装（padstack + pins + 丝印 + 本体 + place_bound + 位号）。
@@ -3380,6 +3461,11 @@ def build_footprint(
                      三角标只能 CLI 补画）。
                      `geometry_solver.to_build_args()` 已默认携带本参数。
     :param place_bound: {"x1":..,"y1":..,"x2":..,"y2":..}（同样支持列表）
+    :param package_height: ★ Package Height Max（mm）。给了它，place_bound 的
+                     **第一个矩形**改走 `set_package_height` 原子路径
+                     （建矩形 + 挂 PACKAGE_HEIGHT_MAX 属性 + 回读校验），
+                     其余矩形照常绘制。不设属性 = Editor 里 Package Height
+                     为空 —— LYDPJ 工程师复核第 1 条错误（2026-10-14）。
     :param refdes:   {"text":"#REF","x":0,"y":0,"text_block":"1","justify":"left"}
                      ★ 可选 `targets`（列表）一次放多层：
                        `target` 取值 "refdes_assembly"（**默认**，
@@ -3525,6 +3611,11 @@ def build_footprint(
             "padstack": padstack,
             "extra_padstacks": list(extra_padstacks or []),
             "pins_override": list(pins),
+            # ★ paste_bottom 必须是 **per-padstack 键**（2026-10-14）：
+            #   约定引擎按每个 padstack 自身的 paste_bottom 决定是否派生
+            #   PASTEMASK_BOTTOM（LYDPJ 金标准：主 padstack 带、extra 不带）。
+            #   这里不能设 spec 级全局键——否则 extras 也被挂上 BPM。
+            #   幂等性由 engine 派生结果回填 paste_bottom 键保证。
         }
         _ps2, _conv_notes = apply_conventions(_pseudo)
         if _conv_notes:
@@ -3699,7 +3790,41 @@ def build_footprint(
         _draw_outlines(assembly, "assembly", 0.10)
     else:
         _draw_outlines(body, "assembly", 0.10)
-    _draw_outlines(place_bound, "place_bound", 0.0, filled=True)
+    # ---- Place_Bound（+ Package Height 属性）----
+    #   ★ package_height 给定时：place_bound 的**第一个矩形 dict** 改走
+    #     set_package_height（建矩形+挂属性+回读，单 eval 原子），
+    #     其余图元照常 _draw_outlines。属性挂失败 → WARN（不静默）。
+    _pb_items: List[Dict[str, Any]] = []
+    if place_bound:
+        _pb_items = place_bound if isinstance(place_bound, list) else [place_bound]
+    _pb_first_idx: Optional[int] = None
+    if package_height is not None:
+        for _i, _it in enumerate(_pb_items):
+            if isinstance(_it, dict) and "x1" in _it:
+                _pb_first_idx = _i
+                break
+        if _pb_first_idx is None:
+            warnings.append(
+                "package_height 已给但 place_bound 中找不到矩形图元（只有 lines 形态）"
+                " —— Package Height 属性未设置，请人工确认。")
+    _pb_rest = ([_it for _i, _it in enumerate(_pb_items) if _i != _pb_first_idx]
+                if _pb_first_idx is not None else _pb_items)
+    _draw_outlines(_pb_rest, "place_bound", 0.0, filled=True)
+    if _pb_first_idx is not None:
+        _fr = _pb_items[_pb_first_idx]
+        _r = set_package_height(
+            float(_fr["x1"]), float(_fr["y1"]),
+            float(_fr["x2"]), float(_fr["y2"]),
+            float(package_height),
+            workspace_id=workspace_id,
+        )
+        _collect(_r, "place_bound.package_height")
+        if _r.get("success"):
+            logger.info("PACKAGE_HEIGHT_MAX=%s 已挂到 Place_Bound", package_height)
+        else:
+            warnings.append(
+                f"Place_Bound 矩形/Package Height 设置不完整: {_r.get('error')}"
+                " —— 请在 Editor 里人工确认 Setup→Areas→Package Height。")
 
     # ---- 7) 位号 ----
     #   ★★★ 位号（refdes）必须落在 **REF DES 类** 层，否则 axlCompileSymbol 报

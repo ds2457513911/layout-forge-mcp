@@ -120,6 +120,21 @@ check 与 create 读同一份约定）：
    `NP` 前缀 = 非金属化机械孔（环宽豁免）；`OS{X|Y}{off}` = 槽偏移后缀
 6. 检查兜底：规则 **2.7（层完整性+钻孔实义）/ 2.8（环宽）/ 2.9（命名）/ 2.10（钢网）**
    FAIL 禁止交付；builder 出厂自检（extracta 回读）FAIL 同样不 success。
+7. **Package Height Max 必设**（2026-10-14 LYDPJ 复核第 1 条错误）：
+   Editor 的 Setup→Areas→Package Height 本质 = 给 PLACE_BOUND shape 挂
+   `PACKAGE_HEIGHT_MAX` 属性。`build_footprint_from_params(package_height=…)`
+   已内置原子挂接（值取规格书侧视图「板面以上本体高」）。
+   API 实锤（探针三轮 + 官方示例 axldbctprop.il）：
+   - 函数名是 **`axlDBAddProp`**（`axlDBAddProperty` 在 17.2 不存在）；
+   - 属性形态 = flat list：`axlDBAddProp(dbid list("NAME" value))`；
+   - ★ **回读必须 `axlDBGetProperties(dbid)`** —— `dbid->PROP` 箭头只暴露
+     系统属性，用户属性读不到也不出现在 `->?`（挂成功也会被误判失败）；
+   - 值落库形态 `'4.2 MM'`（字符串带单位）；extracta 回读**看不到**属性，
+     验收时 Package Height 以挂接回读/Editor 人工确认为准。
+8. **paste_bottom 是 per-padstack 键**（2026-10-14 LYDPJ v5 实锤）：
+   金标准可能主 padstack 带 BPM、extra padstack 不带——在 padstack 字典里
+   逐个声明，禁止 spec 级全局键（会把 extras 一起挂上 BPM）；engine 派生
+   结果回填该键保证二次 apply_conventions 幂等。
 
 ### 报告渲染（重要）
 
@@ -420,6 +435,11 @@ JOPEN25X30_S-L-P），工具只拿得到包围盒、轮廓几何未建模——�
 2. **`Place_Bound` 的外扩基准是「器件本体」，不是「焊盘阵列」。**
    3S48000163：本体 3.2×2.5 + 单边 0.35 → **3.9 × 3.2** ✓
    若误按焊盘阵列（含阻焊 3.7×3.0）算会得 4.4 × 3.8 ✗。
+   ★ **连接器类金标准常是"非对称外扩"**（LYDPJ：左 1.90 / 右 1.01 /
+   上 1.90 / 下 1.95，2026-10-14 复核第 2 条错误）——「本体+均匀外扩」
+   推导必错；有金标准时**显式声明金标准 rect**（`place_bound` 显式传参），
+   没有金标准才用推导值。读图时本体宽高也要按 TOP VIEW 标注取
+   （LYDPJ 教训：12.20×6.70 被误读成 12.00×6.00，"宽 6"直接进了绿框）。
 
 3. **丝印间距：规范 vs 实物有落差。**
    [规范] 要求丝印与焊盘间距 ≥ 0.20 mm，但金标准实物只有 **0.06 mm**
