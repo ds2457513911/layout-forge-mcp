@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
-title layout-forge-mcp deployer v7
+title layout-forge-mcp deployer v7.2
 
 REM ============================================================
 REM  deploy.bat -- layout-forge-mcp one-click deployer  (v7)
@@ -37,6 +37,14 @@ REM    - all Agent-side logic moved to Tools\deploy\setup_agent.py (python),
 REM      so this bat only bootstraps the environment.
 REM    - python fallback when uv is unavailable.
 REM    - hard check: skillbridge must import from the project venv.
+REM
+REM  v7.2 changes vs v7.1:
+REM    - python candidates are now validated (import venv + ensurepip)
+REM      before being accepted. The Windows "embeddable" distribution
+REM      (D:\Dev_tools\python3.10.11-embed-amd64) has no venv module and
+REM      killed the deploy with "No module named venv" (real case). Bad
+REM      candidates are skipped; if none is usable, uv is installed via
+REM      winget and manages Python itself.
 REM
 REM  Save requirement: pure ASCII or UTF-8 no BOM. English only.
 REM  Line endings MUST be CRLF - LF-only breaks "call :label".
@@ -90,7 +98,7 @@ goto usage
 
 echo.
 echo ============================================================
-echo  layout-forge-mcp deployer  v7
+echo  layout-forge-mcp deployer  v7.2
 echo ============================================================
 echo   Script dir  : %SCRIPT_DIR%
 echo   Install dir : %INSTALL_DIR%
@@ -149,8 +157,10 @@ if not defined UV if not defined PY_EXE (
     )
 )
 if not defined UV if not defined PY_EXE (
-    echo   [X] No uv and no python, and winget is unavailable.
-    echo       Install Python 3.10-3.13 manually, then re-run.
+    echo   [X] No usable uv / python, and winget is unavailable.
+    echo       Note: the Windows "embeddable" python is rejected on purpose -
+    echo       it has no venv module. Install full Python 3.10-3.13 or uv,
+    echo       then re-run.
     goto :fail
 )
 if defined UV (
@@ -232,6 +242,13 @@ REM ============ Step 5: venv + dependencies ============
 echo [5/6] Create .venv and install dependencies
 set "VENV_PYTHON=%PROJECT_ROOT%\.venv\Scripts\python.exe"
 
+if "%DRY_RUN%"=="1" (
+    echo       [DRY-RUN] skipping environment creation
+    goto :step5_done
+)
+
+REM ---- version check below may rmdir .venv - must stay after DRY_RUN gate
+REM ---- (dry run once deleted a real .venv here, 2026-10-14 incident)
 if exist "%VENV_PYTHON%" (
     set "VENV_VER="
     for /f "delims=" %%v in ('"%VENV_PYTHON%" -c "import sys; print(str(sys.version_info[0]) + '.' + str(sys.version_info[1]))" 2^>nul') do set "VENV_VER=%%v"
@@ -252,11 +269,6 @@ if exist "%VENV_PYTHON%" (
         echo   [!] Could not detect .venv Python version - recreating to be safe
         rmdir /S /Q "%PROJECT_ROOT%\.venv" 2>nul
     )
-)
-
-if "%DRY_RUN%"=="1" (
-    echo       [DRY-RUN] skipping environment creation
-    goto :step5_done
 )
 
 if defined UV (
@@ -370,13 +382,26 @@ if not defined UV if exist "%LOCALAPPDATA%\Programs\uv\uv.exe" set "UV=%LOCALAPP
 exit /b 0
 
 :FindPython
+rem Find a python that can actually create venvs. The Windows "embeddable"
+rem distribution (python-3.x.y-embed-amd64) has NO venv/ensurepip modules;
+rem picking it fails later with "No module named venv" (real case 2026-10-14).
+rem Validate every candidate before accepting it.
 set "PY_EXE="
 for /f "delims=" %%i in ('where python 2^>nul') do (
-    set "PY_EXE=%%i"
-    goto :FindPyDone
+    call :CheckPython "%%i"
+    if defined PY_EXE goto :FindPyDone
+)
+if not defined PY_EXE if exist "%SystemRoot%\py.exe" (
+    call :CheckPython "%SystemRoot%\py.exe"
 )
 :FindPyDone
-if not defined PY_EXE if exist "%SystemRoot%\py.exe" set "PY_EXE=%SystemRoot%\py.exe"
+exit /b 0
+
+:CheckPython
+rem Accepts a python candidate. Sets PY_EXE only if venv + ensurepip import.
+set "PY_EXE="
+"%~1" -c "import venv, ensurepip" >nul 2>&1
+if not errorlevel 1 set "PY_EXE=%~1"
 exit /b 0
 
 :RefreshPath
@@ -418,6 +443,11 @@ goto :WingetArgLoop
 
 set "WG_LOG=%TEMP%\winget_install_%RANDOM%.log"
 set /a WG_TRY=0
+
+if "%DRY_RUN%"=="1" (
+    echo       [DRY-RUN] would run: winget install!WG_ARGS!
+    exit /b 0
+)
 
 :WingetTryLoop
 set /a WG_TRY+=1
