@@ -1,0 +1,9 @@
+# Windows batch scripts MUST be stored CRLF in the repo blobs.
+# raw.githubusercontent.com serves the raw blob, and curl'd deploy.bat
+# must stay CRLF: cmd.exe label resolution (call :label / goto :label)
+# is unreliable on LF-only files - it died with "cannot find the batch
+# label specified - RefreshPath" (2026-10-14, user Du's machine).
+# "-text" disables all EOL conversion so the blob keeps the CRLF bytes.
+*.bat -text
+*.cmd -text
+*.ps1 -text

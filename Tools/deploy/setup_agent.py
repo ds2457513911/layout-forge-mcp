@@ -318,6 +318,10 @@ def smoke_test(project_root: Path) -> bool:
         p = project_root / "Tools" / script
         if not p.is_file():
             continue
+        # ★ 子进程 stdout 必须强制 UTF-8：同事机器控制台是 cp936，selfcheck
+        #   总结行里的 "✓" 用 GBK 编码不了 -> print 抛 UnicodeEncodeError ->
+        #   rc=2（2026-10-14 部署实锤，而且 stderr 里才有 traceback）。
+        _env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
         proc = subprocess.run(
             [str(Path(sys.executable)), str(p)],
             cwd=str(project_root),
@@ -325,6 +329,7 @@ def smoke_test(project_root: Path) -> bool:
             text=True,
             encoding="utf-8",
             errors="replace",
+            env=_env,
         )
         lines = [ln for ln in (proc.stdout or "").splitlines() if ln.strip()]
         tail = lines[-2:] if lines else ["(无输出)"]
@@ -332,6 +337,9 @@ def smoke_test(project_root: Path) -> bool:
             log(f"{script} 通过", "OK")
         else:
             log(f"{script} 失败（rc={proc.returncode}）", "ERR")
+            err_lines = [ln for ln in (proc.stderr or "").splitlines() if ln.strip()]
+            for ln in err_lines[-3:]:
+                log(f"    [stderr] {ln.strip()}")
             ok = False
         for ln in tail:
             log(f"    {ln.strip()}")
