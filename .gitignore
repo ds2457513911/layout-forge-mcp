@@ -1,5 +1,5 @@
 # ============================================================
-# layout-check-mcp .gitignore
+# layout-forge-mcp .gitignore
 # ============================================================
 
 # ---------- Python 构建产物 ----------
@@ -21,6 +21,11 @@ marker_out/
 mcp_timing.log
 mcp-config.json
 extract.log*
+
+# ---------- 遥测 / 评测产物（L4 / L5）----------
+# eval/runs/ = 每次运行的遥测与评测产物（不进 git）；
+# eval/baselines/ 相反 —— 它是「上一次被认可的行为」，必须进 git。
+eval/runs/
 
 # ---------- 临时调试产物 ----------
 _extracta_debug/

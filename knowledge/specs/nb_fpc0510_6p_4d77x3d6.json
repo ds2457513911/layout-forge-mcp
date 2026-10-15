@@ -3,7 +3,7 @@
   "name": "NB_FPC0510_6P_4D77X3D6",
   "saved_at": "2026-10-09 15:12:37",
   "family": "FPC-0.5",
-  "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp/Tools/test/FPC0510系列 Pitch0.5 H1.0 前掀盖+下接触.pdf",
+  "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp/Tools/test/NB_FPC0510_6P_4D77X3D6/FPC0510系列 Pitch0.5 H1.0 前掀盖+下接触.pdf",
   "notes": "来源：Tools/test/FPC0510系列 Pitch0.5 H1.0 前掀盖+下接触.pdf\n\n★ 非对称引脚布局的先例：6 个信号脚 + 2 个固定脚，两种 padstack\n  （R0D3X0D65 信号 / R0D3X1D15 固定脚），走 pins_override + extra_padstacks 通道。\n★ 显式命名：8 是「6 信号 + 2 固定」，自动命名会拼成 FPC05108（歧义）",
   "fingerprint": {
     "mount": "smd",

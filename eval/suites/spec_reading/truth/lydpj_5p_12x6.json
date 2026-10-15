@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "case": "lydpj_5p_12x6",
+  "title": "3.5mm 耳机座 LYD-PJ-35（5 脚，THT）",
+  "pdf": "Data/footprint/LYDPJ-H23CB1Y-053N/LYDPJ-H23CB1Y-053N.pdf",
+  "pdf_sha256": "6c4a4dc670a3",
+  "signed_by": "ds245 (对话中确认：10 例全照草案)",
+  "signed_at": "2026-10-15",
+  "source_note": "真值草稿由 AI 读图起草（ai-read-2026-10-15）；证据见 drafts/lydpj_5p_12x6.md 与 drafts/lydpj_5p_12x6.json。**未签字前不得用于冻结基线**。\n已签字（2026-10-15）：人工复核 REVIEW.md 后确认**10 例全照草案**，未改任何字段值。",
+  "fields": {
+    "mount": {
+      "value": "tht",
+      "page": 1,
+      "quote": "PCB LAYOUT TOP VIEW: 5 pads drawn as hatched oval copper pads with inner OVAL SLOT drill symbols; 3-1.50 / 3-2.10 / 2-1.70 / 2-2.30 slot+pad callouts; title block \"5 PIN \"\"6.0MM DIP\"\" A\"",
+      "method": "焊盘图内画的是长圆(oblong)铜箔环 + 内部椭行长槽(oval slot)钻孔符号，且标题栏明写 6.0MM DIP；THT 而非 SMD。与 .dra 交叉一致（pins 的 pads 同时含 ETCH/TOP、ETCH/BOTTOM 与 DRILL 'OVAL SLOT' 层）。"
+    },
+    "pin_count": {
+      "value": 5,
+      "page": 1,
+      "quote": "PCB LAYOUT TOP VIEW: 5 pads circled and numbered 1, 2 (top row) and 3, 4 (bottom row), 5 (top row rightmost); title block \"5 PIN\"",
+      "method": "数图上带圈引线的信号脚，正好 5 个：上排 1/2/5，下排 3/4。图面没有任何壳体脚/定位柱编号。与 .dra pins=5（编号 1..5）交叉一致。外壳脚/定位柱不计。"
+    },
+    "pitch_x": {
+      "value": null,
+      "null_reason": "无规则间距：5 个信号脚在两排上交错排列，x 方向相邻引脚中心距并非常数。实测（PDF 标注 + .dra 引脚坐标一致）为 1.28 / 1.52 / 2.80 / 2.91 mm 不等，无法用一个 canonical pitch_x 表达。",
+      "page": 1,
+      "quote": "PCB LAYOUT TOP VIEW: 3.65 与 6.45 标注为左起第一列到脚1、到脚2 的中心距；下排 4.93 标注为左起第一列到脚3 的中心距"
+    },
+    "pitch_y": {
+      "value": null,
+      "null_reason": "无规则间距：本件不是两排以上等距引脚阵列，只有上、下两排（1/2/5 与 3/4），两排中心距实测 8.10 mm（PDF 右侧 8.10 标注；.dra 为 y=+4.05 与 y=-4.05）。canonical 的 pitch_y 指相邻引脚中心距，此处并不适用，故写 null；名义值 8.10 mm 见 notes。",
+      "page": 1,
+      "quote": "PCB LAYOUT TOP VIEW 右侧标注: 6.70 / 8.10（8.10 为上排脚中心到下排脚中心的跨距）"
+    },
+    "body_x": {
+      "value": 12.2,
+      "page": 1,
+      "quote": "PCB LAYOUT TOP VIEW 顶部总长标注: 12.20（同一处 11.40 为另一条界线）",
+      "method": "取 PCB LAYOUT TOP VIEW 最外侧 12.20 mm 本体轮廓长度。矢量图元实测本体轮廓约 12.16 mm（pt→mm 按 A4 1:1 = 2.8346 pt/mm 反推），.dra 本体/丝印轮廓实测 12.2099×6.71 mm，双向一致，故定 12.20。"
+    },
+    "body_y": {
+      "value": 6.7,
+      "page": 1,
+      "quote": "PCB LAYOUT TOP VIEW 右侧标注: 6.70",
+      "method": "本体宽度取顶视图右侧 6.70 mm 标注。.dra 本体/丝印轮廓 12.2099×6.71 mm（y 向 6.71，与 6.70 差 0.01，在 ±0.05 内）。注意侧视剖面另标 12.00×4.20，为金属外壳/护罩剖面而非安装面本体，见 notes。"
+    },
+    "pad_x": {
+      "value": 2.1,
+      "page": 1,
+      "quote": "PCB LAYOUT TOP VIEW 底部标注: 3-1.50 / 3-2.10 / 2-1.70 / 2-2.30",
+      "method": "底部成对标注给出两类焊盘两个方向的尺寸。横跨长槽方向（即焊盘宽度）为 3-2.10（3 个）与 2-2.30（2 个）。PDF 矢量焊盘轮廓实测：脚1/2/3 = 1.99–2.16 mm，脚4/5 = 2.33–2.37 mm，与 2.10/2.30 吻合。.dra 铜箔常数列为 2.1001×1.1001 与 2.3×1.1，据此取主类 2.10。"
+    },
+    "pad_y": {
+      "value": 1.1,
+      "page": 1,
+      "quote": "PCB LAYOUT TOP VIEW 底部标注: 3-2.10 / 2-2.30 与 3-1.50 / 2-1.70 构成成对的两个方向尺寸",
+      "method": "焊盘高度（垂直于长槽方向）= 成对标注中的短边 2.10，即 2.10−1.50 = 0.60 为焊盘相对长槽的单侧环宽，双端环宽 0.60×2 = 1.20 > 1.10，取保守值 1.10；.dra 铜箔高实测两档均为 1.10（2.1001×1.1001 / 2.3×1.1），一致。★ 该字段 PDF 未直接画出独立高度尺寸，是本次读数中唯一无独立标注支撑的值，置信度低于其余字段，详见 notes。"
+    }
+  },
+  "unreadable": [],
+  "cross_check": {
+    "dra": "nb_audio5_13d05x6d3x4d2.dra",
+    "method": "用 unconfined 解释器经 services/extracta_reader.read_via_extracta 解析 .dra 四视图，取 pins(编号/xy/rotation)、padstack 铜箔与 DRILL 层尺寸、layers 本体+丝印轮廓 bbox、units=mm；再逐字段与 PDF 读数按下列容差比对：mount 精确、pin_count 精确整数、pitch ±0.02、body ±0.05、pad ±0.05。",
+    "agree": [
+      "mount",
+      "pin_count",
+      "pitch_x",
+      "pitch_y",
+      "body_x",
+      "body_y",
+      "pad_x"
+    ],
+    "disagree": [
+      "pad_y"
+    ],
+    "dra_values": {
+      "mount": "tht",
+      "pin_count": 5,
+      "pitch_x": "null（引脚 xy 去重后 x = 3.65, 4.93, 6.45, 11.4, 11.4；相邻差 1.28 / 1.52 / 4.95，无规则间距）",
+      "pitch_y": "null（仅两排：y = +4.05 与 -4.05，排距 8.10；非相邻引脚阵列）",
+      "body_x": "12.2099（PACKAGE GEOMETRY/SILKSCREEN_TOP 轮廓 bbox，ASSEMBLY_TOP 同为 12.2）",
+      "body_y": "6.71（PACKAGE GEOMETRY/SILKSCREEN_TOP 轮廓 bbox 的 y 向 6.71；ASSEMBLY_TOP 为 6.7）",
+      "pad_x": "2.1001（1/2/3 脚 padstack POB1D5X0D5HOB2D1X1D1 铜箔）与 2.3（4/5 脚 padstack POB1D7X0D5HOB2D3X1D1 铜箔）；主类 2.10",
+      "pad_y": "1.1001 与 1.1（两类 padstack POB1D5X0D5HOB2D1X1D1 / POB1D7X0D5HOB2D3X1D1 的 ETCH/TOP 铜箔高度一致，数值与本次 1.10 相同——列入 disagree 的是**依据**而非数字：.dra 是直接量铜箔，本次是「成对标注短边」读法推得，口径不同，需人工裁定）",
+      "pitch_nominal_notes": "脚 xy: 1=(3.65,4.05) 2=(6.45,4.05) 5=(11.4,4.05) 3=(4.93,-4.05) 4=(11.4,-4.05)；DRILL 层 1/2/3 = OVAL SLOT 1.5001×0.5001，4/5 = OVAL SLOT 1.7×0.5",
+      "units": "mm",
+      "other_layers": "PACKAGE GEOMETRY/PLACE_BOUND_TOP = 15.11×10.55（含避让区，非本体）；REF DES/ASSEMBLY_TOP 仅 #REF；texts 6 条全为 PIN_NUMBER/REFDES"
+    }
+  },
+  "pdf_form": "cad_vector",
+  "signed_via": "chat"
+}

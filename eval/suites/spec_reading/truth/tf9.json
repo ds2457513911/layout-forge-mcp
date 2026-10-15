@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "case": "tf9",
+  "title": "TF 卡座 9 pin 外焊 H=1.85",
+  "pdf": "Data/footprint/CD.01.02-13-00039Pin H=1.85/CD.01.02-13-0003--TF卡座 外焊9Pin H=1.85 贴片 带柱 双弹片外壳 平脚镀镍 编带 .pdf",
+  "pdf_sha256": "83de7cb8275e",
+  "signed_by": "ds245 (对话中确认：10 例全照草案)",
+  "signed_at": "2026-10-15",
+  "source_note": "真值草稿由 AI 读图起草（ai-read-2026-10-15）；证据见 drafts/tf9.md 与 drafts/tf9.json。**未签字前不得用于冻结基线**。\n已签字（2026-10-15）：人工复核 REVIEW.md 后确认**10 例全照草案**，未改任何字段值。",
+  "fields": {
+    "mount": {
+      "value": "smd",
+      "page": 1,
+      "quote": "PCB 图形区下标注 \"(RECOMMENDED/P.C.B)HOLE LAYOUT\" 与 \"COMPONENT SIDE VIEW TOLERANCE:±0.05\"；图中所有连接盘均为实心斜线填充的贴片盘，无穿孔/插件焊盘；物料名 \"贴片 带柱\"（H=1.85）",
+      "note": "9 个信号脚 + 4 个外壳接地脚全部为表面贴装，没有任何通孔焊盘。"
+    },
+    "pin_count": {
+      "value": 9,
+      "page": 1,
+      "quote": "俯视图引脚编号 \"1 2 3 4 5 6 7 8 cd\"；Assignment 表共 9 行（1#DAT2、2#CD/DAT3、3#CMD、4#VDD、9#CD、5#CLK、6#VSS、7#DAT0、8#DAT1）；PCB 图形区尺寸串 \"8-1.10\"（8 段间距、9 个焊盘）",
+      "note": "外壳/定位柱脚不计入。"
+    },
+    "pitch_x": {
+      "value": 1.1,
+      "page": 1,
+      "quote": "\"8-1.10\"（PCB 图形区 9 个信号焊盘阵列上方标注，与俯视图 \"⑥ 8.80\" 对应：8 段 × 1.10 = 8.80）",
+      "note": "9 个信号脚排成单排，间距沿器件长轴（16.19 一处）。★ 判轴依据：俯视图 \"⑭ 16.19\" 为图上横向尺寸，而 9 个引脚编号与焊盘列同样沿图上横向排布，故引脚排布轴即 16.19 一轴。"
+    },
+    "pitch_y": {
+      "value": null,
+      "null_reason": "不存在第二个间距：9 个信号脚只有单排，排内间距已记入 pitch_x，y 方向无相邻引脚对，故无规则间距可读。",
+      "note": "不是读不出来，而是结构上不适用。"
+    },
+    "body_x": {
+      "value": 16.19,
+      "page": 1,
+      "quote": "\"⑭ 16.19\"（俯视图最外侧横向尺寸；同一视图另有 \"⑬ 14.79\"、\"⑤ 15.30\"、\"⑯ 14.50\"、\"⑲ 10.50\"）",
+      "note": "取跨安装法兰的最大长度 16.19 为本体长，与 .dra 文件名 \"14d5x16d19x2\" 的长边一致。"
+    },
+    "body_y": {
+      "value": 14.5,
+      "page": 1,
+      "quote": "\"⑯ 14.50\"（俯视图右侧纵向尺寸，与正面视图 \"⑯ 14.50\"、\"⑲ 10.50\" 呼应）",
+      "note": "垂直于引脚排布轴的本体宽度。"
+    },
+    "pad_x": {
+      "value": 0.7,
+      "page": 1,
+      "quote": "\"0.70\"（PCB 图形区信号焊盘阵列右端焊盘宽度标注；焊盘高另注 \"1.60\"）",
+      "note": "9 个信号脚推荐焊盘宽。图中 4 个外壳接地大焊盘为 1.60×1.50，不计入 pad_x/pad_y。"
+    },
+    "pad_y": {
+      "value": 1.6,
+      "page": 1,
+      "quote": "\"1.60\"（PCB 图形区信号焊盘阵列右侧焊盘高度标注）",
+      "note": "9 个信号脚推荐焊盘高。"
+    }
+  },
+  "unreadable": [],
+  "cross_check": {
+    "dra": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\CD.01.02-13-00039Pin H=1.85\\nb_tf9_14d5x16d19x2.dra",
+    "method": "services.extracta_reader.read_via_extracta（unconfined python 3.10.11 驱动 Cadence extracta，四视图），取 pins 的 xy/bbox/size 与 padstack 名；把 .dra 的 x 轴（引脚排布轴，间距 1.10）对齐到 PDF 的引脚排布轴（16.19 一处）后逐字段比对。",
+    "dra_values": {
+      "mount": "smd（全部 pad 只有 ETCH/TOP + SOLDERMASK_TOP + PASTEMASK_TOP，无 DRILL，除 NPC 定位柱）",
+      "pin_count": 9,
+      "pitch_x": 1.1,
+      "pitch_y": null,
+      "body_x": 16.19,
+      "body_y": 14.5,
+      "pad_x": 0.7,
+      "pad_y": 1.6
+    },
+    "agree": [
+      "mount",
+      "pin_count",
+      "pitch_x",
+      "pitch_y",
+      "body_x",
+      "body_y",
+      "pad_x",
+      "pad_y"
+    ],
+    "disagree": [],
+    "notes": [
+      "8 个字段两边全部一致，无冲突项。",
+      "pad_x/pad_y：.dra 的 pin 1-9 padstack 名 \"R1D6X0D7\"（1.6×0.7）、bbox size [0.7, 1.6]，与 PDF \"0.70\"/\"1.60\" 逐个吻合；.dra 的 x 轴=1.10 间距轴。",
+      "pitch_x：.dra pin1..pin9 的 x 依次为 12.1, 11.0, 9.9, 8.8, 7.7, 6.6, 5.5, 4.4, 3.3，恒差 1.10，与 PDF \"8-1.10\" 吻合。",
+      "body_x/body_y：.dra 全部 pin 的 x 跨度 17.5（跨安装柱）、y 跨度 13.46，与 16.19 / 14.5 的轴归属一致。",
+      "本体轮廓：.dra SILKSCREEN_TOP 外框 19.23×17.38，比 PDF 本体 16.19×14.50 各大约 1.5–3 mm（丝印含法兰/卡口外扩）。两边口径不同（丝印外框 vs 规格书本体内腔轮廓），不作为 disagree 计入。",
+      "件高：.dra pin NPC1 的 DRILL CIRCLE 1.0 mm（2–φ1.00 定位柱）与 PDF \"2-φ1.00\" 吻合，属附加一致性观察，不属 8 字段。",
+      "pad 数量口径差异：PDF 只给出 9 个信号焊盘 + 4 个外壳大焊盘；.dra 为 9 信号 + pin10 R1D5X1D2、pin11 R1D6X1D5、pin12/pin13 R2D2X1D2（4 个外壳脚）+ pin14/pin15 NPC1 定位柱（共 15 pad）。外壳脚只注尺寸（1.60×1.50 / 1.20×1.50 / 1.20×2.20）未给位置，故不对这 4 个做逐字段比对。"
+    ]
+  },
+  "pdf_form": "cad_vector",
+  "signed_via": "chat"
+}

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "case": "hdmi19",
+  "read_by": "ai-blind-read-2026-10-15",
+  "method": "probe_pdf(form=printed, 2页, text_chars=562) -> 拼版/整页低dpi定位 RECOMMEND PCB LAYOUT 视图(第1页, 页面坐标 x≈300-460pt, y≈90-200pt) -> 对该区域 ps.render_region(dpi=600/800/1000/1200) 分块放大读标注 -> 用图上打印尺寸(1.00/1.50/Ø0.85/Ø0.55/15.00/12.50)作标尺校准光栅像素 -> 对同目录同图号 DXF(单位mm) 做几何复核",
+  "fields": {
+    "mount": "tht",
+    "pin_count": 19,
+    "pitch_x": 1.0,
+    "pitch_y": 1.5,
+    "body_x": 15.0,
+    "body_y": 12.5,
+    "pad_x": 0.85,
+    "pad_y": 0.85
+  },
+  "notes": "口径：pin_count 只数 19 个信号脚（SHELL/外壳脚共 4 个不计）；pitch_x=同一排内相邻信号脚中心距（图上直接标注 1.00），pitch_y=两排之间的中心距（两排各 10/9 脚，y 方向相差 1.50）；pad_x/pad_y 取 PCB layout 上明确标注的信号脚铜盘 Ø0.85（另一组打印簇 0.77×1.38 见 md 的备选口径）。以上值仅由 PDF 第 1 页读出，.dra 交叉核对在读数定稿之后才执行。"
+}

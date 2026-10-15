@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "case": "bga496",
+  "read_by": "ai-blind-read-2026-10-15",
+  "method": "probe(pymupdf, form=printed) -> 全文关键词扫描定位到 p11/p12 Package Dimensions -> p12 全图 region@320dpi 目视确认引线归属 -> p12 (40,225,215,285)@900dpi 复核 496X Ø0.27 与 Ø0.24 SMD ball pads 文本",
+  "fields": {
+    "mount": "smd",
+    "pin_count": 496,
+    "pitch_x": 0.4,
+    "pitch_y": 0.4,
+    "body_x": 14.0,
+    "body_y": 12.4,
+    "pad_x": 0.24,
+    "pad_y": 0.24
+  },
+  "notes": "据 Micron LPDDR5 496b 规格书 Rev.C 图6(第12页, Package Code CH=本案例 8-die 料号 MT62F1G64D8CH)：0.4 TYP 双轴节距、14±0.1 x 12.4±0.1 本体、496X 球；规格书未给独立 land pattern 图，唯一推荐焊盘尺寸为球径说明中的 Ø0.24 SMD ball pads，按圆形焊盘取 0.24 x 0.24。"
+}

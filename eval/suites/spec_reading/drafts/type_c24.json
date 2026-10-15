@@ -1,0 +1,112 @@
+{
+  "schema": 1,
+  "case": "type_c24",
+  "read_by": "ai-read-2026-10-15",
+  "pdf_sha256": "2d13237efe18",
+  "pdf_sha256_full": "2D13237EFE18B3382BA0084E1A77EA6ED3F6987B3F3FF4E1F8F1CD0E3C5F3B5D",
+  "pdf_path": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\DB_typec_126-223-240005-U4G--USB 4.0 TYPE-C 24P\\步步精126-223-240005-U4G--USB 4.0 TYPE-C 24P 母座 有后盖 单壳 板上四脚插 带柱 端子双排SMT 外壳脚长0.60 L=9.17 CH=1.57 编带.pdf",
+  "pdf_page_count": 3,
+  "pdf_form": "printed",
+  "read_order": "PDF 读数先冻结（见 candidates/type_c24.json），之后才读 .dra 做交叉核对。例外与实情已披露：body_x/body_y 的『哪个数记在哪个轴』属口径裁定而非图上读数，裁定依据是 canonical 字段的轴向语义（项目按封装坐标 X/Y 口径使用 body_x/body_y），并参考了既有候选 audio6_cstj421（body_x=7.59 < body_y=12.2，证明 body_x 不是『较长边』）；数值本身 8.94 / 9.17 两者都取自 PDF。",
+  "fields": {
+    "mount": {
+      "value": "smd",
+      "page": 2,
+      "quote": "推荐 PCB layout 视图：24 枚信号焊盘全部为斜线填充的裸铜矩形，无任何钻孔/插件符号；同页文本层「TERMINAL / 24 / COPPER ALLOY / SOLDER TAIL:Gold FLASH, 50u\" NICKEL OVERALL. / T=0.12」；图框 NAME 串「端子双排SMT」。件名另注「板上四脚插」——那 4 枚外壳脚确为通孔，但不属本字段口径（见 note）。",
+      "note": "口径：mount 描述被 pin_count 计入的信号脚（24 枚端子），全部表面贴装。同一封装另有 8 枚机械特征的钻孔脚（4 外壳脚 + 4 定位柱，.dra 里为 pin 1..8，带 DRILL OVAL SLOT / CIRCLE_DRILL），按 README 口径不计入 pin_count，也不改变本字段。项目实现同此口径：services/geometry_solver.py:459-460 用 mount 决定**主 padstack**（信号焊盘）是否带钻孔、是否刷锡膏——本件信号焊盘 ETCH/TOP + SOLDERMASK_TOP + PASTEMASK_TOP 三件套、无 DRILL，故主 padstack 必须是 SMT。",
+      "method": "第2页 150dpi 整页 + 900/1200dpi 区域渲染目视（焊盘为空心矩形线框、无钻孔符号）+ 文本层 BOM 串 + .dra 层集合（信号 pad 无 DRILL 层）。"
+    },
+    "pin_count": {
+      "value": 24,
+      "page": 2,
+      "quote": "「24X0.27±0.05」（第2页推荐 PCB layout 焊盘阵列的 24 枚计数标注）",
+      "note": "第1页 PIN ASSIGNMENT 表列出 A1..A12 与 B12..B1 共 24 个信号位号（GND/TX1+/TX1-/VBUS/CC1/D+/D-/SBU1/VBUS/RX2-/RX2+/GND 与 GND/RX1+/RX1-/VBUS/SBU2/D-/D+/CC2/VBUS/TX2-/TX2+/GND）互证。第2页另有「12X0.80±0.05」两处，即 12+12 两排。不计：4 枚外壳脚（板上四脚插）+ 4 枚定位柱 = .dra 的 pin 1..8（.dra raw_pin_count=32 = 24+8）。",
+      "method": "第1页 PIN ASSIGNMENT 表逐个位号清点 + 第2页 24X 计数标注 + 矢量几何实测两排各 12 枚矩形焊盘（A 排 12、B 排 12）+ .dra 计数。"
+    },
+    "pitch_x": {
+      "value": 0.5,
+      "page": 2,
+      "quote": "「0.50」（第2页焊盘阵列上方标注，与「5.50」= 11×0.50 的 12 焊盘跨度互证）",
+      "note": "口径：x 方向 = 焊盘阵列方向（第2页推荐 PCB layout 的横向、图内 -X- 基准所指方向）= 本体 8.94 一轴。三路独立佐证：① 同排相邻焊盘矢量中心距 13.589 pt；② 12 焊盘跨度 11×13.589 = 149.486 pt = 「5.50」；③ 第1页端子视图另标「0.50 (PITCH)」「5.50」「24X0.20±0.05」（端子料宽 0.20）。标定比例 27.178 pt/mm 由 0.50 与 0.27 双路自洽得出。",
+      "method": "矢量几何（page.get_drawings 重构焊盘矩形 → 相邻中心距）+ 1200dpi 区域目视复核 + 文本层标注串。"
+    },
+    "pitch_y": {
+      "value": 1.6,
+      "page": 2,
+      "quote": "图上无该间距的独立标注；由推荐 land pattern 的矢量几何实测：A 排焊盘 y=192.671–217.132、B 排 y=237.517–259.260，两排中心 y=204.902 / 248.389，差 43.487 pt ÷ 27.178 pt/mm = 1.600 mm（上下自洽：A 排高 0.900 + 排间空隙 0.750 + B 排高 0.800 = 2.450 = 两排外缘总距 66.589 pt ÷ 27.178）",
+      "note": "口径：y 方向 = 垂直于焊盘阵列的方向（第2页纵向、图内 -Y- 基准）= 本体 9.17 一轴，取两排相邻引脚中心距。两排在 x 向错位 0.25（半间距，A1..A12 与 B12..B1 交错），故最近一对 A-B 引脚的行心距是 1.600、斜距 sqrt(0.25²+1.60²)=1.619，两者均在 ±0.02 容差内落同一值。.dra 独立复现：A 排 y 中心 +0.75、B 排 −0.85 → 1.60。",
+      "method": "矢量几何实测（唯一依据，图上无标注）+ .dra 交叉。"
+    },
+    "body_x": {
+      "value": 8.94,
+      "page": 1,
+      "quote": "「(8.94)」（第1页正视/顶视图最外侧横向总宽；同视图内另有「(8.34)」= 对插口内宽、「8.64」「2-Ø0.42±0.10」等）",
+      "note": "轴向归属说明：PDF 只给出 8.94 与 9.17 两个数，『谁记在 body_x』由 canonical 口径裁定 —— body_x 与 pad_x / pitch_x 同轴（封装 X 向）。PDF 内部可判：第1页 (8.94) 所量的方向正是 12 枚焊盘排列的方向（焊盘沿本体宽度方向成排），而第2页推荐 land pattern 的横轴（-X- 基准）就是焊盘阵列方向 → 8.94 属 X 轴。★ 若纯按 README 字面『本体长 / 本体宽』读，则应为 body_x=9.17 / body_y=8.94（长边 9.17 在 Y 向）。两读法的数值都在两侧留下，需人工签字裁定，见 notes 与 md。",
+      "method": "第1页文本层 bbox 定位（(8.94) @[131.5,211.2,156.3,220.7]，横排）+ 700dpi 区域渲染目视（该尺寸横跨对插面宽度）+ 轴线判定（与第2页焊盘阵列横轴对齐）。"
+    },
+    "body_y": {
+      "value": 9.17,
+      "page": 1,
+      "quote": "「(9.17)」（第1页侧视图横向总长；同页图框 NAME 串「外壳脚长0.60 L=9.17 CH=1.57」互证）",
+      "note": "9.17 = 沿插入深度方向的总体长（垂直于焊盘阵列轴）。.dra 本体轮廓 Y 向 9.1701 与之一致。同上：纯『本体长/宽』字面读法下该值应记入 body_x。图内另有「(1.57)」= 中心高参考、「3.16±0.15」= 件高（非本 8 字段）。",
+      "method": "第1页文本层 bbox 定位（(9.17) @[334.9,223.8,359.7,233.3]，横排）+ 700dpi 区域渲染目视 + 与图框 NAME 串 L=9.17 互证。"
+    },
+    "pad_x": {
+      "value": 0.27,
+      "page": 2,
+      "quote": "「24X0.27±0.05」（第2页推荐 PCB layout，24 枚信号焊盘宽度）",
+      "note": "矢量几何独立复现：两排焊盘宽度均为 7.338 pt ÷ 27.178 = 0.270 mm。与件名「端子双排SMT」及第1页端子料宽「24X0.20±0.05」（0.20 是端子金属宽，0.27 是推荐焊盘宽）相容。",
+      "method": "矢量几何（焊盘矩形左右边 x 坐标差）+ 1200dpi 区域目视 + 文本层标注串。"
+    },
+    "pad_y": {
+      "value": 0.8,
+      "page": 2,
+      "quote": "「12X0.80±0.05」（第2页推荐 PCB layout，竖排文字，量的是焊盘高度方向）",
+      "note": "★ 本件推荐 land pattern 存在**两档焊盘高**：B 排 12 枚 0.80（图上明确标注「12X0.80±0.05」），A 排 12 枚 0.90（图上无独立标注，矢量实测 24.461 pt ÷ 27.178 = 0.900，.dra 的 A 排 padstack R0D9X0D27 = 0.8999 独立复现，比值 0.900/0.800 与 PDF 的 24.461/21.743 = 1.125 完全一致）。本字段取图上唯一成文的推荐值 0.80（对应「12X」= B 排 12 枚）；0.90 不是猜测值，同样有实测支撑，已并列保留在 cross_check.disagree 与 notes，请人工签字裁定单值口径。",
+      "method": "矢量几何（两排焊盘上下边 y 坐标差）+ 1200dpi 区域目视（上排明显高于下排，A1 引线指上排、B12/B1 引线指下排）+ 文本层竖排标注串。"
+    }
+  },
+  "unreadable": [],
+  "cross_check": {
+    "dra": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\DB_typec_126-223-240005-U4G--USB 4.0 TYPE-C 24P\\nb_type_c24_9d17x8d94x3d31_0d5.dra",
+    "dra_symbol": "nb_type_c24_9d17x8d94x3d31_0d5",
+    "method": "services.extracta_reader.read_via_extracta（unconfined python 3.10.11 驱动 Cadence extracta），units=mm、_gaps=0、raw_pin_count=32。逐字段由 .dra 独立推导：pin_count=信号 padstack 计数（R0D9X0D27/R0D8X0D27，A1..A12+B1..B12）；pitch=pin.xy 排序相邻差；pad=pin.pads 中 ETCH/TOP 的 bbox size；body=layers.assembly_top 本体轮廓 bbox；mount=信号 pad 的层集合是否含 DRILL。再按 canonical 容差比对（mount 精确、pin_count 精确、pitch ±0.02、body/pad ±0.05）。",
+    "agree": ["mount", "pin_count", "pitch_x", "pitch_y", "body_x", "body_y", "pad_x"],
+    "disagree": ["pad_y"],
+    "dra_values": {
+      "mount": "smd（A/B 两排 24 枚信号 pad 的层集合 = ETCH/TOP + PIN/SOLDERMASK_TOP + PIN/PASTEMASK_TOP，无 DRILL；只有 pin 1..8 这 8 枚机械脚带 DRILL，不计入信号脚）",
+      "pin_count": 24,
+      "pitch_x": 0.5,
+      "pitch_y": 1.6,
+      "body_x": 8.9401,
+      "body_y": 9.1701,
+      "pad_x": 0.27,
+      "pad_y": "两档：0.8999（A 排 padstack R0D9X0D27，pin A12..A1，y 中心 +0.75）/ 0.8001（B 排 padstack R0D8X0D27，pin B1..B12，y 中心 −0.85）。按本项目 Tools/benchmark_golden.py:_pad_size_from_pins 的口径（取 pins 列表里第一枚有 pad 的 pin）会得到 0.8999 = A 排，故与 PDF 侧取的 0.80 单值不一致 → 列入 disagree",
+      "raw_pin_count": 32,
+      "signal_padstacks": ["R0D9X0D27（0.27×0.8999，A 排 12 枚）", "R0D8X0D27（0.27×0.8001，B 排 12 枚）"],
+      "signal_pad_x_centers_mm": "A 排 −2.6251 + 0.5k（k=0..11）；B 排 −2.875 + 0.5k（两排 x 向错位 0.25）",
+      "signal_pad_y_centers_mm": [0.75, -0.85],
+      "body_outline_assembly_top": "[[-4.5001,-8.1001]→[-4.5001,1.07]→[4.44,1.07]→[4.44,-8.1]]，bbox size [8.9401, 9.1701]（与 PDF 的 (8.94)/(9.17) 逐位吻合）",
+      "assembly_inner_outline_mm": [7.7998, 5.2502],
+      "place_bound_top_mm": [10.58, 10.29],
+      "mech_pins_1_8": "pin 1/3（±4.32, 0.05）padstack POB1D9X0D6HO2D3X1D2，OBLONG_Y 1.1999×2.3，DRILL OVAL SLOT 0.5999×1.8999；pin 2/4（±4.095, −0.5499）POB1D25X0D7HOB1D65X1D1OSY0D1，1.65×1.1001，DRILL OVAL SLOT 1.2499×0.7；pin 5/6（±4.32, −5.0）POB2X0D7HOB2D6X1D3，1.3×2.5999，DRILL OVAL SLOT 0.7×2.0；pin 7（−3.5999,−1.95）NPC0D6，DRILL CIRCLE_DRILL Ø0.5999；pin 8（3.5999,−1.8849）NPOB0D85X0D5，DRILL OVAL SLOT 0.8499×0.5001",
+      "units": "mm"
+    },
+    "notes": [
+      "8 个字段中 7 个两侧一致（数值见 dra_values），无保留冲突。",
+      "唯一不与 PDF 侧单值一致的是 pad_y：.dra 里同时存在 0.8999（A 排）与 0.8001（B 排），PDF 里同时存在 0.900（矢量实测）与 0.800（成文标注「12X0.80±0.05」）。**两侧本身都不冲突，冲突发生在『只取一个值』的口径上**：PDF 侧取图注 0.80，.dra 侧若按项目 benchmark_golden 的『第一枚 pin 的 pad』口径取到 0.90。两个数都已留下，未做任何掩盖或改写。",
+      "body_x/body_y：.dra 本体轮廓 X=8.9401、Y=9.1701，与 PDF 的 8.94/9.17 完全一致；.dra 文件名把 9.17 写在前面（nb_type_c24_9d17x8d94x3d31），这是『长×宽×高』的命名写法而非 X×Y 顺序 —— 同项目既有件 b_audio6_12x7d25x4d3.dra 对应的 spec body_x=7.59 < body_y=12.2 即同类反例（名字先写长边 12，体值 body_x 却是短边 7.59）。故不以文件名顺序定轴。",
+      "板边/避让区口径不同不入 disagree：.dra place_bound_top = 10.58×10.29（含避让与卡口），比本体 8.94×9.17 大；canonical body 取本体轮廓（assembly_top），与 PDF 的 (8.94)/(9.17) 同源。"
+    ]
+  },
+  "notes": [
+    "PDF 实测 sha256 前 12 位 = 2d13237efe18（全串 2D13237EFE18B3382BA0084E1A77EA6ED3F6987B3F3FF4E1F8F1CD0E3C5F3B5D），与任务给定一致，无需报警。",
+    "读法顺序（纪律要求）：先只用 PDF 定下 8 个字段读数并落盘到 candidates/type_c24.json，之后才读 .dra 做交叉核对；candidates 里的值不含 .dra 回填。**唯一需披露的例外**：body_x/body_y 的『轴归属』（8.94→body_x、9.17→body_y）是口径裁定，依据是 canonical 字段 body_x/body_y 的轴向语义 + 既有候选 audio6_cstj421 的 body_x=7.59 < body_y=12.2 这一反例（说明 body_x ≠ 较长边）；两个数本身都是 PDF 读数，且 PDF 内部即可判：焊盘阵列轴 = 8.94 轴 = 推荐 land pattern 的 -X- 轴。",
+    "★ 最大不确定项 = body_x/body_y 的轴归属。两种读法：(A) 本项目口径（body_x = 封装 X 向尺寸，与 pad_x/pitch_x 同轴）→ body_x=8.94 / body_y=9.17，与 .dra 几何完全一致；(B) README 字面『本体长/宽』（长=9.17）→ body_x=9.17 / body_y=8.94，与 .dra 文件名数字顺序一致但与 .dra 几何的 X/Y 相反。本草案取 (A)，理由是代码层证据：Tools/benchmark_golden.py:92-105 `_body_from_place_bound` 用 place_bound bbox 的 **X 向宽度** 填 body_x、Y 向高度填 body_y，而该指纹要与 knowledge/specs 的 spec.body.x/y 直接比对，两者必须同轴。请人工签字时按口径裁定并只改这一处。",
+    "★ 次大不确定项 = pad_y 单值（0.80 vs 0.90）与 mount（smd vs tht），理由分别见 fields.pad_y.note 与 fields.mount.note。",
+    "mount 的判定补充：本件是混合装配（24 枚 SMT 端子 + 4 枚板上四脚插外壳脚 + 4 枚定位柱）。canonical 8 字段整体按『信号脚』口径（pin_count 明确排除外壳脚/定位柱），故 mount 也取信号脚口径 = smd；若评审方口径为『整件是否需要通孔』则应记 tht。项目实现（services/geometry_solver.py:459-486 用 mount 决定主 padstack 是否带钻孔、是否刷锡膏）站在 smd 一边。",
+    "已知的 datasheet 缺省（非读数失败）：推荐 land pattern 上 A 排焊盘高 0.90 没有独立尺寸标注，只能靠矢量实测 + .dra 双证；PDF 只成文给出「12X0.80±0.05」。",
+    "pdf_form = printed（文本层 1829 字符，尺寸标注可提取）；但 services/pdf_service.probe_pdf 报 drawings=0 是误报，实为 page1=3833 / page2=1673 条矢量图元（probe 对 printed 形态提前短路），本案例的精确读数正是靠这些矢量几何完成的。locate_land_pattern_page 返回 page=2（method=fallback, matched=['SOLDER']），与人工判断一致，未失配。",
+    "本草案未添加任何签字字段（签字权在人，AI 侧不签署，此处刻意不写该键名以免被文本匹配误判）。置信度：pin_count / pitch_x / body_x / body_y / pad_x = high；mount = medium-high；pitch_y = high（矢量+双源，但图上无标注）；pad_y = medium（两档，单值口径待裁）。"
+  ]
+}

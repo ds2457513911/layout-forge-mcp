@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "case": "type_c24",
+  "read_by": "ai-blind-read-2026-10-15",
+  "method": "probe_pdf(form=printed, 3页/1829字符文本层) → locate_land_pattern_page 命中第2页（推荐 PCB layout）→ page.get_drawings() 取矢量图元（page2=1673条）重构 24 枚焊盘矩形与本体/外壳轮廓 → 以 27.178 pt/mm 标定比例（由 13.589pt↔0.50 间距、7.338pt↔0.27 焊盘宽、149.486pt↔5.50 十二脚跨度三路自洽）→ 900/1200 dpi 区域渲染目视复核（A1/B1/B12 引线归属、两排焊盘高矮）→ 第1页文本层 bbox 定位 (8.94)/(9.17)/(3.16) 与 PIN ASSIGNMENT 表；.dra 交叉核对在读数冻结之后进行",
+  "fields": {
+    "mount": "smd",
+    "pin_count": 24,
+    "pitch_x": 0.5,
+    "pitch_y": 1.6,
+    "body_x": 8.94,
+    "body_y": 9.17,
+    "pad_x": 0.27,
+    "pad_y": 0.8
+  },
+  "notes": "USB 4.0 Type-C 24P 母座：24 枚双排 SMT 端子焊盘 0.27×(B排0.80 / A排0.90)、行内节距 0.50、两排中心距 1.60（两排错位 0.25）；本体 8.94(X，焊盘阵列轴/最宽处)×9.17(Y，插深)×3.16(H)，4 枚板上四脚插外壳脚与 4 枚定位柱为通孔、按口径不计入 pin_count；轴归属按 canonical 口径（body_x 与 pad_x/pitch_x 同轴），纯按 README『本体长/宽』字面则为 9.17/8.94，两读法均已记录待人工裁定。"
+}

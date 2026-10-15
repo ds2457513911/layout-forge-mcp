@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "case": "tf9",
+  "read_by": "ai-blind-read-2026-10-15",
+  "method": "pymupdf probe(PDF=2页, Rotate270, form=cad_vector, 尺寸标注为矢量轮廓无文字层) → 横向整页 dpi=300 拼图定位 land pattern 落在 page1 左下区 → 按未旋转坐标 PIL 区域裁切，对俯视图和 PCB 图形区局部放大到约 900–1500 dpi 目视读图注 → 读引脚编号与 Assignment 表定 pin_count",
+  "fields": {
+    "mount": "smd",
+    "pin_count": 9,
+    "pitch_x": 1.1,
+    "pitch_y": null,
+    "body_x": 16.19,
+    "body_y": 14.5,
+    "pad_x": 0.7,
+    "pad_y": 1.6
+  },
+  "notes": "9 个信号脚单排按 \"8-1.10\" 排布、推荐焊盘 0.70×1.60，本体 16.19×14.50，无插件焊盘故为 smd；pitch_y 因只有单排而结构性不适用。"
+}

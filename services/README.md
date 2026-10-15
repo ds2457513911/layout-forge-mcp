@@ -1,6 +1,6 @@
 # services/ —— 生成侧核心（编译器 + 执行器 + 读取层）
 
-> 最后更新：2026-10-13（`pdf_service.py` 新增读规格书三件套）
+> 最后更新：2026-10-14（`pdf_locate.py` 重写为「文本 + 结构」双证据定位；`pdf_renderer.safe_stem()` 修尾空格坑；实测更正与 `layout-check-mcp` 的共享文件清单（只剩 4 件相同）。此前：Phase 0 登记 L3/L4/L5 目录常量、补齐漏登记的 4 个模块）
 
 ## 这个目录是干什么的
 
@@ -20,7 +20,7 @@
 
 | 文件 | 功能 | 影响 / 依赖 |
 |--|--|--|
-| `paths.py` | ★ **目录约定的单一真源**（`PROJECT_ROOT` / `TOOLS_DIR` / `TEST_DIR` / `LOG_DIR` / `TRASH_DIR`）+ 运行痕迹归集 `collect_run_logs()` | **几乎所有模块都 import 它**；改目录结构先改这里 |
+| `paths.py` | ★ **目录约定的单一真源**（`PROJECT_ROOT` / `TOOLS_DIR` / `TEST_DIR` / `LOG_DIR` / `TRASH_DIR`；2026-10-14 增 `ORCHESTRATION_DIR` / `OBSERVABILITY_DIR` / `EVAL_DIR` / `RUNS_DIR` / `BASELINE_DIR`）+ 运行痕迹归集 `collect_run_logs()` | **几乎所有模块都 import 它**；改目录结构先改这里 |
 | `geometry_solver.py` | ★ **尺寸求解器**。含 `resolve_dim()`（尺寸来源口径：图上标注→取标注值 / 查表→取 MAX）、`solve_padstack/pins/outlines/silkscreen/refdes`、`solve()` 总入口、`to_build_args()`、`SPEC_3S48000163` 金标准样例 | 纯函数，7 条 doctest；**改它必须同步 `Tools/selfcheck_geometry.py`** |
 | `footprint_builder.py` | ★ **执行器 + 顶层接口**。`new_symbol_drawing()`（含切 mm / 工作目录断言 / 污染校验）、`build_footprint()`、`export_psm()`（**磁盘证据制成功判据**）、`add_*()` 单步动作、`_quarantine_file()` 隔离。<br>★ `_compute_auto_extents()` / `_outline_xy_points()`：**绘图范围必须覆盖全部将画的几何**（引脚+丝印+本体+Place_Bound）—— 越界的图元会被 Allegro **静默丢弃**（返回 nil 不报错）。<br>★ `change_extents()`：**先精确设定，失败才并集**（空图纸的 `->bBox` 是"模板页框"不是内容框） | **最大文件**；在线建封装的唯一入口 |
 | `skill_snippets.py` | SKILL 表达式构造器：`build_text` / `build_text_orientation` / `build_polyline` / `build_rect_polyline` / `build_change_units` / `build_extent_set` / `build_zoom_points` / `build_zoom_bbox` … | 只拼字符串；`Tools/selfcheck_skill_syntax.py` 对它做 212 项离线自检 |
@@ -35,16 +35,22 @@
 | `report_renderer.py` | 把检查结果渲染成报告 | 只读输入，不写 `.dra` |
 | `cdsroot_locator.py` | 定位 Cadence `CDSROOT` / `extracta.exe` | extracta 与 Allegro 都要它 |
 | `allegro_service.py` | Allegro 进程/环境相关小服务 | — |
-| `pdf_locate.py` / `pdf_renderer.py` / `pdf_service.py` | 规格书 PDF 定位 / 渲染 / 解析入口。★ `pdf_service.py` 另有**读规格书三件套**（2026-10-13）：`probe_pdf`（判形态）/ `render_region`（区域高 dpi 重渲染）/ `measure_region`（矢量量距交叉校验） | 给"读图纸"阶段用；三件套均为**纯读**、try/except 返回 `ok:false`、绝不 raise |
+| `pdf_locate.py` / `pdf_renderer.py` / `pdf_service.py` | 规格书 PDF 定位 / 渲染 / 解析入口。★ `pdf_locate.py` **2026-10-14 重写为「文本 + 结构」双证据定位**（`analyze_pdf` 逐页统计 text_chars/drawings/dim_signals → 纯函数 `_decide()` 出结论；① 强关键词唯一领先 → `primary`；② 无文本层矢量图纸页 → `drawing_only`；③ 稀薄文本图纸页 → `thin_drawing`；④ 并列即 `ambiguous` + `candidates`，**宁可不给页码也不瞎猜**），新增 `confidence`/`needs_visual`/`candidates`/`page_stats`/`reason`。`pdf_renderer.py` 的 `safe_stem()` 防「PDF 名的 stem 以空格结尾 → Windows 吃尾空格 → `mkdir` 抛 `FileNotFoundError`」。★ `pdf_service.py` 另有**读规格书三件套**（2026-10-13）：`probe_pdf`（判形态）/ `render_region`（区域高 dpi 重渲染）/ `measure_region`（矢量量距交叉校验） | 给"读图纸"阶段用；三件套均为**纯读**、try/except 返回 `ok:false`、绝不 raise；`needs_visual=True` 时读数值前必须渲染确认（判据 S8 会查这件事） |
+| `convention_engine.py` | ★ **构造约定引擎**（2026-10-13 第 0 层落地）：`check_*` 与 `create` 共用同一份「封装应该长什么样」的知识 —— `load_conventions` / `apply_conventions` / `derive_th_name` / `derive_th_oblong_padstack` / `check_pin_conventions` / `check_padstack_naming` / `verify_built_footprint` | 约定数据在 `knowledge/conventions.json`；`Tools/mine_conventions.py` 收割、`Tools/selfcheck_conventions.py` 守「学到 → 消费」链路 |
+| `spec_library.py` | ★ **spec 库**（每颗料解析成果的沉淀处）：`fingerprint` 指纹复用 / `save_spec` / `load_spec` / `list_specs` / `find_spec` / `rebuild_index` | 落 `knowledge/specs/`；**同封装零读图复用 = 读图成本的主要节省点** |
+| `validation.py` | Land pattern JSON schema 校验：`validate_land_pattern` → `(is_valid, errors, normalized)` | 输入是 AI 读图提取的 dict（下游兜底）；★ 文件头 docstring 仍写 `shared/validation.py` —— 2026-10-12 `shared/` 并入 `services/` 前的痕迹 |
+| `json_utils.py` | JSON 清洗与数值转换：`extract_json_body`（从 LLM/视觉模型的自由文本里抠出合法 JSON）、`coerce_numeric` | 读图链路的下游清洗；同样保留 `shared/json_utils.py` 的旧 docstring |
 | `__init__.py` | 包标记 | — |
 
 ## 关键约定与坑
 
 1. **`paths.py` 是唯一真源** —— 别在别的文件里硬编码 `Tools/test` 这类路径。
-2. **共享层与 `layout-check-mcp` 逐字节相同**（`footprint_extractor` /
-   `extracta_reader` / `skillbridge_reader` / `cdsroot_locator` /
-   `allegro_service` / `rule_checker` / `report_renderer` / 3 个 `pdf_*`）。
-   **改这些文件时要意识到 check 项目那边会分叉**。
+2. **与 `layout-check-mcp` 的共享文件 —— 2026-10-14 实测，两边只同 4 个了**（此前的「10 件逐字节相同」说法已作废）：
+   - **仍逐字节相同（4）**：`pdf_locate.py`、`cdsroot_locator.py`、`allegro_service.py`、`report_renderer.py`
+     —— 改这 4 个仍然要**两仓同轮改**（`pdf_locate.py` 2026-10-14 的重写已同步镜像，两边哈希一致）。
+   - **已分叉（6）**：`pdf_service.py`、`pdf_renderer.py`、`footprint_extractor.py`、`extracta_reader.py`、
+     `skillbridge_reader.py`、`rule_checker.py` —— 数量级差异（如 `rule_checker.py` 60.9 KB vs 38.2 KB），
+     说明 check 仓是**旧版快照**；改这几个**只看本仓**，别假设两边还同步。
    （2026-09-29 起 `extracta_reader.py` / `footprint_extractor.py` /
    `extracta_views/footprint_views.txt` 三处**已分叉** —— check 没有位号那一路。）
 3. **绝不 `os.remove` 产物** —— 覆盖保护一律走 `.trash/` 隔离（`_quarantine_file`）。

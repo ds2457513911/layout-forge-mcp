@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "case": "zif30",
+  "read_by": "ai-read-2026-10-15",
+  "pdf_sha256": "ef5c7e2750e9",
+  "pdf_file": "Data/footprint/130-221-300004-W3G--FPC 0.5-30P/130-221-300004-W3G--FPC 0.5-30P 翻盖下接 H=1.75 (AFC68).pdf",
+  "pdf_form": "cad_vector",
+  "read_order": "PDF 读数先冻结（见 candidates/zif30.json），之后才做 .dra 交叉核对；本文件 fields 段未被 .dra 回填。",
+  "fields": {
+    "mount": {
+      "value": "smd",
+      "page": 1,
+      "quote": "RECOMMENDED P.C.B. PATTERN LAYOUT —— 该视图全部焊盘均为同面贴装矩形焊盘；无任何插件孔径/钻孔标注（对比：第2页卷带图有 φ1.50/φ2.0 包装孔，属载带而非封装孔）。另：.dra 的 32 个 pad 全部落在 layer=ETCH/TOP + PIN/SOLDERMASK_TOP + PIN/PASTEMASK_TOP，无 THRU 层。",
+      "note": "courier 下接式 FPC 连接器，纯 SMT。"
+    },
+    "pin_count": {
+      "value": 30,
+      "page": 1,
+      "quote": "顶视图引脚位号相邻标 'FA' 与 '30'（Circuit 1 起算），顶视图引脚通道实测 30 个；CKTS 表被蓝框高亮的行即 30。",
+      "note": "定位/固定脚（PCB 视图左右两枚大焊盘，对应 .dra 的 pin 31/32 = R2D5X0D8 0.8×2.5）不计入。"
+    },
+    "pitch_x": {
+      "value": 0.5,
+      "page": 1,
+      "quote": "0.50±0.05（顶视图引脚位与 PCB 焊盘位各标一次，两处一致）",
+      "note": "顶视图 30 个引脚数量栅格实测 = 0.50 mm（以该 0.50 标称标定比例后自洽）。"
+    },
+    "pitch_y": {
+      "value": null,
+      "null_reason": "单排引脚（1 行），y 方向无相邻引脚。.dra 亦证实 30 枚信号焊盘全部位于同一 y = +2.8，x 间距恒为 0.5；另仅 2 枚固定脚在 y = -0.9，与信号焊盘不同排。故 y 向规则间距不适用。",
+      "page": 1,
+      "quote": "PCB 焊盘视图仅单排 30 焊盘；.dra pins: 30×R1D3X0D3 xy=[±7.25…], 全部 y=+2.8"
+    },
+    "body_x": {
+      "value": 19.0,
+      "page": 1,
+      "quote": "(2.25)（顶视图左基准线→Circuits-1 中心）+ DIM A±0.10（30 位 = 14.50，见 CKTS 表 30 行 DIM A）；顶视图本体外形左边缘与 PCB 视图中 'DIM A+2.6' 呼应 = 17.10 的顶壳跨度。",
+      "note": "29 个引脚间距 29×0.50 = 14.50 = DIM A；本体轮廓每侧再外伸 2.25 → 14.50 + 2×2.25 = 19.00。图框 NAME 行与 .dra 符号名 nb_zif30_19x4d3x1d75_0d5 亦写 19（19×4.3）。"
+    },
+    "body_y": {
+      "value": 4.3,
+      "page": 1,
+      "quote": "4.30",
+      "note": "顶视图左侧竖向总高尺寸 4.30。图框 NAME 'FPC 0.5-30P 翻盖下接 H=1.75' 的 1.75 是闭合翻盖状态总高、非本体宽，不作为 body_y。.dra 符号名同样写 4d3。"
+    },
+    "pad_x": {
+      "value": 1.3,
+      "page": 1,
+      "quote": "1.30（PCB 焊盘视图右端，双箭头跨越单个焊盘的长度方向）",
+      "note": "FPC 类封装惯例 pad_x = 沿插入方向（长边）。与 .dra 信号焊盘 R1D3X0D3 实测 0.3×1.3 的 1.3 完全一致（y 向 2.15→3.45）。"
+    },
+    "pad_y": {
+      "value": 0.3,
+      "page": 1,
+      "quote": "0.30±0.03（PCB 焊盘视图，箭头指向焊盘宽度方向）",
+      "note": "与 0.50 间距并列出现，取跨 pitch 方向为宽。与 .dra 信号焊盘 0.3 一致。"
+    }
+  },
+  "unreadable": [],
+  "cross_check": {
+    "dra": "Data/footprint/130-221-300004-W3G--FPC 0.5-30P/nb_zif30_19x4d3x1d75_0d5.dra",
+    "dra_symbol": "nb_zif30_19x4d3x1d75_0d5",
+    "method": "services.extracta_reader.read_via_extracta（unconfined python 3.10.11），units=mm；用 pins[].pads[] 的 ETCH/TOP 矩形尺寸与 xy 坐标推算 canonical 值；符号名与 place_bound/silkscreen/assembly 外形 bbox 辅助取 body。",
+    "dra_values": {
+      "mount": "smd",
+      "pin_count": 30,
+      "pitch_x": 0.5,
+      "pitch_y": null,
+      "body_x": 19.0,
+      "body_y": 4.3,
+      "pad_x": 1.3,
+      "pad_y": 0.3,
+      "raw_pin_count": 32,
+      "signal_pad_padstack": "R1D3X0D3",
+      "mech_pad_padstack": "R2D5X0D8",
+      "signal_pad_etch_size_mm": [0.3, 1.3],
+      "signal_pad_soldermask_size_mm": [0.4, 1.4],
+      "mech_pad_etch_size_mm": [0.8, 2.5],
+      "signal_pad_x_span_mm": 14.5,
+      "signal_pad_x_deltas_mm": [0.5],
+      "signal_pad_y_values_mm": [2.8],
+      "all_pads_bbox_mm": [18.7, 5.6],
+      "silkscreen_top_bbox_mm": [19.0, 6.5],
+      "assembly_top_bbox_mm": [19.0, 5.854],
+      "place_bound_top_bbox_mm": [20.75, 7.15]
+    },
+    "agree": ["mount", "pin_count", "pitch_x", "pitch_y", "pad_x", "pad_y", "body_x", "body_y"],
+    "disagree": [],
+    "note": "8/8 字段一致。body_y=4.30 两侧口径名义值同源（图纸 4.30 本体宽 ↔ 符号名 4d3），但 .dra 几何另有一条更深的轮廓：assembly_top bbox y 深 5.854、all_pads y 跨度 5.600，说明装配/焊接区在 y 向比 4.30 本体宽更深（含翻盖/插入口机构）。canonical body_y 仍取图纸明确标注的 4.30。pitch_y 两侧均为 null（同一理由）。"
+  },
+  "notes": "① 读图方法与顺序：probe_pdf/矩形定位 + 分区 1000–1200 dpi 渲染人眼读数（PDF 仅有 63 字符文本层，且全部是标题栏，全部尺寸均为矢量轮廓线、无文字层可提取，故 quote 为图上标注串的人工转录）。PDF 读数在交叉核对前已冻结并落盘至 candidates/zif30.json。② 已核对 PDF sha256 前12位 = ef5c7e2750e9，与任务给定一致。③ 与既有同族案例（fpc0510_6p）无套用：本案例为新增例，且仓库内无 zif30 历史 spec。④ page 字段均为 1（1-based 人眼页码）；第 2 页为卷带包装图，无 land pattern 尺寸。⑤ 唯一不确定项：PCB 视图按图形轮廓扫描实测焊盘外框约 0.52×1.52（0.52 含 0.10 单边 soldermask 外扩，与 .dra 的 0.4 vs 0.3 外扩量同阶），与图注 0.30 / 1.30 相符但非逐像素精确；本草案以图注与 .dra 双证值为准。"
+}

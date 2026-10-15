@@ -24,7 +24,8 @@ dependencies = [
 [project.scripts]
 layout-forge-mcp = "mcp_server.server:main"
 
-# 关键：明确告诉 setuptools 只打包这三个包，排除 Tools
+# 关键：明确告诉 setuptools 打包哪几个包；Tools / eval 不进安装包
+# （eval 是测试与评测代码，绝不进 wheel —— 见 LAYERS.md 的层方向表）
 [tool.setuptools.packages.find]
-include = ["mcp_server*", "services*", "shared*"]
-exclude = ["Tools*", "skills*", ".trae*"]
+include = ["mcp_server*", "services*", "shared*", "orchestration*", "observability*"]
+exclude = ["Tools*", "skills*", ".trae*", "eval*"]

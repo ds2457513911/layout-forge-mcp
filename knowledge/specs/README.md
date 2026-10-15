@@ -1,6 +1,6 @@
 # Data/specs/ —— spec 库（每颗料解析成果的沉淀处）
 
-> 建立：2026-10-09 ｜ 最后更新：2026-10-12（Data\specs → knowledge\specs）
+> 建立：2026-10-09 ｜ 最后更新：2026-10-15（补登记 `nb_lydpj_5p_12x6.json` + 修 2 处 `source_pdf` 死链 + 索引重建）
 > 维护者：`services/spec_library.py`（读写都走它，别手改 JSON 后忘记重建索引）
 
 ## 这个目录是干什么的
@@ -23,6 +23,10 @@
 | `nb_fpc0510_6p_4d77x3d6.json` | FPC 0.5 间距 6+2 脚 | FPC-0.5 | 非对称引脚 + 双 padstack 的写法先例 |
 | `nb_cstj421_aj35_6p.json` | CSTJ-421 音频插座（THT） | Audio-Jack-3.5 | 第一个通孔件；槽孔；三种焊盘 |
 | `nb_lmbr140et1g_2p.json` | LMBR140ET1G 二极管 | SOD-323HE | 非对称焊盘；首个全程 MCP 生成的件 |
+| `nb_lydpj_5p_12x6.json` | LYDPJ-H23CB1Y-053N 耳机座 5P | 3.5mm 耳机座 (LYD-PJ-35) | ★ 首个**焊盘由 `conventions.json` 派生**的 spec（spec 只声明孔尺寸与 pin 布局）；5 脚全为金属化椭圆槽孔；本体/Place_Bound 经工程师复核第 5 版重修（见 `notes`） |
+
+> 5 份 spec 中只有 `nb_lydpj_5p_12x6.json` 没有 `pad` 块（走约定引擎派生），
+> 因此它的指纹里 `pad_x/pad_y = null` —— 见下方坑 ⑦。
 
 ## 单个文件的结构
 
@@ -59,6 +63,26 @@
 5. **文件名统一小写**（`_slug()` 处理），`load_spec` 因此大小写不敏感。
 6. 库缺失时 `_load_builtin()` **抛错而不是静默降级** —— 三份基线样例是自检基准，
    静默降级会让 231 项断言在错误基准上"全绿"。
+7. ★ **`fingerprint()` 只从 `spec.pad.size` 读焊盘尺寸**（`services/spec_library.py:106-135`），
+   而 2026-10-13 起的约定引擎口径要求"spec 只声明孔尺寸、焊盘由 `knowledge/conventions.json` 派生"
+   （`nb_lydpj_5p_12x6.json` 就是这种，只有 `padstack`/`extra_padstacks`，没有 `pad`）。
+   **后果**：这类 spec 的指纹里 `pad_x/pad_y = None`（`find_spec` 按"未知=不参与"处理，
+   仍能按 mount / pin_count / body 命中；`notes` 里人工记录的 2.10×1.10 不参与计算）。
+   **两个候选修法（未做，需先定口径）**：
+   (a) 让 `fingerprint()` 在缺 `pad` 时借 `convention_engine.derive_th_oblong_padstack()`
+       从孔尺寸派生焊盘（复用约定引擎；代价：`spec_library` 新增对约定库的依赖，
+       且要处理 spec 侧"板面帧"与引擎侧"本地竖向帧"的换算）；
+   (b) 规定 spec **必须**显式写 `pad.size`（与 10-13 约定冲突，会把派生值抄回 spec —— 不推荐）。
+   **当前处置**：`_index.json` 与 JSON 内 `fingerprint` 已按 (a) 之前的现状重建（`pad = null`），
+   三者一致；口径待定前不写死派生值。
+8. ★ **`source_pdf` 必须是"当前真实可解析"的路径**（2026-10-15 修了两处死链）：
+   - `nb_fpc0510_6p_4d77x3d6.json`：漏了一层子目录，真实位置是
+     `Tools/test/NB_FPC0510_6P_4D77X3D6/…pdf`（不是 `Tools/test/…pdf`）；
+   - `nb_lydpj_5p_12x6.json`：源目录已改名 `Data/footprint/NB_LYDPJ_5P_12X6/`
+     → `Data/footprint/LYDPJ-H23CB1Y-053N/`。
+   目录改名/换机是常态：**存 spec 时顺手记的路径会腐烂**，复核 spec 库时
+   先跑一次"5 份 `source_pdf` 是否都 `is_file()`"再谈别的。
+   （`_index.json` 里也存了同一字段，所以必须"改 JSON → `rebuild_index()`"，别只改索引。）
 
 ## 配套工具（MCP）
 

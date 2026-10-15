@@ -7,13 +7,13 @@
 
 ## 这个文件是干什么的
 
-`layout-forge-mcp` 是**服务层**（fastmcp / stdio / 34 个工具），本技能是**知识层**。
+`layout-forge-mcp` 是**服务层**（fastmcp / stdio / 36 个工具），本技能是**知识层**。
 两者不是替代关系：MCP 负责"谁来调 Allegro"，本技能负责"调的时候别踩哪些坑"。
 
 本文件记三件事：走 MCP 建封装的完整工具链、归档怎么落位、以及
 **MCP 工具与既有 SKILL 规则的已知差异**（这块最容易踩，且会随代码变动）。
 
-## 1. 建封装的完整工具链（★ 2026-10-13：34 个工具，新增 3 个读规格书工具）
+## 1. 建封装的完整工具链（★ 2026-10-14：36 个工具，新增 `folder_preflight` / `get_run_stats`）
 
 ```
 list_specs() / find_spec(...)          ← ★ 先查 spec 库，命 exact 就零读图（见 spec-library.md）
@@ -157,3 +157,69 @@ lessons 写教训。**裁定一次、全族受益**。真源 `knowledge/cases/`�
    与既有 `<stem>/pymupdf_pages/` 分开，**避免缓存互相覆盖**；
 3. 新工具**必须 try/except 返回 `ok:false`、绝不 raise** ——
    SKILL 规则「tool 报错即停止检查」会把一个 probe 的 bug 放大成"所有封装都检查不了"。
+
+## 编排与统计（2026-10-14 新增，Tool 35~36）
+
+> ★ **两个 "preflight" 不是一回事，别混**（2026-10-14 改名就是为这个）：
+> - **`folder_preflight`** = MCP 工具，**开工前**查目录里有没有歧义（下表第 1 行）。
+> - **`scripts/preflight_check.py`** = 本地脚本，**收尾后**复查端口/进程/孤儿锁/项目根污染（见 `scripts/README.md`）。
+>
+> 本工具 2026-10-14 之前叫 `preflight_check`，与上面那个脚本同名 —— 现已改名为 `folder_preflight`。
+> 若在旧对话/旧文档里看到「跑 preflight_check」，先分清是**工具**还是**脚本**。
+
+| 工具 | 干什么 | 什么时候用 |
+|--|--|--|
+| `folder_preflight(folder_path, recursive=False)` | 目录**输入预检**：数出这个目录里有几份 PDF、几颗 `.dra`，返回 `verdict` / `action` / `hint`；**噪声文件先剔除再判**并单独列在 `noise_files`（`AUTOSAVE.dra` / `~$*` / `*.bak/.tmp/.lck` / **`checklist_report_*.json` 旧报告** / **`allegro.jrl`·`master.tag`·`*.log` 运行痕迹**） | **拿到一个目录后、动手前的第一步**（尤其用户只说"检查一下这个料号"没给具体文件时）。`action="confirm"` = 先问用户查哪一份，别自己挑 |
+| `get_run_stats(days=7)` | 运行统计：工具调用次数 / 失败 / 降级 / p50·p95 耗时；规则报告的 PASS·WARN·FAIL 排行；知识库规模；**缺口清单 `gaps[]`** | 想知道"最近哪条规则老挂""这个改动让哪步变慢了"时；也是**遥测是否真的在记**的自检入口 |
+
+### 为什么需要 `folder_preflight`
+
+S1 铁律要求「目录里有多个 PDF / `.dra` 时必须先与用户确认」，但底层
+`services/allegro_service.py::list_folder_files` 的返回里只有**一个** `pdf` 字段 ——
+多份 PDF 在返回值里根本不可见，AI 想遵守也无从遵守（歧义被静默吞掉）。
+本工具把这件事**变成可见字段**。★ 它只**上报**歧义，不代替用户决定，也**不拒绝执行**：
+批量模式 B（每个子目录各一对 PDF/`.dra`）下多文件完全合法。
+
+### 为什么噪声剔除是硬需求
+
+金标准库 `Data/footprint` 曾有 5 个子目录躺着 `AUTOSAVE.dra`（Allegro 自动保存产物），
+而 `AUTOSAVE` 按名排序**排在 `nb_*` 前面** —— 任何「取目录里第一个 `.dra`」的逻辑都会先取到垃圾。
+★ 那 5 个已于 2026-10-14 隔离到 `.trash/`（**绝不 `os.remove`**），但**剔除逻辑永久保留**：
+只要还有人在库目录里直接开 Allegro 画图，`AUTOSAVE.dra` 就会再长出来 —— 症状清了，防线不能撤。
+`noise_files` 非空时，先把噪声移出该目录再往下走。
+
+★ 2026-10-15 扩了噪声名单，多认两类（因为库里真的躺着，而且它们会**误导结论**）：
+
+| 类 | 例子 | 为什么算噪声 |
+|--|--|--|
+| **可能被误当证据** | `checklist_report_20260917_*.json` | 那是**上一次**检查的报告。S2 明文：本次结论只能来自本次运行 —— 拿旧报告当结果就是造假 |
+| **运行痕迹** | `allegro.jrl` / `allegro.jrl,1` / `master.tag` / `padstack_editor.jrl` / `*.log` / `signoise.run/` | 不会冒充产物，但证明**有人把库目录当工作目录开过**（违反 `Data/README.md` 的既有约定）—— 见到就要警觉，别在这个目录里直接开工 |
+
+扩展后实测：三个库共 **145 个**噪声文件（110 `*.log` + 9 个历史报告 + 26 个运行痕迹），
+其中 `Data/footprint/3S48000163/` 一个目录就躺着 7 份 2026-09-17 的历史报告。
+**这就是 `geometry_regression` 的 G4 转红的原因** —— 红的是现实，不是判据；★ 2026-10-15 当日已把这 145 个全部隔离进 `layout-forge-mcp/.trash/`（`_quarantine_file()`，可搬回），G4 复绿，**名单一个字没放宽**。
+
+### ★ 失败码契约（2026-10-15 Phase 3：`orchestration/pipeline.py`）
+
+判定"该不该继续"的**稳定契约是失败码，不是人话**。SKILL 侧按下表分支（源码常量在
+`orchestration/pipeline.py`，行为由 `eval/suites/behavior` 的 B4/B5 夹具钉住）：
+
+| 失败码 | 触发场合 | 正确动作 |
+|---|---|---|
+| `CHANNEL_NOT_READY` | `inspect_allegro_environment` 返回 `connected=false`（`error` 必非空）；`pipeline` 的 `env-check` 未过 | 如实报「Allegro 未连接（SkillBridge 7777 不通）」，停掉触 Allegro 的工具；**只读 PDF/.dra 的工具不受影响**（不走通道） |
+| `AMBIGUOUS_INPUT` | 目录里多份候选（`folder_preflight.ambiguous=true` / `verdict=ambiguous_*`） | 把候选列给用户确认；**不许自己挑、不许"先跑一个试试"** |
+| `NO_CANDIDATES` | `verdict=empty/missing_*`，或目录里只有噪声 | 缺料，停；提示用户补 PDF 或 `.dra` |
+| `UNITS_UNKNOWN` | `.dra` 单位既非 mm 也非 mil | 别按 mm 猜；先让用户确认单位或用无名几何描述 |
+| `NO_DATA` | 取数返回空结构 | 如实说「该步骤未执行」，**不补数据** |
+
+★ 这五个码也决定了**动作**：`deny → stop` / `silent → confirm`（可继续但报告必须写明）/
+`recoverable → proceed`；唯一的例外是 `G-ambiguous-src` 在 playbook 里显式写了
+`on_fail_action: "confirm"` —— 「拿不准」的正确动作是**问用户**，不是拒绝执行。
+
+### 遥测（`observability/`，2026-10-14 接线）
+
+`mcp_server/middleware.py::TelemetryMiddleware` 包住**每一次**工具调用，落
+`eval/runs/<date>.jsonl`：`ts / run_id / tool / ok / ms / error_code / args_keys / args_hash`。
+★ **只记参数名与 hash，不记参数值**（避免把图纸路径、料号明文写进日志）。
+`ok:false` 的业务失败也记（`error_source:"returned"`）—— 失败不再只存在于对话里。
+

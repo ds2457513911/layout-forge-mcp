@@ -1,0 +1,104 @@
+{
+  "schema": 1,
+  "case": "lmbr140et1g_2p",
+  "title": "SOD-323HE 肖特基二极管 LMBR140ET1G（2 脚）",
+  "pdf": "layout-forge-mcp/Tools/test/NB_LMBR140ET1G_2P/LMBR140ET1G.pdf",
+  "pdf_sha256": "7556edb5bce3",
+  "signed_by": "ds245 (对话中确认：10 例全照草案)",
+  "signed_at": "2026-10-15",
+  "source_note": "真值草稿由 AI 读图起草（ai-read-2026-10-15）；证据见 drafts/lmbr140et1g_2p.md 与 drafts/lmbr140et1g_2p.json。**未签字前不得用于冻结基线**。\n已签字（2026-10-15）：人工复核 REVIEW.md 后确认**10 例全照草案**，未改任何字段值。",
+  "fields": {
+    "mount": {
+      "value": "smd",
+      "page": 3,
+      "quote": "Suggested solder pad layout —— SOD-323HE 封装，图示两枚**顶层矩形实心焊盘**（橙色块），整份规格书无插件孔/引脚穿孔图；本体为贴片二极管外形（阳极—阴极两焊端）"
+    },
+    "pin_count": {
+      "value": 2,
+      "page": 3,
+      "quote": "Suggested solder pad layout —— 图上恰有 2 枚焊盘（大焊盘 + 小焊盘），标注串 A/B/C/D/E/F；第 1 页标题 LMBR120ET1G thru LMBR1200ET1G 为两脚肖特基二极管系列，无外壳脚/定位柱"
+    },
+    "pitch_x": {
+      "value": 1.9,
+      "page": 3,
+      "quote": "Suggested solder pad layout 表 SOD123-FL 行 F 列 = 0.075(1.90)；尺寸链自洽校验 B/2 + C + D/2 = 2.00/2 + 0.50 + 0.80/2 = 1.90（B=0.079(2.00) 大焊盘沿引脚排列方向的边长，C=0.019(0.5) 两盘对向净间隙，D=0.032(0.8) 小焊盘沿同方向的边长）"
+    },
+    "pitch_y": {
+      "value": null,
+      "null_reason": "单排单列器件：两枚焊盘中心 y 坐标相同（同一水平轴线上），y 方向不存在「相邻引脚」。规格书只在水平方向给出中心距 F=1.90，垂直方向无任何引脚间标注；.dra 侧两个 pin 的 y 均为 0.0，同样无 y 向间距。故按 canonical 口径（单排/单列写 null）判 null。"
+    },
+    "body_x": {
+      "value": 2.7,
+      "page": 3,
+      "quote": "3. dimension: SOD-323HE 的 DIMENSIONS 表 —— DIM A | MILLIMETERS MIN 2.30 MAX 2.70 | INCHES MIN 0.091 MAX 0.106（取 MAX 列 2.70 为本体长；顶视图 A 为水平长轴）"
+    },
+    "body_y": {
+      "value": 1.4,
+      "page": 3,
+      "quote": "3. dimension: SOD-323HE 的 DIMENSIONS 表 —— DIM B | MILLIMETERS MIN 1.20 MAX 1.40 | INCHES MIN 0.047 MAX 0.055（取 MAX 列 1.40 为本体宽；顶视图 B 为竖直短轴）"
+    },
+    "pad_x": {
+      "value": 2.0,
+      "page": 3,
+      "quote": "Recommended solder pad layout 表 SOD123-FL 行 B 列 = 0.079(2.00)（大焊盘，对应图上 Suggested solder pad layout 中标注 B 的焊盘边长）；同表反向校验 B/2 + C + D/2 = 1.00 + 0.50 + 0.40 = 1.90 = F 列 0.075(1.90)，故 B 就是**沿引脚排列方向**的焊盘边长 → pad_x = 2.00"
+    },
+    "pad_y": {
+      "value": 1.1,
+      "page": 3,
+      "quote": "Recommended solder pad layout 表 SOD123-FL 行 A 列 = 0.044(1.10)（同一焊盘的另一条边，垂直于引脚排列方向）；同表 E 列 = 0.04(1.00) 与 D 列 = 0.032(0.8) 属小焊盘边长，不作为大焊盘读数 → pad_y = 1.10"
+    }
+  },
+  "unreadable": [],
+  "cross_check": {
+    "dra": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\LMBR140ET1G\\nb_sod-323_2_2d7x1d4x0d75.dra",
+    "method": "services.extracta_reader.read_via_extracta（由 venv-unconfined 解释器驱动 Cadence extracta 四视图，_gaps=0 无缺失通道）：pin_count=len(pins)；pitch_x/pitch_y = pins[].xy 各轴去重后相邻最小差（与 Tools/benchmark_golden.py:64 _pitch_from_pins 同口径）；body_x/body_y = PACKAGE GEOMETRY/ASSEMBLY_TOP 本体矩形 bbox size；pad_x/pad_y = pins[].pads 中 ETCH/TOP 层 size。另用 Data/footprint/LMBR140ET1G/r2x1d1.pad 与 r1x0d8.pad 两个 padstack 文件名做旁证。",
+    "agree": [
+      "mount",
+      "pin_count",
+      "pitch_x",
+      "pitch_y",
+      "body_x",
+      "body_y",
+      "pad_x",
+      "pad_y"
+    ],
+    "disagree": [],
+    "dra_values": {
+      "mount": {
+        "value": "smd",
+        "evidence": "两个 pin 的 pads 均只含 ETCH/TOP + PIN/SOLDERMASK_TOP + PIN/PASTEMASK_TOP 三层，无钻孔层、无 THT 盘"
+      },
+      "pin_count": {
+        "value": 2,
+        "evidence": "read_via_extracta 返回 raw_pin_count=2，pins 数组两条：#1 padstack R2X1D1（阴极）、#2 padstack R1X0D8（阳极）"
+      },
+      "pitch_x": {
+        "value": 1.9,
+        "evidence": "pins[].xy = [-0.95, 0.0]（#1）与 [0.95, 0.0]（#2）→ |Δx| = 1.90，与规格书 F=1.90 精确一致"
+      },
+      "pitch_y": {
+        "value": "n/a（判 null，两边一致）",
+        "evidence": "两 pin 的 y 均为 0.0，去重后只有 1 个值 → 无相邻间距"
+      },
+      "body_x": {
+        "value": 2.7,
+        "evidence": "PACKAGE GEOMETRY/ASSEMBLY_TOP 本体外框 bbox [[-1.65,-0.7],[1.05,0.7]] → size [2.7, 1.4]（中心 x=-0.30 非 0，属原点偏置，不影响尺寸）"
+      },
+      "body_y": {
+        "value": 1.4,
+        "evidence": "同上 ASSEMBLY_TOP 本体外框 size [2.7, 1.4]；.dra 文件名 nb_sod-323_2_2d7x1d4x0d75 亦自述 2.7 x 1.4"
+      },
+      "pad_x": {
+        "value": 2.0,
+        "evidence": "pin#1（阴极，R2X1D1）pads[ETCH/TOP].size = [2.0, 1.1]；命名 padstack 文件 Data/footprint/LMBR140ET1G/r2x1d1.pad 佐证"
+      },
+      "pad_y": {
+        "value": 1.1,
+        "evidence": "同上 pads[ETCH/TOP].size = [2.0, 1.1] 的第二分量；pin#2（阳极，R1X0D8）为 [0.8, 1.0]，与规格书 D=0.8 一致"
+      }
+    },
+    "disagree_note": "本次 8 个字段两边**数值全部一致**（0 分歧）。唯一需要人工留意的是**图面标注 A/B 的轴向归属**：Suggested solder pad layout 小图把两枚焊盘画成高瘦形（图上 A 标在左右、B 标在上下），若按图面字样直译会得到 pad_x=1.10 / pad_y=2.00（与本次读数互换）。本次未采用该直译，依据是三条独立证据同时指向 pad_x=2.00：①尺寸链自洽方程只用 B/2+C+D/2=1.90 才能成立；②.dra（人做的封装）ETCH 实测 [2.0, 1.1]，且其 padstack 文件名 r2x1d1.pad / r1x0d8.pad 与规格书 B=2.00 / D=0.80 同名同值；③900/1200 dpi 渲染后逐像素量取两枚橙色焊盘，大焊盘确实**横宽于高**（实测宽/高 ≈ 1.57，标称解 2.00/1.10=1.82、交错解 1.10/2.00=0.55，图面虽非等比但趋势明确）。详见同名 md 的 §4.3。"
+  },
+  "pdf_form": "scan",
+  "signed_via": "chat"
+}

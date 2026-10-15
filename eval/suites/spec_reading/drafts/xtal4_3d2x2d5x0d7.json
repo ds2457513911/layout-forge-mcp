@@ -1,0 +1,104 @@
+{
+  "schema": 1,
+  "case": "xtal4_3d2x2d5x0d7",
+  "read_by": "ai-read-2026-10-15",
+  "pdf_sha256": "2f99b0859056",
+  "pdf_path": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\3S48000163\\3S48000163产品规格书_20220916_S1.pdf",
+  "pdf_pages": 11,
+  "pdf_form": "printed",
+  "fields": {
+    "mount": {
+      "value": "smd",
+      "page": 5,
+      "quote": "SMD X'TAL 3.2*2.5(4PAD)"
+    },
+    "pin_count": {
+      "value": 4,
+      "page": 5,
+      "quote": "Pin Function #1 Xtal terminal (Input) #2 GND terminal #3 Xtal terminal (Output) #4 GND terminal"
+    },
+    "pitch_x": {
+      "value": 2.2,
+      "page": 5,
+      "quote": "LAND PATTERN unit:mm — 横向尺寸链「1.4 | 0.8 | 1.4」；由标注本身推出焊盘中心距 = 1.4/2 + 0.8 + 1.4/2 = 2.2"
+    },
+    "pitch_y": {
+      "value": 1.7,
+      "page": 5,
+      "quote": "LAND PATTERN unit:mm — 纵向尺寸链「1.2 | 0.5 | 1.2」；由标注本身推出焊盘中心距 = 1.2/2 + 0.5 + 1.2/2 = 1.7"
+    },
+    "body_x": {
+      "value": 3.2,
+      "page": 5,
+      "quote": "DIMENSIONS unit:mm — 顶视图横向 3.2±0.1"
+    },
+    "body_y": {
+      "value": 2.5,
+      "page": 5,
+      "quote": "DIMENSIONS unit:mm — 顶视图纵向 2.5±0.1"
+    },
+    "pad_x": {
+      "value": 1.4,
+      "page": 5,
+      "quote": "LAND PATTERN unit:mm — 左侧焊盘宽 1.4、右侧焊盘宽 1.4"
+    },
+    "pad_y": {
+      "value": 1.2,
+      "page": 5,
+      "quote": "LAND PATTERN unit:mm — 上排焊盘高 1.2、下排焊盘高 1.2"
+    }
+  },
+  "unreadable": [],
+  "cross_check": {
+    "dra": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\3S48000163\\nb_xtal4_3d2x2d5x0d7.dra",
+    "method": "services.extracta_reader.read_via_extracta（四视图 PAD_DEF/PACKAGE_GEOMETRY），用 venv-unconfined 解释器；.dra 侧读 pins[].size / pins[].xy / ASSEMBLY_TOP 外框 / PLACE_BOUND_TOP",
+    "agree": ["mount", "pin_count", "pitch_x", "pitch_y", "body_x", "body_y", "pad_x", "pad_y"],
+    "disagree": [],
+    "dra_values": {
+      "mount": {
+        "value": "smd",
+        "evidence": "4 个 pin 均只有 ETCH/TOP（顶层蚀刻）pad，无钻孔/无 THT 层；padstack 名 R1D4X1D2"
+      },
+      "pin_count": {
+        "value": 4,
+        "evidence": "read_via_extracta 返回 pins=4；编号 1/2/3/4，padstack 全为 R1D4X1D2"
+      },
+      "pitch_x": {
+        "value": 2.2,
+        "evidence": "引脚 xy 的 |Δx| = |-1.1 - 1.1| = 2.2"
+      },
+      "pitch_y": {
+        "value": 1.7,
+        "evidence": "引脚 xy 的 |Δy| = |0.85 - (-0.85)| = 1.7"
+      },
+      "body_x": {
+        "value": 3.2,
+        "evidence": "PACKAGE GEOMETRY/ASSEMBLY_TOP 本体外框 bbox [-1.6,-1.25]..[1.6,1.25] → size [3.2, 2.5]"
+      },
+      "body_y": {
+        "value": 2.5,
+        "evidence": "同上 ASSEMBLY_TOP 本体外框 size [3.2, 2.5]"
+      },
+      "pad_x": {
+        "value": 1.4,
+        "evidence": "pins[].pads[ETCH/TOP].size = [1.4, 1.2]（padstack R1D4X1D2 即 1.4 x 1.2 矩形）"
+      },
+      "pad_y": {
+        "value": 1.2,
+        "evidence": "pins[].pads[ETCH/TOP].size = [1.4, 1.2]"
+      }
+    }
+  },
+  "notes": [
+    "PDF 形态 printed（11 页 / 27 位图 / 7110 文本字符 / 0 矢量图元）。locate_land_pattern_page 以 'LAND PATTERN' 强命中第 5 页（score 100）。",
+    "本案例所有尺寸数字（3.2±0.1 / 2.5±0.1 / 0.7 max / 1.4 / 0.8 / 1.2 / 0.5 / 0.9 / 0.1 / 1.2）均**不在 PDF 文本层**——它们位于嵌入位图里，文本层只有 'DIMENSIONS unit:mm' / 'LAND PATTERN unit:mm' 等标题。因此数值靠 900 dpi 区域渲染肉眼读数，并与 .dra 矢量几何对拍。",
+    "★ pitch_x / pitch_y 是**间接读数**：规格书没有直接标中心距，标的是「焊盘宽 1.4 + 间隙 0.8 + 焊盘宽 1.4」和「焊盘高 1.2 + 间隙 0.5 + 焊盘高 1.2」。由对称性（虚线十字中心线保证两侧焊盘中心关于原点对称）推出 pitch = 1.4/2+0.8+1.4/2 = 2.2，1.2/2+0.5+1.2/2 = 1.7。该推导被 .dra 独立证实（引脚 y 坐标 ±0.85 → 1.7；x 坐标 ±1.1 → 2.2），误差为 0。",
+    "★ body_x / body_y 口径：取**顶视图本体最大外形**（3.2±0.1 x 2.5±0.1，即公称 3.2 x 2.5）。第 5 页另有俯视电极图（阴影焊端）标出 0.9（焊端内间距）与 0.1 / 1.2（焊端宽），这是电极自身尺寸，不作为本体外形口径。",
+    "★ pad_x / pad_y 口径：取 'LAND PATTERN unit:mm' 下的**推荐焊盘图形**边长（1.4 x 1.2），不是器件电极尺寸。注意该 .dra 的 SOLDERMASK_TOP 阻焊开窗为 1.5 x 1.3（单边外扩 0.05），与 pad_x/pad_y 口径不同，不要混用。",
+    "焊盘纵向跨度交叉验证：1.2 + 0.5 + 1.2 = 2.9，与本体 2.5 相比单边外伸 (2.9-2.5)/2 = 0.2，属合理工艺外伸；横向跨度 1.4+0.8+1.4 = 3.6，单边外伸 (3.6-3.2)/2 = 0.2。两方向外伸一致，自洽。",
+    "PDF 页脚印 '4/9'，但文件实际 11 页（含 A/B 附录），本报告 page 字段一律用**人眼 1-based 物理页码**（=5），不用页脚印刷页码。",
+    "pin_count 口径：4 个信号/接地焊端全部计入（#1 Xtal In / #2 GND / #3 Xtal Out / #4 GND），该封装无外壳脚、无定位柱。",
+    "既有 spec knowledge/specs/nb_xtal4_3d2x2d5x0d7.json 未作为任何字段的读数来源；仅在本报告 md 的对照段列出，本次 8 个值与历史候选逐字段一致。",
+    "confidence: high —— 8 个字段全部有清晰印刷标注，且 8/8 与独立人工 .dra 完全吻合（零分歧、零容差消耗）。"
+  ]
+}

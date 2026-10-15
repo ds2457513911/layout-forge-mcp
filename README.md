@@ -4,6 +4,9 @@ Allegro 封装**生成** MCP —— 通过 SKILL 在 Allegro 里建 padstack / p
 
 与 `layout-check-mcp`（检查器，只读）互补：这个是**生成器**（写入）。
 
+> 最后更新：2026-10-14（Phase 0：新增 L3/L4/L5 三层目录 `orchestration/` `observability/` `eval/` + 分层权威 `LAYERS.md`；
+> Phase 1：**工具 34 → 36**（`folder_preflight` / `get_run_stats`）+ 每次调用落遥测 `eval/runs/` + 工具契约断言 `eval/suites/tool_contract/`）
+
 ---
 
 ## 定位：为什么不走 KiCad 转 Allegro
@@ -49,8 +52,11 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 ```
 <PROJECT_ROOT>/
 ├── services/  mcp_server/          源码（json_utils / validation 并入 services，无 shared）
+├── orchestration/  observability/  ★ L3 编排与控制 / L4 可观测性（2026-10-14 新增，见 LAYERS.md）
+├── eval/                           ★ L5 度量与评测：suites / truth / baselines（runs/ 是产物，不进 git）
 ├── knowledge/                      ★ 热更新数据层：specs / cases / rules（改 JSON 不用重连 MCP）
 ├── docs/                           SOP 维护手册 + 使用者 SOP + SKILL API 核实报告
+├── LAYERS.md                       ★ 五层能力 ↔ 模块映射（分层与依赖方向的**唯一权威**）
 ├── .trash/                         隔离区（**可恢复**，不删东西进去就完事）
 └── Tools/
     ├── *.py  *.il  *.md            CLI 脚本 + 文档
@@ -69,6 +75,9 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 |--|--|--|
 | `services/` | 生成侧核心：求解器 / 执行器 / 读取层 / SKILL 代码片段生成 | `services/README.md` |
 | `mcp_server/` | MCP 工具层（对外暴露的那个门面） | `mcp_server/README.md` |
+| `orchestration/` | ★ **L3 编排与控制**（规则装配 / 前置自检 / 状态机）：能被代码保证的规则不靠 AI 记 | `orchestration/README.md` |
+| `observability/` | ★ **L4 可观测性**（遥测 / 时间线 / 统计）：哪条规则最常 FAIL、哪一步最慢 | `observability/README.md` |
+| `eval/` | ★ **L5 度量与评测**（准确率 / 回归 / 基线）：`suites/architecture` 已可跑 | `eval/README.md` |
 | `Tools/` | CLI 脚本 + 探针 + 自检 + 文档 | `Tools/README.md` |
 | `Tools/test/` | ★ 测试图纸干活区（.dra / .pad / .psm） | `Tools/test/README.md` |
 | `Tools/log/` | ★ 运行痕迹归集区 | `Tools/log/README.md` |
@@ -123,7 +132,7 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 | `list_shadow_library` | 列出影子库已归档的料号与产物（只读核对） |
 | **`solve_footprint_geometry`** | ★ **参数 → 几何**（纯离线）：把器件参数算成 padstack/pins/silk/body/place_bound/refdes + 两个名字，带 `derivations` 审计。★ **尺寸取值口径**：图上标注了具体值 → 取标注值；图上没标需查表 → 取表 MAX（无 MAX 用 TYP + 告警）。命名永远用中值。`build_footprint_from_params` 的**前置编译器** |
 | `build_footprint_from_params` | **顶层接口**：一次调用建出完整封装。★ 支持 `fresh_symbol=True` **先自动新建干净图纸**；`silk`/`body`/`place_bound` 接受**列表**（多段轮廓） |
-| `render_pdf_contact_sheet` | ★ **整份 PDF 拼一张缩略图**（2026-10-09 新增）。`locate_land_pattern_page` 在**扫描件上会失配**（13 份实测只强命中 4 份），用它一次读图定位尺寸页 |
+| `render_pdf_contact_sheet` | ★ **整份 PDF 拼一张缩略图**（2026-10-09 新增）。**先用 `locate_land_pattern_page` 定位**（2026-10-14 起改为「文本 + 结构」双证据，错页/漏页大幅收敛，见该工具说明）；它返回空或 `method=ambiguous` 时，用拼版一次读图定位尺寸页 |
 | `pdf_probe` | ★ **判 PDF 形态**（2026-10-13 新增）：返回 `form` = `cad_vector` / `printed` / `scan` / `thin_text` + 建议读法。零成本（只读元数据），**每次读规格书第一步** |
 | **`render_pdf_region`** | ★ **区域裁剪 + 高 dpi 重渲染**（2026-10-13 新增）—— **读尺寸数字的主力**。缩的是*视野*不是*像素密度*，600–1200 dpi；`render_pdf_page` 固定 150 dpi 做不到 |
 | `measure_region` | ★ **矢量量距**（2026-10-13 新增）：返回区域内图元包围盒（pt），与读数做**交叉校验**。非主读数（焊盘与本体轮廓常粘连） |
@@ -139,6 +148,17 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 
 `list_subfolders` / `list_folder_files` / `locate_land_pattern_page` / `render_pdf_page` /
 `read_full_footprint` / `check_footprint_by_rules` / `validate_land_pattern_json`
+
+### 编排与统计类（本 MCP 新增，共 2 个）
+
+| 工具 | 作用 |
+|--|--|
+| **`folder_preflight`** | ★ **目录输入预检**（2026-10-14 新增）：数出目录里有几份 PDF / 几颗 `.dra`，返回 `verdict` / `action` / `hint`，并**先剔除噪声**（`AUTOSAVE.dra` / `~$*` / `*.bak`，单列在 `noise_files`）。解决「S1 要求多文件必须先确认，而 `list_folder_files` 只回单个 `pdf` 字段」—— 歧义从不可见变成显式字段。只**上报**，不拒绝执行（批量模式下多文件合法） |
+| **`get_run_stats`** | ★ **运行统计**（2026-10-14 新增）：工具调用次数 / 失败 / 降级 / p50·p95 耗时、规则报告 PASS·WARN·FAIL 排行、知识库规模、**缺口清单 `gaps[]`**。数据源 = `eval/runs/*.jsonl`（每次工具调用自动落盘）+ `Tools/log/checklist_report_*.json` |
+
+**工具总数 36**（生成 27 + 检查 7 + 编排统计 2）。★ 改工具清单必须同轮改
+`Tools/deploy/setup_agent.py::EXPECTED_TOOLS`、两份 SKILL 的清单，再跑
+`python eval/suites/tool_contract/check_tool_contract.py --update` 冻结基线。
 
 ### 运维工具（命令行，非 MCP）
 

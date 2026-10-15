@@ -1,6 +1,7 @@
 # layout-forge-mcp 工程维护手册（部署 / 排障 / 变更）
 
-> 最后更新：**2026-10-12**
+> 最后更新：**2026-10-15**（★ 新增排障铁律：**先看退出码** —— GBK 控制台下 `print("✓")` 会让「五套全绿」反而 exit 1
+> （红分支打 ASCII 所以正常），六个入口已加 `_force_utf8_stdout()`；此前：Phase 3：`orchestration/playbook.json`（规则装配表）+ `pipeline.py`（状态机）落地，`behavior` 加 **B5** 守这两份东西（夹具 5/5），§7.2 补「改 playbook / pipeline 必须复跑 behavior」；此前：Phase 2-d：发布检查收成**一条命令** `python eval\check_eval.py`（五套断言 + 元判据 E1–E4）；此前：七项检查 + `behavior` 行为夹具（S1/S2/S4 可执行化）+ `preflight` 噪声规则扩到「运行痕迹 + 历史报告」→ G4 现形 145 个噪声文件（属真发现），**当日全部隔离进 `.trash/` 后复绿、判据未放宽**；再此前：六项检查 + `spec_reading` 读图准确率 92.5% + SKILL 三处落点 + `.venv`/解释器坑 + 沙箱解释器会让回归评分假红）
 >
 > 定位：给**维护这个项目的人**看（部署、排障、改代码后该跑什么）。
 > 给老板/使用者看的操作说明在 `docs/封装自动生成工具-SOP.md`，两份不重复。
@@ -28,6 +29,7 @@
 | 判定 | 内容 |
 |---|---|
 | 逐字节相同 10 件 | `mcp_server/{config,prompts,resources,__init__}`、`services/{pdf_locate,rule_checker,skillbridge_reader}`、`services/{json_utils,validation}`（原 `shared/` 3 件，2026-10-12 并入 services） |
+| ★ 更正（2026-10-14 实测） | 上表的「相同 10 件」是 **2026-10-13 的快照**，当天复测只剩 **4 件逐字节相同**：`pdf_locate.py`、`cdsroot_locator.py`、`allegro_service.py`、`report_renderer.py`；**6 件已分叉**：`pdf_service`（19.9 KB vs 4.2 KB）、`pdf_renderer`（4.6 vs 3.9）、`footprint_extractor`（7.6 vs 4.6）、`extracta_reader`（33.4 vs 21.0）、`skillbridge_reader`（14.7 vs 13.0）、`rule_checker`（60.9 vs 38.2）。改前 4 件仍要两仓同轮改，后 6 件只看本仓 |
 | 本项目单方增强 3 件 | `extracta_reader` 598→646（+REF DES 第 4 路视图）、`pdf_service` 136→264（+contact sheet）、`footprint_extractor` 128→182（+缺口检测） |
 | 工具覆盖 | 本项目 31 个 ⊇ 旧版 7 个，**7/7 全覆盖** |
 
@@ -246,7 +248,8 @@ Tools\test\<符号名>\
 | 图元画了但图纸上没有 | **extents 硬边界**，越界静默丢弃 | 画之前先 `change_drawing_extents` 扩范围 |
 | 读回来的值总是"上上次"的 | 通道固定约 15 帧滞后（认知问题，非故障） | 重启 SkillBridge 服务 |
 | 引脚号字号随脚号变大 | `make_axlPinText` 简化写法 `?text "N"` 被当成字块号 | 已修：强制结构体形式 `textBlock "1"`；自检有回归项 |
-| `locate_land_pattern_page` 返回 null | 扫描件无文本层（实测 13 份规格书只有 4 份强命中） | 调 `render_pdf_contact_sheet` 一次读图定位 |
+| `locate_land_pattern_page` 返回 null | 2026-10-14 起分三种：`scan_only`（纯位图扫描件）/ `ambiguous`（证据并列，**故意不猜**）/ `no_match` | 看返回的 `candidates` 与 `hint`：`ambiguous` 就按候选页逐页看，或 `render_pdf_contact_sheet` 拼版一次定位 |
+| `locate_land_pattern_page` 给了页码但仍要确认 | 定位结论是**结构推定**（`needs_visual=true`），不是强关键词实锤 | 读尺寸前 `render_pdf_page` / `render_pdf_region` 渲染确认；判据 S8 会查「有没有撒谎」 |
 | 改了代码没生效 | MCP 进程缓存旧代码 | 重连 MCP（见 §4.3） |
 | 归档落在 `Data\footprint\` | `install_shadow_library` 的 `lib_root` 默认值 | 显式传 `lib_root=<规格书所在目录>` |
 | 路径含中文导致异常 | Allegro 不支持非 ASCII 路径 | 换英文路径 |
@@ -277,7 +280,73 @@ Tools\test\<符号名>\
 
 ### 7.2 发布流程
 
-1. 改代码 → 2. 跑两项自检（必须全绿）→ 3. 实机建一颗件验证 → 4. 更新相关 `README.md` → 5. 重连 MCP 验证工具数 28。
+1. 改代码 → 2. 跑**一条命令**（五套断言全跑，见下；必须全绿）→ 3. 实机建一颗件验证 → 4. 更新相关 `README.md` → 5. 重连 MCP 验证工具数 **36**。
+
+```bash
+# ★ 一条命令跑完五套断言（Phase 2-d；缺依赖记 ERROR、不静默跳过）
+python eval\check_eval.py            # 含 253 件对拍，约 2 分钟
+python eval\check_eval.py --fast     # 冒烟：geometry 跳过 253 件对拍
+python eval\check_eval.py --json     # 机器可读汇总（CI 用）
+python eval\check_eval.py --show-fail  # 红了就附打该套件输出尾部
+```
+
+需要单独看某一套（排障时）：
+
+```bash
+# ① 两项离线自检（要装了依赖的解释器，即 .venv）
+python Tools\selfcheck_geometry.py          # 239 项
+python Tools\selfcheck_skill_syntax.py      # 222 项
+# ② 四套断言（纯 stdlib，任何 3.10+ 都能跑）
+python eval\suites\architecture\check_architecture.py      # 层方向 / 目录登记 / README 覆盖，ERROR 必须 0
+python eval\suites\tool_contract\check_tool_contract.py    # 工具数（36）/ docstring / 遥测口径
+python eval\suites\spec_reading\check_spec_reading.py      # 读图准确率（真值人工签字；基线 92.5%）
+python eval\suites\behavior\check_behavior.py              # S1/S2/S4 硬规则 + L3 状态机可执行性（B1–B5）
+# ③ 几何回归评分（把 239/222/35 与 253 件对拍变成分数；必须用「工作区外」的解释器，见下）
+python eval\suites\geometry_regression\check_geometry_regression.py
+```
+
+★ `eval/check_eval.py` 只做**跑全 + 计数 + 汇总**，判据仍在各自套件里（A1–A7 / C1–C6 / B1–B5 / S1–S8 / G1–G6 + R1–R4）；
+它自己的元判据是 E1（五套都要跑到，缺依赖记 ERROR）、E2（看退出码，不解析人话）、E3（`--json` 解析失败也算 ERROR）、
+E4（实跑行数必须等于计划行数）。**汇总漏一行却不报错，就是把闸门拆了一角。**
+
+★ **排障时先看退出码，别只看最后几行输出**：2026-10-15 踩到「五套全绿，但 `check_eval.py` 自己 exit 1」——
+GBK 控制台下汇总行打印 `[✓]`（U+2713）抛 `UnicodeEncodeError`，而红色分支打的是 ASCII `[X]`，
+于是**红了正常退出、全绿反而崩**。现在 `check_eval.py` 与五个套件都有 `_force_utf8_stdout()`
+（自己进程 `reconfigure(encoding="utf-8")`）；给子进程注入 `PYTHONIOENCODING` **不能替代**这一步。
+**看到「全绿但命令失败 / 输出缺尾巴」，先怀疑编码，再看业务。**
+
+★ **行为夹具是「文档里的规则真的落到工具层了吗」的守门人**：`eval/suites/behavior/` 现场造临时目录，
+逼工具层对「目录里多份 `.dra`」（必须报歧义不许猜）、「只有历史 `checklist_report_*.json`」（不算本次证据）、
+「通道没开」（必须如实说未连接，不许沉默）表态。改 `orchestration/preflight.py` 或 S 系规则后必须复跑；
+噪声判定要调 `orchestration.preflight.is_noise()`（**单一真源，别抄常量**）。
+
+★ **改 `orchestration/playbook.json` / `pipeline.py` 必须复跑 `behavior`（B5 守它们）**：B5 会检查
+① 每条规则都同时有「检测方式」与「后果类别」（`deny` / `silent` / `recoverable`）——
+两者缺一不许进表；② `pipeline.run()` 的放行与拦停正确：正常一对 PDF/.dra → `proceed`；
+**目录里多份候选 → 必须 `confirm` 且停在 `preflight`（后续步骤一律 pending，不许继续取数）**；
+通道不可用 → `stop` 且错误码 `CHANNEL_NOT_READY`；③ `stale_rule_ids` 里点到的已删除规则
+（当前 1 条：`6.5`）在 `summarize_findings()` 里必须被**单独点名**，不许静默计入统计。
+`playbook.json` 由缓存区脚本从 `services/rule_checker.py` 的 `_item(...)` 调用点生成，
+**别手改 `variants[].line` 与后果类别**（改代码后重跑脚本，否则行号会变成第二份真源）。
+
+★ **读图准确率只在签字真值上算分**：`eval/suites/spec_reading/` 的真值必须人工签字（`signed_by`/`signed_at`），
+未签字真值只能 `--allow-unsigned` 自检、**不得冻结基线**；加 `--with-locate` 会多跑一条 S8「定位器不撒谎」
+（需带 `pdfplumber` 的解释器）。改读图策略/换模型/调 dpi 前后都要对比这条分数。
+
+★★ **回归评分必须用「工作区外」的解释器**（2026-10-14 定位）：被 DSH 沙箱限制的解释器
+（工作区里的 `.venv`）会让 extracta 在第 2 路崩掉 → 253 件里 PASS 0 / FAIL 236，全是**环境分数**；
+工作区外的解释器得到 PASS 7 / FAIL 81。套件的 **G6** 会先把这件事红出来，别去调 R4 阈值。
+
+★ **改了 MCP 工具或参数**：同轮改 `Tools/deploy/setup_agent.py::EXPECTED_TOOLS`、
+两份 SKILL 的清单（含 `references/mcp-tools.md`），再 `check_tool_contract.py --update` 冻结基线。
+★ **发了 SKILL 就得打齐三处落点**（2026-10-14 实测；详见 `Tools/deploy/README.md` 坑 13）：
+真源 `Tools/deploy/skills/*` → `%USERPROFILE%\.workbuddy\skills\*`（跑 `setup_agent.py`）→
+`C:\Users\ds245\.skills-manager\skills\*`（`Copy-Item -Recurse -Force`，`.dsh\skills` 经 junction 随即变新）。
+装完顺手把 `.workbuddy\skills\*.bak_*` 移出该目录（带 `_user_meta.json` 的备份会被客户端当成第二个 skill）。
+★ **本机部署要用不受沙箱限制的解释器**：工作区内的 venv python 写 `%USERPROFILE%` 会
+`PermissionError [WinError 5]`，改用系统 python 或 pwsh（见 `Tools/deploy/README.md` 坑 14）。
+★ **`.venv` 缺失时先按 3.3.1 重建**（2026-10-14 实测本机就没有 `.venv`，而 MCP 配置还指向它 ——
+表现为「所有工具都不见了」，不是代码问题）。
 
 ### 7.3 两个 Skill 为什么不合并
 

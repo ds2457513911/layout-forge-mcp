@@ -37,6 +37,13 @@ register_tools(mcp)
 register_resources(mcp)
 register_prompts(mcp)
 
+# 遥测中间件（L4）：每次 tools/call 落一条事件到 eval/runs/<date>.jsonl。
+# 放在工具层是因为它要 import fastmcp；observability/ 保持纯标准库。
+# 埋点绝不抛异常 —— 即使遥测整体坏掉，工具调用照常返回。
+from mcp_server.middleware import TelemetryMiddleware   # noqa: E402  (注册后导入，顺序无副作用)
+
+mcp.add_middleware(TelemetryMiddleware())
+
 
 def main():
     mcp.run()

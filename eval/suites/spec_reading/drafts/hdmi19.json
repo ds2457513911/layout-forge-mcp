@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "case": "hdmi19",
+  "read_by": "ai-read-2026-10-15",
+  "pdf_sha256": "a9f7700161d9",
+  "fields": {
+    "mount": {
+      "value": "tht",
+      "page": 1,
+      "quote": "RECOMMEND PCB LAYOUT / TOLERANCE: ±0.10  — 板上焊盘为 Ø0.85 圆盘（drill Ø0.55），非 SMD 矩形焊盘"
+    },
+    "pin_count": {
+      "value": 19,
+      "page": 1,
+      "quote": "PIN # 1..19（SIGNAL ASSIGNMENT 表）；C B TERMINAL 19 / SHELL 1 / HOUSING 1；PIN1…PIN19 标注"
+    },
+    "pitch_x": {
+      "value": 1.0,
+      "page": 1,
+      "quote": "1.00（RECOMMEND PCB LAYOUT 内，PIN1 排两相邻信号脚中心距）"
+    },
+    "pitch_y": {
+      "value": 1.5,
+      "page": 1,
+      "quote": "1.50（孔阵列上下两排的 y 向中心距；同一处另一标注为 0.50 排间错位）"
+    },
+    "body_x": {
+      "value": 15.0,
+      "page": 1,
+      "quote": "15.00（本体俯视图/外形长度）"
+    },
+    "body_y": {
+      "value": 12.5,
+      "page": 1,
+      "quote": "12.50（本体侧视图宽度）"
+    },
+    "pad_x": {
+      "value": 0.85,
+      "page": 1,
+      "quote": "Ø0.85（RECOMMEND PCB LAYOUT 内指向信号脚焊盘圆的直径标注）"
+    },
+    "pad_y": {
+      "value": 0.85,
+      "page": 1,
+      "quote": "Ø0.85（同上；信号脚焊盘为圆盘，宽高同值）"
+    }
+  },
+  "unreadable": [],
+  "cross_check": {
+    "dra": "nb_hdmi19_15x12d5x5d55_1.dra",
+    "method": "services.extracta_reader.read_via_extracta（unconfined venv python）读 .dra 的 pins/padstack/design_bbox/layers，把 padstack 名与焊盘 origin 坐标换成 canonical 值，再与 PDF 读数逐字段比对；同一份图号的 DXF（同目录 CSTHM-1921-1KPD0A.dxf，单位 mm）用作第三方几何复核",
+    "agree": [
+      "mount",
+      "pin_count",
+      "pitch_x",
+      "pitch_y",
+      "body_x",
+      "body_y",
+      "pad_x",
+      "pad_y"
+    ],
+    "disagree": [],
+    "dra_values": {
+      "mount": "tht",
+      "pin_count": 19,
+      "pitch_x": 1.0,
+      "pitch_y": 1.5,
+      "body_x": 15.0,
+      "body_y": 12.5,
+      "pad_x": 0.85,
+      "pad_y": 0.85,
+      "padstack_signal": "PC0D55HC0D85 → ETCH 铜盘 CIRCLE 0.85×0.85 mm，DRILL CIRCLE 0.55 mm",
+      "padstack_shell": "POB2D45X0D9HOB3D05X1D5 → ETCH 铜盘 OBLONG_X 1.5×3.05 mm，DRILL OVAL SLOT 0.9×2.45 mm",
+      "signal_rows": "19 个信号脚：y=8.244 排 10 个（pin1,3,5,7,9,11,13,15,17,19），y=9.744 排 9 个（pin2,4,6,8,10,12,14,16,18）；两排各 x 步进 1.0 mm，两排 x 错位 0.5 mm，两排 y 差 1.5 mm",
+      "shell_pins": "4 个：pin20(-9.25,2.164) pin21(9.25,2.164) pin22(-7.25,9.014) pin23(7.25,9.014)，x 间距分别 18.5 / 14.5",
+      "place_bound_top": "x -12.52..12.51 (25.03 mm) × y -1.62..12.14 (13.76 mm)",
+      "design_bbox_size_mm": [48.6382, 48.6382],
+      "raw_pin_count": 23,
+      "units": "mm"
+    }
+  },
+  "notes": "【读数顺序】先只用 PDF 第 1 页定稿 8 个读数（盲读候选 candidates/hdmi19.json 已先落盘），之后才跑 .dra 交叉核对，候选值未经 .dra 回填。【口径】pin_count=19 只数信号脚，外壳脚 4 个（.dra 里 pin20-23）不计，故 .dra 的 raw_pin_count=23 与 19 不冲突。【pitch 方向约定】pitch_x 取同一排内相邻信号脚中心距=1.00（图上直接标注），pitch_y 取两排之间的中心距=1.50；两排各自沿 x 排列、x 错位 0.50，故 1.00/1.50 是同一孔阵列的两个正交相邻距。与 .dra 坐标系一致（.dra 的 x 步进 1.0、两排 y 差 1.5）。【pad 口径备选】PCB layout 上另有一组打印尺寸 0.77×1.38（对应外壳脚/安装槽，.dra 的 POB2D45X0D9HOB3D05X1D5 是 1.5×3.05 oblong）。本真值取信号脚回路 Ø0.85 作为 pad_x/pad_y；若项目口径要求“最大焊盘/安装槽”，应改判为 0.77×1.38，此点请人工签字时确认。【.dra 出处】place_bound 25.03×13.76 与箱体 15.00×12.50 不是同一层，本体口径以 PDF 打印 15.00/12.50 为准；.dra 文件名 15x12d5 与之一致。【哈希】PDF 实测 sha256 前 12 位 a9f7700161d9，与预期一致。【无 signed_by】本文件为 AI 草稿，签字权在人。"
+}

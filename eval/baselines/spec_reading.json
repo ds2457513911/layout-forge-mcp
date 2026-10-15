@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "frozen_at": "2026-10-15T09:47:45",
+  "cases": 10,
+  "scored_fields": 80,
+  "counts": {
+    "correct": 74,
+    "wrong": 3,
+    "missing": 0,
+    "spurious": 3
+  },
+  "accuracy": 0.925,
+  "min_accuracy": 0.925,
+  "per_case": {
+    "xtal4_3d2x2d5x0d7": 1.0,
+    "audio6_cstj421": 0.5,
+    "lydpj_5p_12x6": 1.0,
+    "fpc0510_6p": 0.75,
+    "lmbr140et1g_2p": 1.0,
+    "type_c24": 1.0,
+    "hdmi19": 1.0,
+    "bga496": 1.0,
+    "tf9": 1.0,
+    "zif30": 1.0
+  }
+}

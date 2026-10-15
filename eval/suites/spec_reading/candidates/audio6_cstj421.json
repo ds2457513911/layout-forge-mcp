@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "case": "audio6_cstj421",
+  "read_by": "historical-spec (nb_cstj421_aj35_6p.json @2026-10-09 15:12:37)",
+  "method": "2026-10-09 会话按 services/pdf_service.py 的读图链路（probe → 定位 → 区域高 dpi 读数）入库",
+  "fields": {
+    "mount": "tht",
+    "pin_count": 6,
+    "pitch_x": 1.76,
+    "pitch_y": 1.0,
+    "body_x": 7.59,
+    "body_y": 12.2,
+    "pad_x": 1.2,
+    "pad_y": 2.2
+  },
+  "notes": "由 knowledge/specs 的 fingerprint 原样迁移，未做任何修正（修正候选就毁掉了考卷）。"
+}

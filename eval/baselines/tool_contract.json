@@ -1,0 +1,456 @@
+{
+  "frozen_at": "2026-10-14T16:41:35",
+  "tool_count": 36,
+  "decorator_count": 36,
+  "tools": [
+    {
+      "name": "add_footprint_outline",
+      "doc_len": 542,
+      "params": [
+        "x1",
+        "y1",
+        "x2",
+        "y2",
+        "target",
+        "width",
+        "filled"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "add_footprint_pin",
+      "doc_len": 536,
+      "params": [
+        "padstack_name",
+        "number",
+        "x",
+        "y",
+        "rotation",
+        "text_offset"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "add_footprint_text",
+      "doc_len": 418,
+      "params": [
+        "text",
+        "x",
+        "y",
+        "target",
+        "text_block",
+        "rotation"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "build_footprint_from_params",
+      "doc_len": 3425,
+      "params": [
+        "padstack",
+        "pins",
+        "silk",
+        "body",
+        "place_bound",
+        "refdes",
+        "auto_extent",
+        "frame_view",
+        "save",
+        "on_exists",
+        "fresh_symbol",
+        "symbol_name",
+        "template_path",
+        "extra_padstacks",
+        "assembly",
+        "package_height"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "change_drawing_extents",
+      "doc_len": 586,
+      "params": [
+        "x1",
+        "y1",
+        "x2",
+        "y2",
+        "union_with_current"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "check_footprint_by_rules",
+      "doc_len": 1257,
+      "params": [
+        "dra_file_path",
+        "theoretical_payload",
+        "pad_file_paths",
+        "custom_rules",
+        "semantic_result",
+        "save_report",
+        "compact"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "clear_footprint_drawing",
+      "doc_len": 592,
+      "params": [
+        "include_pins",
+        "include_text",
+        "include_geometry"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "create_padstack",
+      "doc_len": 1343,
+      "params": [
+        "name",
+        "layers",
+        "drill",
+        "save_to_disk",
+        "on_exists"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "export_psm",
+      "doc_len": 2196,
+      "params": [
+        "symbol_name",
+        "symbol_type"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "find_case",
+      "doc_len": 470,
+      "params": [
+        "spec_json",
+        "keyword",
+        "tol",
+        "include_payload"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "find_spec",
+      "doc_len": 507,
+      "params": [
+        "mount",
+        "pin_count",
+        "pitch_x",
+        "pitch_y",
+        "body_x",
+        "body_y",
+        "pad_x",
+        "pad_y",
+        "tol",
+        "keyword"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "folder_preflight",
+      "doc_len": 947,
+      "params": [
+        "folder_path",
+        "recursive"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "frame_drawing_view",
+      "doc_len": 800,
+      "params": [
+        "half",
+        "margin",
+        "extent_scale",
+        "save"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "get_run_stats",
+      "doc_len": 491,
+      "params": [
+        "days"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "inspect_allegro_environment",
+      "doc_len": 395,
+      "params": [],
+      "undocumented": []
+    },
+    {
+      "name": "install_shadow_library",
+      "doc_len": 1610,
+      "params": [
+        "symbol_name",
+        "pn",
+        "artifacts",
+        "pad_names",
+        "src_dirs",
+        "lib_root",
+        "overwrite",
+        "dry_run"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "list_cases",
+      "doc_len": 124,
+      "params": [],
+      "undocumented": []
+    },
+    {
+      "name": "list_folder_files",
+      "doc_len": 222,
+      "params": [
+        "folder_path"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "list_shadow_library",
+      "doc_len": 177,
+      "params": [
+        "lib_root"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "list_specs",
+      "doc_len": 175,
+      "params": [],
+      "undocumented": []
+    },
+    {
+      "name": "list_subfolders",
+      "doc_len": 111,
+      "params": [
+        "parent_path"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "load_spec",
+      "doc_len": 359,
+      "params": [
+        "name"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "locate_land_pattern_page",
+      "doc_len": 327,
+      "params": [
+        "pdf_file_path"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "measure_region",
+      "doc_len": 402,
+      "params": [
+        "pdf_file_path",
+        "page",
+        "rect"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "new_footprint_drawing",
+      "doc_len": 532,
+      "params": [
+        "set_units",
+        "set_accuracy",
+        "extents_mm"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "new_symbol_drawing",
+      "doc_len": 1849,
+      "params": [
+        "target_name",
+        "template_path",
+        "overwrite",
+        "units",
+        "accuracy"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "pdf_probe",
+      "doc_len": 458,
+      "params": [
+        "pdf_file_path"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "read_full_footprint",
+      "doc_len": 541,
+      "params": [
+        "dra_file_path",
+        "pad_file_paths"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "render_pdf_contact_sheet",
+      "doc_len": 594,
+      "params": [
+        "pdf_file_path",
+        "cols",
+        "thumb_width",
+        "max_pages"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "render_pdf_page",
+      "doc_len": 346,
+      "params": [
+        "pdf_file_path",
+        "page",
+        "render_engine"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "render_pdf_region",
+      "doc_len": 519,
+      "params": [
+        "pdf_file_path",
+        "page",
+        "rect",
+        "dpi"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "save_case",
+      "doc_len": 904,
+      "params": [
+        "name",
+        "tag",
+        "family",
+        "source_pdf",
+        "spec_json",
+        "check_summary_json",
+        "report_path",
+        "findings_json",
+        "lessons",
+        "verdict",
+        "overwrite"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "save_footprint_drawing",
+      "doc_len": 129,
+      "params": [
+        "path"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "save_spec",
+      "doc_len": 830,
+      "params": [
+        "name",
+        "spec_json",
+        "family",
+        "source_pdf",
+        "notes",
+        "overwrite"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "solve_footprint_geometry",
+      "doc_len": 5830,
+      "params": [
+        "symbol_base",
+        "pad",
+        "array",
+        "body",
+        "dim_source",
+        "dim_sources",
+        "dim_tables",
+        "dim_tols",
+        "pin_count",
+        "component_type",
+        "mount",
+        "pin1_corner",
+        "body_tol",
+        "has_recommended_value",
+        "body_max",
+        "use_max_for_geometry",
+        "pitch",
+        "suffix",
+        "silk_style",
+        "silk_width",
+        "silk_min_clearance",
+        "refdes_text",
+        "refdes_targets",
+        "refdes_place",
+        "refdes_dx",
+        "refdes_dy",
+        "refdes_x",
+        "refdes_y",
+        "refdes_justify",
+        "symbol_name",
+        "symbol_name_hint",
+        "body_center",
+        "place_bound_expand_mm",
+        "pins_override",
+        "pin_names",
+        "pin1_mark_axis",
+        "extra_padstacks",
+        "extra_spec"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "validate_land_pattern_json",
+      "doc_len": 223,
+      "params": [
+        "raw_json"
+      ],
+      "undocumented": []
+    }
+  ],
+  "telemetry": {
+    "schema_version": 1,
+    "core_fields": [
+      "args_hash",
+      "args_keys",
+      "degraded",
+      "ms",
+      "ok",
+      "run_id",
+      "schema",
+      "step",
+      "tool",
+      "ts"
+    ],
+    "error_codes": [
+      "BAD_INPUT",
+      "CANCELLED",
+      "CHANNEL_DOWN",
+      "DEP_MISSING",
+      "INTERNAL",
+      "INVARIANT",
+      "IO_ERROR",
+      "NOT_FOUND",
+      "PERMISSION",
+      "TIMEOUT"
+    ]
+  }
+}

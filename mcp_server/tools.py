@@ -10,13 +10,15 @@ mcp_server/tools.py —— MCP 工具定义
 
   严禁在 tool 里写业务逻辑（循环、文件扫描、JSON 清洗）。
 
-工具列表（v4.1）：
+工具列表（v4.2，共 36 个）：
   - list_subfolders / list_folder_files         批量侦察
+  - folder_preflight                             ★ 动手前预检：目录里的 PDF/.dra 有没有歧义（2026-10-14 加）
   - locate_land_pattern_page / render_pdf_page  定位 & 渲染
   - pdf_probe / render_pdf_region / measure_region  ★ 读规格书三件套（2026-10-13 加）
   - read_full_footprint                         拿 pins/layers 供 AI 语义检查
   - check_footprint_by_rules                    主用：检查 + 存档 + 渲染 markdown
   - validate_land_pattern_json                  校验 AI 输出的 JSON
+  - get_run_stats                               ★ 运行统计：哪步最慢 / 哪条规则最常挂（2026-10-14 加）
 
 v4.1 变更：
   - check_footprint_by_rules 新增 compact 参数（默认 True）：
@@ -44,6 +46,8 @@ from services import footprint_builder, geometry_solver, library_install
 from services import case_library, spec_library
 from services.json_utils import coerce_numeric, extract_json_body
 from services.validation import validate_land_pattern
+from orchestration import preflight as preflight_mod
+from observability import stats as stats_mod
 
 
 # ============================================================
@@ -176,16 +180,30 @@ def register(mcp: FastMCP) -> None:
         """
         定位 PDF 规格书中包含 land pattern（推荐焊盘）的页码。
 
-        先用强关键词（LAND PATTERN、RECOMMENDED PAD 等）匹配；
-        失败则用弱关键词（PAD、DIMENSION、SOLDER 等）兜底。
+        判据是**文本证据 + 结构证据**两路（2026-10-14 起）：
+          1. 强关键词（LAND PATTERN、RECOMMENDED PAD、焊盘图…）→ `method="primary"`；
+          2. 无文本层的**矢量图纸页**（0 字符 + 上千条图元）→ `method="drawing_only"`；
+          3. 文本稀薄但图元密的图纸页 / 弱关键词领先 → `method="thin_drawing"` | `"fallback"`。
+
+        ★ 本工具**宁可不给页码也不瞎猜**：多页证据并列或弱关键词不足以指认时返回
+          `page=null` + `method="ambiguous"`，并把所有候选页放进 `candidates`；
+          纯位图扫描件返回 `method="scan_only"`。
+        ★ **`page` 有值时先看 `needs_visual`**：为 True 说明是结构推定（不是强关键词实锤），
+          读尺寸前必须 `render_pdf_page`/`render_pdf_region` 渲染确认；`page=null` 时按
+          `candidates` 逐页渲染，或 `render_pdf_contact_sheet` 拼一张缩略图一次定位。
 
         :param pdf_file_path: 规格书 PDF 路径（完整路径或 stem 均可）
         :return: {
             "page": 页码(1-based) 或 null,
-            "matched": [命中的关键词],
-            "score": 匹配得分,
-            "total_pages": 总页数,
-            "method": "primary" | "fallback" | "no_match"
+            "matched": [命中的关键词], "score": 匹配得分, "total_pages": 总页数,
+            "method": "primary" | "fallback" | "drawing_only" | "thin_drawing"
+                      | "ambiguous" | "single_page" | "scan_only" | "no_match",
+            "confidence": "high" | "medium" | "low" | "none",
+            "needs_visual": bool,          # True = 读数值前必须渲染确认
+            "reason": 判定理由（人话）,
+            "candidates": [{page, text_chars, drawings, dim_signals, fb_hits…}],
+            "candidate_pages": [候选页码], # pdf_service 追加的便捷字段
+            "hint": 下一步怎么做的建议（pdf_service 追加）
         }
         """
         pdf = pdf_service.resolve_pdf(pdf_file_path, config.PDF_SEARCH_ROOTS)
@@ -1344,6 +1362,12 @@ def register(mcp: FastMCP) -> None:
         :param symbol_name: fresh_symbol=True 时的新图纸名（建议用封装名）
         :param template_path: 模板 .dra；None 时自动挑选（官方模板优先）
                               ★ fresh_symbol=True 且名字是相对名时，新图纸默认落 `Tools/test/`
+        :param extra_padstacks: ★ 额外的 padstack 定义列表（除主 `padstack` 之外还要建的
+                          第二尺寸焊盘，如 FPC 固定脚）。每项形如
+                          `{"name":"R1D6X1D2","layers":[…],"drill":null}`；
+                          引脚在 `pins` 里用 `{"number":"5","padstack":"R1D6X1D2",…}` 引用。
+                          未在此定义就被引用 → 该脚**回退主 padstack** 并记一条 warning
+                          （不静默：warning 里写明是哪个脚引用了什么）。
 
         :return: {
             "success": bool, "padstack_name": str, "padstack_reused": bool,
@@ -1519,6 +1543,8 @@ def register(mcp: FastMCP) -> None:
 
         :param name: 封装名（如 `NB_WSON8_8P`）
         :param tag: 可选标签，区分同一封装的多条案例（如 `散热盘pitch裁定`）
+        :param family: 封装族（如 `SOD-323HE` / `SOT-23`），用于同族召回
+        :param source_pdf: 来源规格书路径，便于回查当初对着哪份图裁定的
         :param spec_json: 该件的 spec JSON 字符串（有则自动算几何指纹）
         :param check_summary_json: 检查报告 summary 的 JSON 字符串
                                    （{"total","pass","fail","warn","na"}）
@@ -1709,3 +1735,76 @@ def register(mcp: FastMCP) -> None:
         if pdf is None:
             return {"ok": False, "error": f"找不到 PDF: {pdf_file_path}"}
         return pdf_service.measure_region(pdf, page, rect)
+
+    # ============================================================
+    # Tool 35: folder_preflight —— ★ 动手前预检（L3 编排层下沉，2026-10-14 加）
+    # ============================================================
+    @mcp.tool()
+    def folder_preflight(folder_path: str, recursive: bool = False) -> dict:
+        """
+        ★ 检查前的**第一步**：这个目录里有几份规格书 / 几颗封装？有歧义就先问用户。
+
+        **为什么必须有这一步**：`list_folder_files` 的返回结构里只有一个 `pdf` 字段
+        （内部 `find_first_pdf`），一个目录里躺着 **两份 PDF / 两份 .dra** 时工具链
+        **看不见第二份** —— 铁律 S1「目录里多个 PDF/.dra 必须先确认」过去只能靠模型自觉。
+        本工具把该事实**算出来、写进返回值**。
+
+        ★ 只**上报**歧义，**不替你拒绝执行**：批量模式 B（每个子目录各一对 PDF/.dra）下，
+          一个目录出现多份 PDF 完全合法 —— 是否继续由你与用户决定。
+
+        ★ 顺带挑出噪声文件：它们**不算候选**，但仍会上报（在 `noise_files` 里列名）。
+          两类：① **可能被误当产物/证据**的 —— `AUTOSAVE.dra`（`AUTOSAVE` 按名字排序排在
+          `nb_*` 前面，取"第一个"正好取到垃圾）、历史 `checklist_report_*.json`
+          （★ 旧报告**不是本次结论的证据**，别拿它当检查结果）；② **运行痕迹** ——
+          `allegro.jrl` / `master.tag` / `*.log` / `signoise.run/`，说明有人把库目录当
+          Allegro 工作目录开过。名单非空 = 这个目录不干净，建议先移出（走 `.trash/`，
+          不要 `os.remove`）再开工。
+
+        ★ **失败码怎么读**（`orchestration/pipeline.py` 的稳定契约，别靠人话猜）：
+          `ambiguous=true` / `verdict=ambiguous_*` → `AMBIGUOUS_INPUT`（把候选列给用户确认，
+          **不许自己挑**）；`verdict=empty/missing_*` 或目录里只有噪声 → `NO_CANDIDATES`（缺料，停）。
+          单位既非 mm 也非 mil 由后续步骤报 `UNITS_UNKNOWN`，取数为空报 `NO_DATA`。
+          每条规则的后果类别 / 检测方式 / 证据字段见装配表 `orchestration/playbook.json`。
+
+        :param folder_path: 目录路径（完整路径或相对项目根的路径）
+        :param recursive: True = 批量模式：把这个目录的**直接子目录**各当一个单元判定
+        :return: {"ok", "folder", "verdict", "action", "ambiguous", "pdf_count",
+                  "dra_count", "pdf_files", "dra_files", "noise_files", "hint",
+                  "units"?, "suspects"?, "noisy"?}
+                 verdict: ok | ambiguous_pdf | ambiguous_dra | missing_pdf | missing_dra
+                        | empty | batch_ok | batch_suspects
+                 action:  proceed（可以开工）| confirm（先问用户）| stop（缺料，做不了）
+        ★ 路径不存在时返回 `ok:false` + `error_code`，调用方应回退旧流程。
+        """
+        result = preflight_mod.preflight(folder_path, recursive=recursive)
+        if result.get("verdict") in ("not_found", "not_a_dir"):
+            return {"ok": False, "error_code": "NOT_FOUND",
+                    "error": f"目录不可用：{result.get('hint', '')}",
+                    "folder": result.get("folder", folder_path)}
+        result["ok"] = True
+        return result
+
+    # ============================================================
+    # Tool 36: get_run_stats —— ★ 运行统计（L4 观测层，2026-10-14 加）
+    # ============================================================
+    @mcp.tool()
+    def get_run_stats(days: int = 7) -> dict:
+        """
+        ★「系统最近怎么样」：工具调用 / 失败 / 降级、**最常 FAIL 的规则**、知识库分布、缺口清单。
+
+        **为什么需要它**：项目过去**有产物、没视图** —— `Tools/log/` 一千多个文件，却没人
+        能回答「哪一步最慢」「哪条规则最常挂」。本工具把三类数据源（遥测 JSONL +
+        `checklist_report_*.json` + 知识库索引）聚合成一个结构。
+
+        :param days: 遥测窗口天数（默认 7；规则与知识库部分始终是全量）
+        :return: {"ok", "days", "stats": {schema, generated_at, window_days, telemetry,
+                  tools, steps, rules, knowledge, gaps}}
+                 ★ `gaps` 是**缺口清单**：如实喊「最近没有遥测事件」「还没有冻结基线」，
+                   不把空数据装成正常的 0。
+        ★ 只读，不写任何文件；遥测损坏的行会被跳过并计入 `telemetry.parse_errors`。
+        """
+        try:
+            days = int(days)
+        except (TypeError, ValueError):
+            return {"ok": False, "error_code": "BAD_INPUT", "error": f"days 必须是整数：{days!r}"}
+        return {"ok": True, "days": days, "stats": stats_mod.summarize(max(days, 1))}

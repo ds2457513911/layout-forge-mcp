@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "case": "lmbr140et1g_2p",
+  "read_by": "ai-read-2026-10-15",
+  "pdf_sha256": "7556edb5bce3",
+  "pdf_path": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\Tools\\test\\NB_LMBR140ET1G_2P\\LMBR140ET1G.pdf",
+  "pdf_pages": 11,
+  "pdf_form": "scan",
+  "fields": {
+    "mount": {
+      "value": "smd",
+      "page": 3,
+      "quote": "Suggested solder pad layout —— SOD-323HE 封装，图示两枚**顶层矩形实心焊盘**（橙色块），整份规格书无插件孔/引脚穿孔图；本体为贴片二极管外形（阳极—阴极两焊端）"
+    },
+    "pin_count": {
+      "value": 2,
+      "page": 3,
+      "quote": "Suggested solder pad layout —— 图上恰有 2 枚焊盘（大焊盘 + 小焊盘），标注串 A/B/C/D/E/F；第 1 页标题 LMBR120ET1G thru LMBR1200ET1G 为两脚肖特基二极管系列，无外壳脚/定位柱"
+    },
+    "pitch_x": {
+      "value": 1.9,
+      "page": 3,
+      "quote": "Suggested solder pad layout 表 SOD123-FL 行 F 列 = 0.075(1.90)；尺寸链自洽校验 B/2 + C + D/2 = 2.00/2 + 0.50 + 0.80/2 = 1.90（B=0.079(2.00) 大焊盘沿引脚排列方向的边长，C=0.019(0.5) 两盘对向净间隙，D=0.032(0.8) 小焊盘沿同方向的边长）"
+    },
+    "pitch_y": {
+      "value": null,
+      "null_reason": "单排单列器件：两枚焊盘中心 y 坐标相同（同一水平轴线上），y 方向不存在「相邻引脚」。规格书只在水平方向给出中心距 F=1.90，垂直方向无任何引脚间标注；.dra 侧两个 pin 的 y 均为 0.0，同样无 y 向间距。故按 canonical 口径（单排/单列写 null）判 null。"
+    },
+    "body_x": {
+      "value": 2.7,
+      "page": 3,
+      "quote": "3. dimension: SOD-323HE 的 DIMENSIONS 表 —— DIM A | MILLIMETERS MIN 2.30 MAX 2.70 | INCHES MIN 0.091 MAX 0.106（取 MAX 列 2.70 为本体长；顶视图 A 为水平长轴）"
+    },
+    "body_y": {
+      "value": 1.4,
+      "page": 3,
+      "quote": "3. dimension: SOD-323HE 的 DIMENSIONS 表 —— DIM B | MILLIMETERS MIN 1.20 MAX 1.40 | INCHES MIN 0.047 MAX 0.055（取 MAX 列 1.40 为本体宽；顶视图 B 为竖直短轴）"
+    },
+    "pad_x": {
+      "value": 2.0,
+      "page": 3,
+      "quote": "Recommended solder pad layout 表 SOD123-FL 行 B 列 = 0.079(2.00)（大焊盘，对应图上 Suggested solder pad layout 中标注 B 的焊盘边长）；同表反向校验 B/2 + C + D/2 = 1.00 + 0.50 + 0.40 = 1.90 = F 列 0.075(1.90)，故 B 就是**沿引脚排列方向**的焊盘边长 → pad_x = 2.00"
+    },
+    "pad_y": {
+      "value": 1.1,
+      "page": 3,
+      "quote": "Recommended solder pad layout 表 SOD123-FL 行 A 列 = 0.044(1.10)（同一焊盘的另一条边，垂直于引脚排列方向）；同表 E 列 = 0.04(1.00) 与 D 列 = 0.032(0.8) 属小焊盘边长，不作为大焊盘读数 → pad_y = 1.10"
+    }
+  },
+  "unreadable": [],
+  "cross_check": {
+    "dra": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\LMBR140ET1G\\nb_sod-323_2_2d7x1d4x0d75.dra",
+    "method": "services.extracta_reader.read_via_extracta（由 venv-unconfined 解释器驱动 Cadence extracta 四视图，_gaps=0 无缺失通道）：pin_count=len(pins)；pitch_x/pitch_y = pins[].xy 各轴去重后相邻最小差（与 Tools/benchmark_golden.py:64 _pitch_from_pins 同口径）；body_x/body_y = PACKAGE GEOMETRY/ASSEMBLY_TOP 本体矩形 bbox size；pad_x/pad_y = pins[].pads 中 ETCH/TOP 层 size。另用 Data/footprint/LMBR140ET1G/r2x1d1.pad 与 r1x0d8.pad 两个 padstack 文件名做旁证。",
+    "agree": ["mount", "pin_count", "pitch_x", "pitch_y", "body_x", "body_y", "pad_x", "pad_y"],
+    "disagree": [],
+    "dra_values": {
+      "mount": {
+        "value": "smd",
+        "evidence": "两个 pin 的 pads 均只含 ETCH/TOP + PIN/SOLDERMASK_TOP + PIN/PASTEMASK_TOP 三层，无钻孔层、无 THT 盘"
+      },
+      "pin_count": {
+        "value": 2,
+        "evidence": "read_via_extracta 返回 raw_pin_count=2，pins 数组两条：#1 padstack R2X1D1（阴极）、#2 padstack R1X0D8（阳极）"
+      },
+      "pitch_x": {
+        "value": 1.9,
+        "evidence": "pins[].xy = [-0.95, 0.0]（#1）与 [0.95, 0.0]（#2）→ |Δx| = 1.90，与规格书 F=1.90 精确一致"
+      },
+      "pitch_y": {
+        "value": "n/a（判 null，两边一致）",
+        "evidence": "两 pin 的 y 均为 0.0，去重后只有 1 个值 → 无相邻间距"
+      },
+      "body_x": {
+        "value": 2.7,
+        "evidence": "PACKAGE GEOMETRY/ASSEMBLY_TOP 本体外框 bbox [[-1.65,-0.7],[1.05,0.7]] → size [2.7, 1.4]（中心 x=-0.30 非 0，属原点偏置，不影响尺寸）"
+      },
+      "body_y": {
+        "value": 1.4,
+        "evidence": "同上 ASSEMBLY_TOP 本体外框 size [2.7, 1.4]；.dra 文件名 nb_sod-323_2_2d7x1d4x0d75 亦自述 2.7 x 1.4"
+      },
+      "pad_x": {
+        "value": 2.0,
+        "evidence": "pin#1（阴极，R2X1D1）pads[ETCH/TOP].size = [2.0, 1.1]；命名 padstack 文件 Data/footprint/LMBR140ET1G/r2x1d1.pad 佐证"
+      },
+      "pad_y": {
+        "value": 1.1,
+        "evidence": "同上 pads[ETCH/TOP].size = [2.0, 1.1] 的第二分量；pin#2（阳极，R1X0D8）为 [0.8, 1.0]，与规格书 D=0.8 一致"
+      }
+    },
+    "disagree_note": "本次 8 个字段两边**数值全部一致**（0 分歧）。唯一需要人工留意的是**图面标注 A/B 的轴向归属**：Suggested solder pad layout 小图把两枚焊盘画成高瘦形（图上 A 标在左右、B 标在上下），若按图面字样直译会得到 pad_x=1.10 / pad_y=2.00（与本次读数互换）。本次未采用该直译，依据是三条独立证据同时指向 pad_x=2.00：①尺寸链自洽方程只用 B/2+C+D/2=1.90 才能成立；②.dra（人做的封装）ETCH 实测 [2.0, 1.1]，且其 padstack 文件名 r2x1d1.pad / r1x0d8.pad 与规格书 B=2.00 / D=0.80 同名同值；③900/1200 dpi 渲染后逐像素量取两枚橙色焊盘，大焊盘确实**横宽于高**（实测宽/高 ≈ 1.57，标称解 2.00/1.10=1.82、交错解 1.10/2.00=0.55，图面虽非等比但趋势明确）。详见同名 md 的 §4.3。"
+  },
+  "notes": [
+    "PDF 形态 scan：11 页 / 11 位图 / **文本层 0 字符** / 0 条矢量图元。locate_land_pattern_page() 必然失配（method=no_match，仅有 hint），故按项目既有链路先用 build_contact_sheet(pdf, out, dpi=100) 拼成 1 张 840x945 缩略图定位到第 3 页（『3. dimension:』标题 + SOD-323HE 尺寸表 + Suggested solder pad layout），再对第 3 页做整页 150 dpi 与区域 900 dpi 渲染读数。全程未整本 900 dpi 渲染。",
+    "★ 数值来源均为**位图里的印刷标注**，文本层提不到任何字符，全部靠区域高 dpi 渲染肉眼读数：p3_120-265-390-480@900.png（DIMENSIONS 表）、p3_110-600-470-652@900.png（Recommended solder pad layout 表整行）、p3_legend_wide@900.png（Suggested solder pad layout 图）。",
+    "★ body_x / body_y 口径：取 DIMENSIONS 表 A / B 的 **MAX 列**（2.70 / 1.40），不是 MIN、也不是中值。理由：canonical 字段要与 .dra 的 ASSEMBLY_TOP 本体外框对得上，而 .dra 实测正是 [2.7, 1.4]；.dra 文件名 nb_sod-323_2_**2d7**x**1d4**x0d75 亦以 2.7 x 1.4 命名。若签字方希望取 MIN 或公称，请显式改口径（那会与 .dra 交叉核对不一致）。",
+    "★ pitch_x 是**读 + 推**的组合：规格书直接标了中心距 F = 1.90（表列 0.075(1.90)），同时也给了可自洽的尺寸链；本报告把两者作为互相印证，读数取 1.90。该值被 .dra 独立证实（两 pin x = ±0.95，差精确 1.90，零误差）。",
+    "★ pad_x / pad_y 口径：以**规格书推荐的 land pattern**为准（README 明确『以规格书推荐的 land pattern 为准』），取『大焊盘』（阴极侧，图上标注 B / A 的那枚）的边长 2.00 x 1.10，不取小焊盘（0.8 x 1.0），也不取器件本体电极尺寸。注意 .dra 的 SOLDERMASK_TOP 阻焊开窗为 2.1 x 1.2（单边外扩 0.05），与 pad_x/pad_y 口径不同，不许混用。",
+    "★ 非对称焊盘事实（供签字人注意，不影响本 8 字段定义）：本封装两枚焊盘**不相等** —— 阴极侧 2.0 x 1.1，阳极侧 0.8 x 1.0（规格书 B/D 与 .dra 两 pin 的 padstack 双向印证）。canonical 的 pad_x/pad_y 只有一对值，本报告取**阴极侧大焊盘**；若签字方希望取阳极侧，则应改为 0.8 x 1.0。此点在既有 spec 里用 pins_override 逐脚建模解决。",
+    "★ 本规格书与人工件的一个已知差异（2026-10-09 提出、至今待裁决，本报告原样记录不改读数）：既有 spec 的 notes 称『人工件 pin1 pad 是竖的 1.1x2.0（上下伸出本体），与规格书 p3 的横向 pad 相左』。本次实测 .dra 的 pin#1 ETCH size = [2.0, 1.1]（即 x 向 2.0、y 向 1.1，**x 向为长边**），而 Suggested solder pad layout 小图把焊盘画成高瘦形。两者对『图面 vs 实物』的读法不同源，但落到 canonical 的 pad_x=2.0 / pad_y=1.1 上一致。",
+    "★ 图面非等比，已核实：Suggested solder pad layout 小图里大焊盘画得『横宽于高』（实测宽/高 ≈ 1.57），与标称 2.00/1.10 = 1.82 有偏差，说明该小图是示意而非等比。因此本报告**不用图面像素比例作为读数依据**，只作为 A/B 轴向归属的辅助判断。",
+    "★ 两处口径提示：①DIMENSIONS 表里的 A~K 与 Recommended solder pad layout 表里的 A~F 是**两套互不相干的字母**（前者是封装外形尺寸，后者是焊盘推荐尺寸）；本报告引用时已分别写明来源。②pitch_x 的物理含义是『两枚焊盘中心距』= F = 1.90，也等于 .dra 的两个 pin 中心距。",
+    "★ 介质自检：任务书给定的 sha256 前 12 位 7556edb5bce3 与实测**完全一致**（全哈希 7556edb5bce31cfca41db394b2a68b23dd222285287c57bf2e537c039f02af2a）；另核对 Data/footprint/LMBR140ET1G/LMBR140ET1G.pdf 亦为同一哈希 7556edb5bce3，与 cases.json 的备注相符（两份逐字节相同，真值钉 Tools/test 那份）。",
+    "★ 工具链已知缺陷（本轮踩到，已绕过、未改仓库）：services/pdf_service.py:22 的 `from services.pdf_renderer import _render_page, safe_stem as _safe_stem` 会整条失败（pdf_renderer 中无 `_render_page`），导致模块级 `_safe_stem` 未绑定，**render_region() / get_or_render_image() 抛 NameError: name '_safe_stem' is not defined**（render_page() 因另走 pdf_renderer.render_page 不受影响）。本轮在调用脚本内注入同名实现绕过，未修改仓库文件。建议单独修这个 import。",
+    "confidence: medium —— 8 个字段 8/8 与独立的人工 .dra 几何完全一致（零分歧、零容差消耗），body/pitch/mount/pin_count 属 high；但规格书 Suggested solder pad layout **小图与两张标注表的字母-轴向能给出两种自洽读法**（pad_x/pad_y 互换），本报告选择与尺寸链方程及 .dra 一致的那一种，故整体不给 high，把 pad_x 单列 medium。",
+    "本报告与同名 JSON 均**不含 signed_by / signed_at**，签字权在人；既有 spec knowledge/specs/nb_lmbr140et1g_2p.json 未被用作任何字段的读数来源，仅在同名 md 的对照段列出。"
+  ]
+}

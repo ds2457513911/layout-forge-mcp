@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "case": "fpc0510_6p",
+  "title": "FPC 0.5mm 6P 前掀盖下接触（8 脚）",
+  "pdf": "layout-forge-mcp/Tools/test/NB_FPC0510_6P_4D77X3D6/FPC0510系列 Pitch0.5 H1.0 前掀盖+下接触.pdf",
+  "pdf_sha256": "91f4cdc7c2e2",
+  "signed_by": "ds245 (对话中确认：10 例全照草案)",
+  "signed_at": "2026-10-15",
+  "source_note": "真值草稿由 AI 读图起草（ai-read-2026-10-15）；证据见 drafts/fpc0510_6p.md 与 drafts/fpc0510_6p.json。**未签字前不得用于冻结基线**。\n已签字（2026-10-15）：人工复核 REVIEW.md 后确认**10 例全照草案**，未改任何字段值。",
+  "fields": {
+    "mount": {
+      "value": "smd",
+      "page": 1,
+      "quote": "RECOMMEND PCB LAYOUT / TOLERANCE: ±0.05（焊盘为顶层矩形 SMD 盘，图示无插件孔）"
+    },
+    "pin_count": {
+      "value": 6,
+      "page": 1,
+      "quote": "CKT 6 | A 4.77 | B 2.50 | C 3.60 | D 4.27；标题栏 PRODUCT NAME: 0.5mm Pitch FPC 前掀盖H1.0，PATER NUMBER 系列名 FPC 0510-XXB2-G1R"
+    },
+    "pitch_x": {
+      "value": 0.5,
+      "page": 1,
+      "quote": "0.50±0.05（RECOMMEND PCB LAYOUT 相邻信号焊盘中心距，6 个盘共 5 个 0.50 间隔）"
+    },
+    "pitch_y": {
+      "value": null,
+      "null_reason": "单排信号脚（rows=1），y 方向不存在相邻引脚；固定脚 7/8 位于另一 y 且非规则阵列，其 y 差 2.81mm 不是 pitch。规格书未规定任何 y 方向引脚间距。"
+    },
+    "body_x": {
+      "value": 4.77,
+      "page": 1,
+      "quote": "CKT 表 CKT=6 行 A 列 = 4.77；上视图/下视图标注 *A±0.15（A 为沿焊盘排列方向的本体总长）"
+    },
+    "body_y": {
+      "value": 3.6,
+      "page": 1,
+      "quote": "CKT 表 CKT=6 行 C 列 = 3.60；下视图标注 C±0.05（C 为垂直于焊盘排列方向的本体宽）"
+    },
+    "pad_x": {
+      "value": 0.3,
+      "page": 1,
+      "quote": "0.30±0.03（RECOMMEND PCB LAYOUT 信号焊盘宽度标注，左右各标一次）"
+    },
+    "pad_y": {
+      "value": 0.65,
+      "page": 1,
+      "quote": "0.65（RECOMMEND PCB LAYOUT 信号焊盘高度标注，左侧引出线）"
+    }
+  },
+  "unreadable": [],
+  "cross_check": {
+    "dra": "Tools/test/NB_FPC0510_6P_4D77X3D6/NB_FPC0510_6P_4D77X3D6.dra",
+    "method": "services.extracta_reader.read_via_extracta（unconfined python 驱动 Cadence extracta 四视图）拿到 pins/padstack/layers；PACKAGE GEOMETRY/ASSEMBLY_TOP 本体矩形 bbox size = [4.77, 3.6]；信号 padstack R0D3X0D65 size=[0.3,0.65]，固定脚 padstack R0D3X1D15 size=[0.3,1.15]；信号脚 xy x = -1.25,-0.75,-0.25,0.25,0.75,1.25（相邻差 0.5），固定脚 7/8 xy = (-2.135,0.575)/(2.135,0.575)。逐字段与 PDF 读数比对。",
+    "agree": [
+      "mount",
+      "pitch_x",
+      "body_x",
+      "body_y",
+      "pad_x",
+      "pad_y"
+    ],
+    "disagree": [
+      "pin_count"
+    ],
+    "dra_values": {
+      "mount": "smd（全部 8 个 pin 仅 ETCH/TOP + SOLDERMASK_TOP + PASTEMASK_TOP 三层，无钻孔层；.dra 内无 THT 盘）",
+      "pin_count": "8（extracta raw_pin_count=8 / pins 数组 8 条：1-6 为 R0D3X0D65 信号脚，7/8 为 R0D3X1D15 固定脚）",
+      "pitch_x": 0.5,
+      "pitch_y": "n/a（信号脚单排 y=-2.235 恒定；固定脚 y=0.575）",
+      "body_x": 4.77,
+      "body_y": 3.6,
+      "pad_x": 0.3,
+      "pad_y": 0.65
+    }
+  },
+  "pdf_form": "printed",
+  "signed_via": "chat"
+}

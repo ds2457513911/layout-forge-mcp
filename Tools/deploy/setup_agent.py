@@ -29,6 +29,7 @@ setup_agent.py —— layout-forge-mcp 的「Agent 侧」一键配置
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -42,6 +43,18 @@ SERVER_NAME = "layout-forge-mcp"
 # ---- 本文件在 deploy\ 下，项目根 = 上一级 ----
 DEPLOY_DIR = Path(__file__).resolve().parent
 DEFAULT_PROJECT_ROOT = DEPLOY_DIR.parent.parent
+
+#: ★ 部署记录（「上次我部署的是哪份内容」）——**不是真源**。
+#:   真源永远是 `deploy\skills\**`；本文件只用来区分两种「客户端和仓库不一致」：
+#:     · STALE   = 仓库改了、客户端还是上次部署的旧内容（重跑部署即可）
+#:     · DIVERGED= 客户端那份被人手改过（仓库没变）——**这才是静默回退的病灶**
+#:   放 `Tools\deploy\` 而不是 tools 之外：`Tools/` 在 .gitignore 里，本文件是
+#:   「本机的部署状态」，不该进版本库（换台机器应当重新生成）。
+MANIFEST_PATH = DEPLOY_DIR / ".deploy_manifest.json"
+MANIFEST_SCHEMA = "layout-forge-deploy-manifest/1"
+
+#: 客户端给 skill 写的元数据：**仓库副本故意不带**，比对/覆盖时必须忽略或保留。
+USER_META_NAME = "_user_meta.json"
 
 
 # ============================================================
@@ -157,55 +170,321 @@ def write_mcp_config(project_root: Path, venv_python: Path, dry_run: bool) -> tu
 
 
 # ============================================================
-# B. 安装 Skill
+# B. 安装 Skill（+ 部署记录 / 静默回退校验，2026-10-15 Phase 3）
 # ============================================================
-def install_skills(dry_run: bool) -> bool:
+def skill_landings() -> list[tuple[str, Path]]:
+    """SKILL 的**三个落点**（2026-10-14 实测：后两个常是 junction）。
+
+    详见 `README.md` 坑 13 —— 只部署 `.workbuddy` 不会刷新 `.dsh` 视图，
+    而模型实际读的可能是 `.dsh` 那份。
+    """
+    home = Path.home()
+    return [
+        ("workbuddy", home / ".workbuddy" / "skills"),
+        ("skills-manager", home / ".skills-manager" / "skills"),
+        ("dsh", home / ".dsh" / "skills"),
+    ]
+
+
+def _sha256_file(p: Path) -> str:
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def hash_tree(root: Path) -> dict:
+    """目录内容指纹：{相对路径: sha256}。`_user_meta.json` 不计入（客户端私有）。"""
+    out: dict[str, str] = {}
+    if not root.is_dir():
+        return out
+    for p in sorted(root.rglob("*")):
+        if not p.is_file() or p.name == USER_META_NAME:
+            continue
+        try:
+            out[p.relative_to(root).as_posix()] = _sha256_file(p)
+        except OSError:
+            continue
+    return out
+
+
+def _link_target(p: Path) -> Path | None:
+    """是软链接/junction 就回目标真身，否则 None。
+
+    ★ 3.10 上 `Path.is_symlink()` 对 Windows **junction** 的判定不可靠，
+      所以再用 `realpath` 兜一层（junction 与目标路径不同名）。
+    """
+    try:
+        if p.is_symlink():
+            return Path(os.path.realpath(p))
+    except OSError:
+        pass
+    try:
+        real = Path(os.path.realpath(p))
+    except OSError:
+        return None
+    if os.path.normcase(str(real)) != os.path.normcase(str(p)):
+        return real
+    return None
+
+
+def _diff_hashes(a: dict, b: dict) -> list[str]:
+    """返回「不一致的文件名」列表（含只在一侧存在的）。"""
+    return sorted(set(a) ^ set(b) | {k for k in set(a) & set(b) if a[k] != b[k]})
+
+
+def mirror_skill(src: Path, dst: Path, dry_run: bool, backup_root: Path) -> dict:
+    """把真源 skill 目录**覆盖写进** `dst`（保留 `_user_meta.json`）。
+
+    ★ 与旧实现的区别（2026-10-15）：旧版用 `shutil.move` 把已存在的目标整体
+      移成 `<名字>.bak_<时间戳>`，这在 junction 落点上会把**链接本身**移走、
+      换成一个真目录 —— 正是「三个落点各自陈旧」的根因（README 坑 13）。
+      现在改为「**写在真身上**、逐文件覆盖」，链接关系保持不变。
+
+    :return: {"written": n, "extra": [...], "backup": str|None}
+    """
+    src_files = hash_tree(src)
+    dst_files = hash_tree(dst)
+    extra = sorted(set(dst_files) - set(src_files))
+
+    backup: Path | None = None
+    # 目标里有真源没有的文件 = 可能是**手改过**的内容：先留一份再覆盖。
+    if extra:
+        backup = backup_root / f"{dst.name}.bak_{ts()}"
+        for rel in extra:
+            bp = backup / rel
+            bp.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(dst / rel, bp)
+
+    saved_meta: bytes | None = None
+    meta_path = dst / USER_META_NAME
+    if meta_path.is_file():
+        saved_meta = meta_path.read_bytes()
+
+    written = 0
+    if not dry_run:
+        dst.mkdir(parents=True, exist_ok=True)
+        for rel in sorted(src_files):
+            if dst_files.get(rel) == src_files[rel]:
+                continue
+            target = dst / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src / rel, target)
+            written += 1
+        if saved_meta is not None:
+            meta_path.write_bytes(saved_meta)
+    return {"written": written, "extra": extra,
+            "backup": str(backup) if backup else None}
+
+
+def install_skills(dry_run: bool) -> list[Path]:
+    """把 `deploy\\skills\\*` 同步到**每个落点的真身**（去重，junction 只写一次）。
+
+    :return: 实际写入过的真身目录列表（供部署记录使用）
+    """
     src_root = DEPLOY_DIR / "skills"
     if not src_root.is_dir():
         log(f"未找到 {src_root}，跳过 Skill 安装。", "WARN")
-        return False
+        return []
 
-    home = Path.home()
-    dst_root = home / ".workbuddy" / "skills"
-    # ★ 空电脑上客户端可能还没装过（没有 .workbuddy 目录）。
-    #   直接创建目录并把 skill 放进去 —— 客户端装好后启动即认。
-    #   （旧行为：目录不存在就跳过、让用户手工复制，违背一键部署目标。）
-    if not dry_run:
-        dst_root.mkdir(parents=True, exist_ok=True)
+    landing_roots = skill_landings()
+    backup_root = DEPLOY_DIR / "skills_backup"
+    touched: list[Path] = []
+    touched_keys: set[str] = set()
 
-    ok = True
     for src in sorted(src_root.iterdir()):
         if not src.is_dir():
             continue
-        dst = dst_root / src.name
-
-        # ★ _user_meta.json 是客户端给 skill 写的元数据（installedAt / source）。
-        #   仓库副本里没有它，覆盖安装必须把它留下来，否则客户端会认不出
-        #   这个 skill 是已安装的。同理，备份目录里也不要丢。
-        saved_meta: bytes | None = None
-        meta_path = dst / "_user_meta.json"
-        if meta_path.is_file():
-            saved_meta = meta_path.read_bytes()
-
-        if dst.exists():
-            backup = dst_root / f"{src.name}.bak_{ts()}"
-            if dry_run:
-                log(f"[DRY-RUN] 已存在，将备份为 {backup.name} 后覆盖：{src.name}", "WARN")
+        for label, root in landing_roots:
+            dst = root / src.name
+            # 落点不存在：只有 .workbuddy 是「必须新建」（空电脑也要能一键到底）
+            if not dst.exists() and label != "workbuddy":
+                continue
+            real = _link_target(dst)
+            if real is not None:
+                # junction：写到它的真身（一次写入同时刷新所有指向它的落点）
+                dst_real = real
+                log(f"{label}: {dst.name} 是链接 → 真身 {dst_real}")
             else:
-                shutil.move(str(dst), str(backup))
-                if saved_meta is not None:
-                    (backup / "_user_meta.json").write_bytes(saved_meta)
-                log(f"已存在，备份为 {backup.name}")
-        if dry_run:
-            log(f"[DRY-RUN] 将复制 {src.name} -> {dst}", "WARN")
+                dst_real = dst
+            key = os.path.normcase(str(dst_real))
+            if key in touched_keys:
+                continue
+            touched_keys.add(key)
+            if dry_run:
+                log(f"[DRY-RUN] 将同步 {src.name} -> {dst_real}（{label}）", "WARN")
+                touched.append(dst_real)
+                continue
+            info = mirror_skill(src, dst_real, dry_run, backup_root)
+            touched.append(dst_real)
+            msg = f"Skill 已同步：{dst_real}（{label}，写 {info['written']} 个文件）"
+            log(msg, "OK")
+            if info["extra"]:
+                log(f"  ⚠ 目标里有真源没有的文件（可能是手改），已另存：{info['backup']}", "WARN")
+            if (dst_real / USER_META_NAME).is_file():
+                log("  保留原 _user_meta.json")
+    return touched
+
+
+# ============================================================
+# B2. 部署记录 + 防静默回退校验（Phase 3）
+# ============================================================
+def read_manifest() -> dict:
+    if not MANIFEST_PATH.is_file():
+        return {}
+    try:
+        data = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def write_deploy_manifest(written_roots: list[Path], project_root: Path) -> Path:
+    """记录「本次部署的每个落点写入了什么内容」。
+
+    ★ 只记 `deploy\\skills\\**` 的 hash（真源快照）+ 每个落点写入后的实况，
+      这样下次就能把「仓库前进」与「客户端被手改」区分开。
+    """
+    src_root = DEPLOY_DIR / "skills"
+    skills: dict[str, dict] = {}
+    for src in sorted(src_root.iterdir()):
+        if src.is_dir():
+            skills[src.name] = hash_tree(src)
+
+    landings: dict[str, dict] = {}
+    for label, root in skill_landings():
+        for name in skills:
+            dst = root / name
+            if not dst.exists():
+                continue
+            real = _link_target(dst)
+            obs_root = real if real is not None else dst
+            landings[f"{label}:{name}"] = {
+                "path": str(dst),
+                "real": str(obs_root),
+                "junction": real is not None,
+                "files": hash_tree(obs_root),
+            }
+
+    data = {
+        "schema": MANIFEST_SCHEMA,
+        "deployed_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "project_root": str(project_root),
+        "source": "Tools/deploy/skills",
+        "source_hashes": skills,
+        "landings": landings,
+        "written_real_roots": [str(p) for p in written_roots],
+    }
+    if not DEPLOY_DIR.is_dir():
+        DEPLOY_DIR.mkdir(parents=True, exist_ok=True)
+    MANIFEST_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                             encoding="utf-8")
+    log(f"部署记录已写：{MANIFEST_PATH}", "OK")
+    return MANIFEST_PATH
+
+
+def check_skill_declarations(src_root: Path) -> list[str]:
+    """软校验：每份 SKILL.md 头部是否声明了可追溯信息（Phase 3 §7）。
+
+    只 WARN，不影响退出码：声明是「给人/给下次的自己」的溯源线索，
+    不是运行期依赖。
+    """
+    problems: list[str] = []
+    for skill in sorted(src_root.iterdir()) if src_root.is_dir() else []:
+        md = skill / "SKILL.md"
+        if not md.is_file():
             continue
-        dst_root.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(str(src), str(dst))
-        if saved_meta is not None:
-            (dst / "_user_meta.json").write_bytes(saved_meta)
-            log("  保留原 _user_meta.json")
-        log(f"Skill 已安装：{dst}", "OK")
-    return ok
+        head = md.read_text(encoding="utf-8", errors="replace")
+        # ★ 只看 front-matter 区（首个 --- 到第二个 ---），不要用固定字符窗口：
+        #   有 skill 的 description 长达 2.5 KB，把 metadata 挤到 2000 字符之外，
+        #   固定窗口会「明明声明了却报缺失」（2026-10-15 实测踩到）。
+        fm_end = head.find("\n---", 3)
+        block = head[:fm_end] if fm_end > 0 else head[:4000]
+        missing = [k for k in ("mcp_min_commit", "verified_with", "eval_baseline")
+                   if k not in block]
+        if missing:
+            problems.append(f"{skill.name}: SKILL.md 头部缺声明 {'、'.join(missing)}")
+    return problems
+
+
+def verify_skills() -> int:
+    """★ 防静默回退：比对 `deploy\\skills\\**`（真源）与三个落点（读侧副本）。
+
+    判定：
+      MATCH    一致 —— 模型读到的就是仓库里的规则
+      STALE    落点内容 == 上次部署记录，但仓库已前进 → **重跑部署**即可
+      DIVERGED 落点内容既不是仓库现状、也不是上次部署的记录 → **有人手改过**
+               （最危险：仓库与客户端各说各话，看的是哪份取决于客户端）
+      MISSING  落点根存在、但里面没有这份 skill
+      N/A      落点根整个不存在（该客户端没装）—— 不计入失败
+    :return: 0 = 全部 MATCH / N/A；1 = 存在 STALE / DIVERGED / MISSING
+    """
+    src_root = DEPLOY_DIR / "skills"
+    manifest = read_manifest()
+    man_landings = manifest.get("landings") or {}
+
+    hr("E. 防静默回退校验（SKILL 三落点 vs 真源）")
+    log(f"真源：{src_root}")
+    if manifest:
+        log(f"部署记录：{manifest.get('deployed_at')}（{MANIFEST_PATH.name}）")
+    else:
+        log("没有部署记录 —— 只能判「一致 / 不一致」，无法区分 STALE 与 DIVERGED。", "WARN")
+
+    bad = 0
+    for skill in sorted(src_root.iterdir()) if src_root.is_dir() else []:
+        if not skill.is_dir():
+            continue
+        truth = hash_tree(skill)
+        log(f"· {skill.name}（{len(truth)} 个文件）")
+        for label, root in skill_landings():
+            if not root.is_dir():
+                log(f"    [{label}] N/A（落点不存在：{root}）")
+                continue
+            dst = root / skill.name
+            rec = man_landings.get(f"{label}:{skill.name}") or {}
+            if not dst.exists():
+                log(f"    [{label}] 缺失 → {dst}", "WARN")
+                bad += 1
+                continue
+            real = _link_target(dst)
+            obs_root = real if real is not None else dst
+            obs = hash_tree(obs_root)
+            note = f"（链接 → {obs_root}）" if real is not None else ""
+            if obs == truth:
+                log(f"    [{label}] MATCH{note}", "OK")
+                continue
+            diff = _diff_hashes(truth, obs)
+            if rec.get("files") and obs == rec.get("files"):
+                verdict = "STALE（落后于仓库，重跑部署）"
+            else:
+                verdict = "DIVERGED（客户端那份与仓库/上次部署都不同 → 先查是谁改的）"
+            bad += 1
+            log(f"    [{label}] {verdict}{note}  差异 {len(diff)} 个文件", "ERR")
+            for rel in diff[:5]:
+                log(f"        · {rel}")
+            if len(diff) > 5:
+                log(f"        … 另有 {len(diff) - 5} 个")
+
+    for problem in check_skill_declarations(src_root):
+        log(f"声明缺失（WARN）：{problem}", "WARN")
+
+    if bad:
+        log(f"不通过：{bad} 处落点与真源不一致 —— **模型读的规则可能不是仓库里的规则**。", "ERR")
+        log("处理：`setup_agent.py --sync-skills`（把真源同步到三个落点）后重跑本校验。", "WARN")
+        return 1
+    log("通过：已安装的落点都与真源一致。", "OK")
+    return 0
+
+
+def sync_skills(project_root: Path) -> int:
+    """把真源同步到三个落点（junction 写一次真身），随后复核。"""
+    hr("E. 同步 SKILL 到三个落点")
+    written = install_skills(dry_run=False)
+    if not written:
+        log("没有可写的落点。", "WARN")
+    write_deploy_manifest(written, project_root)
+    return verify_skills()
 
 
 # ============================================================
@@ -297,8 +576,9 @@ def smoke_test(project_root: Path) -> bool:
         if isinstance(tools, (dict, list, tuple)):
             count = len(tools)
 
-    # 当前版本的期望值（2026-10-13：31 → 34，新增读规格书三件套）
-    EXPECTED_TOOLS = 34
+    # 当前版本的期望值（2026-10-13：31 → 34，新增读规格书三件套；
+    #                2026-10-14：34 → 36，新增 folder_preflight / get_run_stats）
+    EXPECTED_TOOLS = 36
 
     if count:
         log(f"MCP 工具总数：{count}（当前版本期望 {EXPECTED_TOOLS}）", "OK")
@@ -361,10 +641,20 @@ def main() -> int:
     ap.add_argument("--no-skills", action="store_true", help="跳过 Skill 安装")
     ap.add_argument("--no-skillbridge", action="store_true", help="跳过 SkillBridge 配置")
     ap.add_argument("--no-smoke", action="store_true", help="跳过冒烟验收")
+    ap.add_argument("--verify-skills", action="store_true",
+                    help="只做防静默回退校验：比对 deploy\\skills 与三个落点，然后退出")
+    ap.add_argument("--sync-skills", action="store_true",
+                    help="只把 deploy\\skills 同步到三个落点，然后校验")
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve()
     venv_python = Path(sys.executable)
+
+    # ★ 两个「只干这一件事」的入口：不重复跑 MCP/冒烟，装完就能单独复核。
+    if args.verify_skills:
+        return verify_skills()
+    if args.sync_skills:
+        return sync_skills(project_root)
 
     print("=" * 62)
     print(" layout-forge-mcp  一键配置")
@@ -389,8 +679,12 @@ def main() -> int:
         log(f"配置目标：{cfg_path}（{client}）")
 
     if not args.no_skills:
-        hr("B. 安装 Skill")
-        install_skills(args.dry_run)
+        hr("B. 安装 Skill（三个落点）")
+        written = install_skills(args.dry_run)
+        if args.dry_run:
+            log("[DRY-RUN] 跳过部署记录", "WARN")
+        else:
+            write_deploy_manifest(written, project_root)
 
     if not args.no_skillbridge:
         hr("C. 配置 Allegro SkillBridge 自动加载")
@@ -403,10 +697,15 @@ def main() -> int:
         else:
             results["smoke"] = smoke_test(project_root)
 
+    # ★ E：装完必须自证「三个落点都读得到同一份规则」——这是防静默回退的
+    #   最后一道闸；不一致就让一键部署**失败**，而不是留下一个说不清的现场。
+    if not args.no_skills and not args.dry_run:
+        results["skills_sync"] = verify_skills() == 0
+
     hr("收尾")
     print("  下一步：")
     print("    1. 完全退出并重启你的 Agent 客户端（MCP 是长驻进程，必须重启才加载）")
-    print("    2. 客户端里确认 layout-forge-mcp 已连接，工具数为 34")
+    print("    2. 客户端里确认 layout-forge-mcp 已连接，工具数为 36")
     print("    3. 启动 Allegro PCB Editor，命令行执行 netstat -ano | findstr 7777")
     print("       有 LISTENING 说明 SkillBridge 通道已通")
     print()

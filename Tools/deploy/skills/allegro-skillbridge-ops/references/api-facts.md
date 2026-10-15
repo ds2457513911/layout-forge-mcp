@@ -226,3 +226,25 @@ END
 
 ---
 
+## 十三、★ 与 `eval/suites/tool_contract` 的挂钩（本文件结论要能"被判据复现"）
+
+本文件是**方法学 + 事实**，`eval/suites/tool_contract/check_tool_contract.py` 是**断言**（C1–C6）。
+两边的分工与联动：
+
+| 本文件里的结论 | tool_contract 里的对应断言 | 红了先看哪里 |
+|---|---|---|
+| 「36 个工具全部注册通过」（第 3.1 节口径） | **C1/C2**：工具数量 == `baselines/tool_contract.json`、名字集合不许改名 | 先跑 `list` 看真实注册数；是**代码**退化了，不是本文件过期 |
+| 「某个 `axlXXX()` 存在/不存在」的探测结论 | 不直接断言（工具是 MCP 层，函数是 Allegro 层） | **先重跑 `tools/probe_api_exists.py`**（用"已知存在 + 已知不存在"对照做校准）—— Allegro 版本/SPB 补丁一变，结论可能翻 |
+| 工具 docstring 写的行为（如 `change_drawing_extents` docstring 是旧的） | **C3/C4**：每个工具有 docstring、参数名写进 docstring | 若代码行为改了而 docstring 没改，C3/C4 不会红 —— 这是已知盲区，靠**本文件**提醒"信行为不信文档" |
+| 遥测字段口径 / `TelemetryMiddleware` 接线 | **C5/C6** | 看 `mcp_server/middleware.py` 的 `on_call_tool` |
+
+**怎么判定本文件过期**：当 tool_contract 的基线更新（`--update`）时，若**工具数量或名字集合变了**，
+本文件第 3.1 节的"36 个工具"与 `references/mcp-tools.md` 的清单必须同轮改 —— 三者
+（SKILL / mcp-tools.md / `setup_agent.py::EXPECTED_TOOLS`）漏改任一处，部署冒烟会红。
+命令：
+
+```bash
+python eval/suites/tool_contract/check_tool_contract.py            # 红了先跑这条看差在哪
+python eval/suites/tool_contract/check_tool_contract.py --update   # 只在"确实改了工具集"时冻结新基线
+```
+

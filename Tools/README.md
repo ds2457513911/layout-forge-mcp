@@ -1,6 +1,6 @@
 # Tools/ —— CLI 脚本 / 探针 / 自检 / 文档
 
-> 最后更新：2026-10-09（新增 `debug/` 与 2 个迁入脚本）
+> 最后更新：2026-10-14（补登 3 个约定链路工具：`mine_conventions` / `selfcheck_conventions` / `compare_extracta`）
 
 ## 这个目录是干什么的
 
@@ -61,6 +61,14 @@
 > ★ `dump_all_footprints.py` 迁入后改过路径逻辑：
 > 本项目根下**没有** `Data/footprint`（真实封装库在上一级 `Layout\Data\footprint`），
 > 脚本会自动退回上一级；也可把目录作为第一个参数传入。
+
+### ★ 约定链路 / 对拍（2026-10-13 第 0 层落地）
+
+| 文件 | 功能 | 需要 Allegro |
+|--|--|--|
+| `mine_conventions.py` | ★ **构造规约收割器**（第 0 层）：从 padstack / 图纸 dump 里收割构造事实（孔型、命名编码、列守卫）→ 约定数据，喂 `services/convention_engine.py` | ❌ |
+| `selfcheck_conventions.py` | ★ **约定链路完整性自检**：堵死「约定被学到 → 约定被消费」链路上的两个代码级断点（LYDPJ holeType 事故，工程师 4 次否决复盘） | ❌ |
+| `compare_extracta.py` | ★ **两份 extracta dump 的逐列程序化对拍（验收强制工具）**：源自 2026-10-13 holeType 事故 —— 肉眼比对把 `CIRCLE_DRILL` vs `OVAL SLOT` 判成了「全字段一致」。**禁止肉眼比对后手写一致** | ❌ |
 
 ### 文档
 

@@ -18,6 +18,22 @@ from pathlib import Path
 DEFAULT_PYMUPDF_DPI = 150
 
 
+def safe_stem(stem: str) -> str:
+    """
+    把 PDF 文件名 stem 转成 Windows 合法的单层目录名。
+
+    背景：供应商 PDF 的 stem 常以空格结尾（例如
+    "CD.01.02-13-0003--TF卡座 ... 编带 .pdf" -> stem "...编带 "）。
+    Windows 会**剥掉**路径组件末尾的空格/点，于是
+      out_root / stem / "pymupdf_pages"
+    实际变成 "…编带\\pymupdf_pages"（反斜杠被吃掉），父目录不再存在，
+    mkdir(parents=True) 抛 FileNotFoundError [WinError 3]，看起来像"路径不存在"，
+    极易误导排查方向。
+    """
+    cleaned = stem.strip().rstrip(". ")
+    return cleaned or "pdf"
+
+
 def _render_page_with_pymupdf(
     pdf_path: Path,
     target_page: int,
@@ -54,7 +70,7 @@ def _render_page_with_pymupdf(
             "stdout": "",
         }
 
-    out_dir = out_root / pdf_path.stem / "pymupdf_pages"
+    out_dir = out_root / safe_stem(pdf_path.stem) / "pymupdf_pages"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     img_path = out_dir / f"page_{target_page}.png"

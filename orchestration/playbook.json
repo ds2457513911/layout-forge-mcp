@@ -1,0 +1,1095 @@
+{
+  "schema": "layout-forge-playbook/1",
+  "_meta": {
+    "purpose": "规则装配表：每条规则给出「检测方式 + 后果类别 + 证据字段」，供 L3 编排层与 SKILL 查阅。",
+    "updated": "2026-10-15",
+    "consequence_taxonomy": {
+      "deny": "违反了就不能再给结论（无对象 / 无数据 / 证据源不可信）",
+      "silent": "结论会错但看不出来（数值、命名、几何、真缺陷被无声放过）",
+      "recoverable": "只是提示或口径问题，可继续，但报告需注明"
+    },
+    "detect_kinds": {
+      "rule_id": "由 services/rule_checker.py 的 _item(rule_id, ...) 产出",
+      "tool_field": "由 MCP 工具返回值里的字段直接判定",
+      "function": "调用某个函数/Suite 自检，看返回值或失败码",
+      "suite": "跑 eval/suites/<name> 并与基线对比"
+    },
+    "invariants": [
+      "每条规则必须同时有 detect 与 consequence，缺一不许进表",
+      "与 knowledge/cases 用 rule_id 互指，不复制内容",
+      "不引用自检项号：两个自检脚本没有稳定项号，机器可读的只有总数（239/222/35）"
+    ],
+    "generated_by": "cache/scratch/build_playbook.py（ast 抽取 _item 调用点）+ 人工核对后果类别"
+  },
+  "rules": [
+    {
+      "id": "0",
+      "title": "数据提取",
+      "consequence": "deny",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::run_numeric_checks"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 1468,
+          "status": "FAIL"
+        }
+      ]
+    },
+    {
+      "id": "0.1",
+      "title": "spec 守卫（未消费声明）",
+      "consequence": "recoverable",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_spec_unconsumed"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 1405,
+          "status": "WARN",
+          "expected": "显名并人工裁定",
+          "source": "datasheet"
+        }
+      ]
+    },
+    {
+      "id": "0.2",
+      "title": "SHAPE 自定义轮廓焊盘",
+      "consequence": "recoverable",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_shape_pads"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 1446,
+          "status": "WARN",
+          "expected": "显名并人工复核"
+        }
+      ]
+    },
+    {
+      "id": "1.1",
+      "title": "封装名前缀",
+      "consequence": "recoverable",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_naming"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [
+        "golden-conv-1_1-name-prefix"
+      ],
+      "variants": [
+        {
+          "line": 400,
+          "rule": "f\"以 {prefix} 开头\"",
+          "source": "default"
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "title": "小数点用 d 代替",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_naming"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 412,
+          "rule": "名字中不能出现 '.'",
+          "expected": "不含 '.'",
+          "source": "default"
+        }
+      ]
+    },
+    {
+      "id": "1.3",
+      "title": "包含引脚数（启发式）",
+      "consequence": "recoverable",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_naming"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 423,
+          "rule": "名字中应含数字（引脚数/尺寸）",
+          "expected": "含数字",
+          "source": "default"
+        }
+      ]
+    },
+    {
+      "id": "2.1",
+      "title": "焊盘尺寸",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_pad_size"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [
+        "golden-conv-2_1-padstack-etch"
+      ],
+      "variants": [
+        {
+          "line": 462,
+          "status": "NA"
+        },
+        {
+          "line": 520,
+          "rule": "焊盘实际尺寸必须与 padstack 命名匹配（允许宽高互换）",
+          "source": "self",
+          "title": "焊盘尺寸与命名一致性"
+        }
+      ]
+    },
+    {
+      "id": "2.2",
+      "title": "阻焊开窗外扩",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_pad_size"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [
+        "golden-conv-2_2-mask-expand"
+      ],
+      "variants": [
+        {
+          "line": 556,
+          "rule": "f\"单边外扩 [{sm_min}, {sm_max}]mm（惯例 {sm_typ}）\"",
+          "source": "default"
+        },
+        {
+          "line": 566,
+          "status": "NA"
+        }
+      ]
+    },
+    {
+      "id": "2.3",
+      "title": "钢网与焊盘等大",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_pad_size"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 600,
+          "rule": "Chip 元件钢网开窗与焊盘等大",
+          "expected": "钢网 = 焊盘",
+          "source": "self"
+        },
+        {
+          "line": 610,
+          "status": "NA"
+        }
+      ]
+    },
+    {
+      "id": "2.7",
+      "title": "TH 焊盘层完整性",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_pad_size"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [
+        "golden-conv-2_7-th-drill-integrity"
+      ],
+      "variants": [
+        {
+          "line": 679,
+          "status": "FAIL",
+          "rule": "TH 件 padstack 必须 ETCH/TOP+ETCH/BOTTOM+双面阻焊（双面板底面可焊）",
+          "expected": "四面层齐全",
+          "source": "default"
+        },
+        {
+          "line": 689,
+          "status": "PASS",
+          "rule": "TH 件 padstack 必须 ETCH/TOP+ETCH/BOTTOM+双面阻焊",
+          "expected": "四面层齐全",
+          "source": "default"
+        },
+        {
+          "line": 712,
+          "status": "FAIL",
+          "rule": "TH 件每脚必须有真实钻孔（extracta DRILL 行非零）",
+          "expected": "DRILL 实义存在且非零",
+          "source": "default"
+        },
+        {
+          "line": 778,
+          "status": "FAIL",
+          "rule": "oblong 槽孔必须 OVAL_SLOT（'OBLONG_DRILL 非法，静默回落 CIRCLE_DRILL → Editor 显示 Thru Pin）",
+          "expected": "holeType=OVAL SLOT",
+          "source": "default",
+          "title": "TH 钻孔 holeType"
+        },
+        {
+          "line": 803,
+          "status": "NA"
+        }
+      ]
+    },
+    {
+      "id": "2.8",
+      "title": "TH 构造约定",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_pad_size"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 740,
+          "status": "WARN",
+          "rule": "convention_engine 异常，规则跳过"
+        },
+        {
+          "line": 752,
+          "status": "FAIL",
+          "rule": "f\"{_title}（真源 conventions.json，check/create 同源）\"",
+          "expected": "见 detail",
+          "source": "default",
+          "title": "TH 环宽约定",
+          "dynamic": true,
+          "dynamic_line": 752
+        },
+        {
+          "line": 760,
+          "status": "WARN",
+          "rule": "f\"{_title}（真源 conventions.json，check/create 同源）\"",
+          "expected": "见 detail",
+          "source": "default",
+          "title": "TH 环宽约定",
+          "dynamic": true,
+          "dynamic_line": 760
+        },
+        {
+          "line": 768,
+          "status": "PASS",
+          "rule": "f\"{_title}（真源 conventions.json，check/create 同源）\"",
+          "expected": "见 conventions.json",
+          "source": "default",
+          "title": "TH 环宽约定",
+          "dynamic": true,
+          "dynamic_line": 768
+        }
+      ]
+    },
+    {
+      "id": "2.9",
+      "title": "TH padstack 命名语法",
+      "consequence": "recoverable",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_pad_size"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 788,
+          "status": "WARN",
+          "rule": "POB{孔长}X{孔短}HOB{盘长}X{盘短}（长轴在前，板面尺寸序）",
+          "expected": "主语法或 NP/H省OB/OS偏移变体",
+          "source": "default"
+        },
+        {
+          "line": 796,
+          "status": "PASS",
+          "rule": "POB{孔}X{孔}HOB{盘}X{盘}（长轴在前）",
+          "expected": "主语法",
+          "source": "default"
+        }
+      ]
+    },
+    {
+      "id": "2.10",
+      "title": "TH 钢网策略",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_pad_size"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [
+        "golden-conv-2_7-th-drill-integrity"
+      ],
+      "variants": [
+        {
+          "line": 752,
+          "status": "FAIL",
+          "rule": "f\"{_title}（真源 conventions.json，check/create 同源）\"",
+          "expected": "见 detail",
+          "source": "default",
+          "dynamic": true,
+          "dynamic_line": 752
+        },
+        {
+          "line": 760,
+          "status": "WARN",
+          "rule": "f\"{_title}（真源 conventions.json，check/create 同源）\"",
+          "expected": "见 detail",
+          "source": "default",
+          "dynamic": true,
+          "dynamic_line": 760
+        },
+        {
+          "line": 768,
+          "status": "PASS",
+          "rule": "f\"{_title}（真源 conventions.json，check/create 同源）\"",
+          "expected": "见 conventions.json",
+          "source": "default",
+          "dynamic": true,
+          "dynamic_line": 768
+        }
+      ]
+    },
+    {
+      "id": "3.1",
+      "title": "Pin pitch",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_pitch"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 819,
+          "status": "NA"
+        },
+        {
+          "line": 837,
+          "rule": "相邻 pin 中心间距"
+        }
+      ]
+    },
+    {
+      "id": "3.2x",
+      "title": "pitch 与 datasheet 一致 (x)",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_pitch"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 853,
+          "rule": "差值 <= 0.05mm",
+          "source": "datasheet"
+        }
+      ]
+    },
+    {
+      "id": "3.2y",
+      "title": "pitch 与 datasheet 一致 (y)",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_pitch"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [
+        "nb_wson8_8p___pitch_"
+      ],
+      "variants": [
+        {
+          "line": 864,
+          "rule": "差值 <= 0.05mm",
+          "source": "datasheet"
+        }
+      ]
+    },
+    {
+      "id": "3.3",
+      "title": "焊盘不重叠",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_pitch"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [
+        "golden-conv-3_3-pad-overlap"
+      ],
+      "variants": [
+        {
+          "line": 912,
+          "status": "FAIL",
+          "rule": "任意两个焊盘 bbox 不能几何重叠",
+          "expected": "间距 > 0",
+          "source": "self"
+        },
+        {
+          "line": 933,
+          "status": "PASS",
+          "rule": "任意两个焊盘 bbox 不能几何重叠",
+          "expected": "间距 > 0",
+          "source": "self"
+        }
+      ]
+    },
+    {
+      "id": "3.4",
+      "title": "原点在封装中心",
+      "consequence": "recoverable",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_pitch"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 981,
+          "rule": "f\"{comp_type} 类容差 <= {origin_tol}mm\"",
+          "source": "default"
+        },
+        {
+          "line": 998,
+          "status": "NA"
+        }
+      ]
+    },
+    {
+      "id": "5.1",
+      "title": "Place_Bound_Top 存在",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_place_bound"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 1019,
+          "rule": "必须画 Place_Bound_Top",
+          "expected": "必须存在",
+          "source": "default"
+        }
+      ]
+    },
+    {
+      "id": "5.2",
+      "title": "Place_Bound 外扩量",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_place_bound"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [
+        "golden-conv-5_2-expand-discrete",
+        "nb_rj45_15d95x9d8x3d6_1d02__warn_"
+      ],
+      "variants": [
+        {
+          "line": 1036,
+          "status": "NA"
+        },
+        {
+          "line": 1049,
+          "status": "NA",
+          "rule": "Place_Bound 退化为零面积点（机械孔/基准点惯例），覆盖检查不适用",
+          "source": "self",
+          "title": "Place_Bound 覆盖焊盘"
+        },
+        {
+          "line": 1083,
+          "status": "FAIL",
+          "rule": "Place_Bound bbox 必须完全覆盖所有 pin 的 bbox",
+          "expected": "覆盖所有焊盘",
+          "source": "self",
+          "title": "Place_Bound 覆盖焊盘"
+        },
+        {
+          "line": 1102,
+          "status": "NA"
+        },
+        {
+          "line": 1115,
+          "status": "NA"
+        },
+        {
+          "line": 1127,
+          "status": "NA",
+          "rule": "\"器件外框任一边 < \" f\"{degenerate}mm，疑似外框识别退化\"",
+          "source": "self"
+        },
+        {
+          "line": 1152,
+          "status": "NA",
+          "rule": "f\"外扩量 > {max_plausible}mm 超出物理合理范围，疑似外框识别退化\"",
+          "source": "self"
+        },
+        {
+          "line": 1196,
+          "rule": "rule_str",
+          "source": "default"
+        }
+      ]
+    },
+    {
+      "id": "6.1",
+      "title": "Assembly_Top 存在",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_assembly"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 1233,
+          "status": "NA",
+          "rule": "机械孔/安装件允许不画 Assembly",
+          "expected": "建议有，机械件缺省允许",
+          "source": "default"
+        },
+        {
+          "line": 1244,
+          "rule": "必须画 Assembly_Top",
+          "expected": "必须存在",
+          "source": "default"
+        }
+      ]
+    },
+    {
+      "id": "6.2",
+      "title": "Assembly 有内容",
+      "consequence": "recoverable",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_assembly"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 1261,
+          "rule": "f\"Assembly 层应有至少 {min_elements} 个元素\" + (\"\" if min_elements > 1 else \"（chip 类只有外框即可）\")",
+          "source": "default"
+        }
+      ]
+    },
+    {
+      "id": "6.3",
+      "title": "Assembly 元素数",
+      "consequence": "recoverable",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_assembly"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 1276,
+          "rule": "f\"Assembly 层应有 ≥{min_elements} 个元素\" + (\"\" if min_elements > 1 else \"（chip 类无 1 脚标识）\")",
+          "source": "default"
+        }
+      ]
+    },
+    {
+      "id": "6.4",
+      "title": "Silkscreen_Top 存在",
+      "consequence": "recoverable",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_silkscreen"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [],
+      "variants": [
+        {
+          "line": 1306,
+          "rule": "chip/≤3 脚微型件允许不画 Silkscreen（金标准丝印有无不一，交 AI 语义层）",
+          "expected": "建议有，缺省允许",
+          "source": "default"
+        },
+        {
+          "line": 1316,
+          "rule": "必须画 Silkscreen_Top",
+          "expected": "必须存在",
+          "source": "default"
+        }
+      ]
+    },
+    {
+      "id": "6.6",
+      "title": "Silkscreen 不与焊盘重叠",
+      "consequence": "silent",
+      "detect": {
+        "kind": "rule_id",
+        "ref": "services/rule_checker.py::check_silkscreen"
+      },
+      "evidence": [
+        "value",
+        "detail",
+        "expected",
+        "source"
+      ],
+      "cases": [
+        "golden-conv-6_6-silk-in-pad"
+      ],
+      "variants": [
+        {
+          "line": 1359,
+          "status": "FAIL",
+          "rule": "Silkscreen 线段端点不能落在焊盘区域内",
+          "expected": "间距 > 0",
+          "source": "self"
+        },
+        {
+          "line": 1372,
+          "status": "PASS",
+          "rule": "Silkscreen 线段端点不能落在焊盘区域内",
+          "expected": "间距 > 0",
+          "source": "self"
+        }
+      ]
+    }
+  ],
+  "gates": [
+    {
+      "id": "G-ambiguous-src",
+      "title": "输入目录歧义时不得替用户选",
+      "consequence": "deny",
+      "on_fail_action": "confirm",
+      "detect": {
+        "kind": "tool_field",
+        "ref": "folder_preflight → verdict/ambiguous/action"
+      },
+      "evidence": [
+        "verdict",
+        "ambiguous",
+        "pdf_files",
+        "dra_files",
+        "hint"
+      ],
+      "enforced_by": "orchestration/preflight.py::classify_folder",
+      "guarded_by": [
+        "eval/suites/behavior/check_behavior.py::B1"
+      ]
+    },
+    {
+      "id": "G-stale-report",
+      "title": "陈旧的 checklist_report_*.json 不能当本次证据",
+      "consequence": "deny",
+      "detect": {
+        "kind": "function",
+        "ref": "orchestration.preflight.is_noise / noise_files"
+      },
+      "evidence": [
+        "noise_files",
+        "verdict",
+        "action"
+      ],
+      "enforced_by": "orchestration/preflight.py::classify_folder",
+      "guarded_by": [
+        "eval/suites/behavior/check_behavior.py::B2"
+      ]
+    },
+    {
+      "id": "G-noise-as-artifact",
+      "title": "运行痕迹（.jrl/.log/master.tag）不得混入候选产物",
+      "consequence": "silent",
+      "detect": {
+        "kind": "function",
+        "ref": "orchestration.preflight.is_noise"
+      },
+      "evidence": [
+        "noise_files",
+        "dra_files",
+        "pdf_files"
+      ],
+      "enforced_by": "orchestration/preflight.py::is_noise",
+      "guarded_by": [
+        "eval/suites/behavior/check_behavior.py::B3"
+      ]
+    },
+    {
+      "id": "G-units",
+      "title": "单位（mm/mil）不明确时不得出数值结论",
+      "consequence": "silent",
+      "detect": {
+        "kind": "tool_field",
+        "ref": "folder_preflight / inspect_environment → units"
+      },
+      "evidence": [
+        "units",
+        "detail"
+      ],
+      "enforced_by": "(待接：单位探测)",
+      "guarded_by": []
+    },
+    {
+      "id": "G-candidates-present",
+      "title": "输入目录必须至少有一份 PDF 或 .dra（预检的后置断言）",
+      "consequence": "deny",
+      "detect": {
+        "kind": "tool_field",
+        "ref": "folder_preflight → pdf_count/dra_count/verdict"
+      },
+      "evidence": [
+        "pdf_count",
+        "dra_count",
+        "verdict",
+        "action"
+      ],
+      "enforced_by": "orchestration/preflight.py::classify_folder",
+      "guarded_by": [
+        "eval/suites/behavior/check_behavior.py::B2"
+      ]
+    },
+    {
+      "id": "G-channel-ready",
+      "title": "通道未勘探即动手 = 拿不到数据还给结论",
+      "consequence": "deny",
+      "detect": {
+        "kind": "function",
+        "ref": "services.footprint_builder.inspect_environment()"
+      },
+      "evidence": [
+        "connected",
+        "error",
+        "steps",
+        "units"
+      ],
+      "error_code": "CHANNEL_NOT_READY",
+      "enforced_by": "services/footprint_builder.py::inspect_environment",
+      "guarded_by": [
+        "eval/suites/behavior/check_behavior.py::B4"
+      ]
+    },
+    {
+      "id": "G-spec-baseline",
+      "title": "改读图策略 / 调 dpi / 换模型前必须先跑 spec_reading 并与基线对比",
+      "consequence": "silent",
+      "detect": {
+        "kind": "suite",
+        "ref": "eval/suites/spec_reading + eval/baselines/spec_reading.json"
+      },
+      "evidence": [
+        "accuracy",
+        "scored_fields",
+        "min_accuracy"
+      ],
+      "enforced_by": "eval/suites/spec_reading/check_spec_reading.py",
+      "guarded_by": []
+    },
+    {
+      "id": "G-unsigned-truth",
+      "title": "未签字的真值不得当基线",
+      "consequence": "deny",
+      "detect": {
+        "kind": "tool_field",
+        "ref": "eval/suites/spec_reading/truth/*.json → signed_by/signed_at"
+      },
+      "evidence": [
+        "signed_by",
+        "signed_at",
+        "signed_via"
+      ],
+      "enforced_by": "eval/suites/spec_reading/check_spec_reading.py",
+      "guarded_by": []
+    },
+    {
+      "id": "G-tool-contract-drift",
+      "title": "工具签名漂移（SKILL 里写的老接口）",
+      "consequence": "silent",
+      "detect": {
+        "kind": "suite",
+        "ref": "eval/suites/tool_contract + references/api-facts.md"
+      },
+      "evidence": [
+        "tools",
+        "baseline"
+      ],
+      "enforced_by": "eval/suites/tool_contract/check_tool_contract.py",
+      "guarded_by": []
+    },
+    {
+      "id": "G-selftest-baseline",
+      "title": "自检项数不得无声缩水",
+      "consequence": "silent",
+      "detect": {
+        "kind": "suite",
+        "ref": "eval/suites/geometry_regression + eval/baselines/geometry_regression.json"
+      },
+      "evidence": [
+        "runs.geometry",
+        "runs.skill_syntax",
+        "runs.conventions"
+      ],
+      "enforced_by": "eval/suites/geometry_regression/check_geometry_regression.py",
+      "guarded_by": []
+    },
+    {
+      "id": "G-doc-coverage",
+      "title": "新增目录 / 新增 .py 必须有 README 覆盖",
+      "consequence": "recoverable",
+      "detect": {
+        "kind": "suite",
+        "ref": "eval/suites/architecture（A4/A5）"
+      },
+      "evidence": [
+        "missing"
+      ],
+      "enforced_by": "eval/suites/architecture/check_architecture.py",
+      "guarded_by": []
+    },
+    {
+      "id": "G-layer-direction",
+      "title": "层方向：services 不得 import orchestration；编排层不得 import mcp_server / observability",
+      "consequence": "silent",
+      "detect": {
+        "kind": "suite",
+        "ref": "eval/suites/architecture（A1/A2/A3）"
+      },
+      "evidence": [
+        "forbidden_imports"
+      ],
+      "enforced_by": "eval/suites/architecture/check_architecture.py",
+      "guarded_by": []
+    },
+    {
+      "id": "G-deploy-drift",
+      "title": "SKILL 落点与仓库不一致（客户端用着旧文案做判断 = 静默回退）",
+      "consequence": "silent",
+      "detect": {
+        "kind": "function",
+        "ref": "Tools/deploy/setup_agent.py --verify-skills"
+      },
+      "evidence": [
+        "MATCH/STALE/DIVERGED/MISSING",
+        ".deploy_manifest.json"
+      ],
+      "enforced_by": "Tools/deploy/setup_agent.py::verify_skills",
+      "guarded_by": []
+    }
+  ],
+  "stale_rule_ids": [
+    {
+      "id": "6.5",
+      "reason": "knowledge/cases 里有 finding 用到它，但 services/rule_checker.py 已无实现",
+      "former_title": "Silkscreen 复杂 path 数",
+      "deleted_at": "2026-10-12",
+      "deleted_reason": "自造概念 + 金标准 55 件假阳性；1 脚标识的语义存在性归 AI 语义检查，几何层不再猜",
+      "deleted_evidence": "services/rule_checker.py:1329-1331 的注释",
+      "referenced_by": [
+        "services/report_renderer.py:214（残留的 id 分支，已是死代码）",
+        "knowledge/cases/nb_rj45_15d95x9d8x3d6_1d02__warn_.json:28（finding.rule_id）",
+        "knowledge/cases/nb_rj45_15d95x9d8x3d6_1d02__warn_.json:41（lessons 里还在解释它）"
+      ],
+      "action": "改案例或迁移 finding；renderer 死分支可删。不要为了让它「有实现」而恢复规则"
+    }
+  ],
+  "cases_index": {
+    "conv-mine-1-th-construction": {
+      "rule_ids": [
+        "CONV"
+      ]
+    },
+    "golden-conv-1_1-name-prefix": {
+      "rule_ids": [
+        "1.1"
+      ]
+    },
+    "golden-conv-2_1-padstack-etch": {
+      "rule_ids": [
+        "2.1"
+      ]
+    },
+    "golden-conv-2_2-mask-expand": {
+      "rule_ids": [
+        "2.2"
+      ]
+    },
+    "golden-conv-2_7-th-drill-integrity": {
+      "rule_ids": [
+        "2.7",
+        "2.10"
+      ]
+    },
+    "golden-conv-3_3-pad-overlap": {
+      "rule_ids": [
+        "3.3"
+      ]
+    },
+    "golden-conv-5_2-expand-discrete": {
+      "rule_ids": [
+        "5.2"
+      ]
+    },
+    "golden-conv-6_6-silk-in-pad": {
+      "rule_ids": [
+        "6.6"
+      ]
+    },
+    "nb_rj45_15d95x9d8x3d6_1d02__warn_": {
+      "rule_ids": [
+        "6.5",
+        "5.2"
+      ]
+    },
+    "nb_wson8_8p___pitch_": {
+      "rule_ids": [
+        "3.2y",
+        "-"
+      ]
+    }
+  }
+}

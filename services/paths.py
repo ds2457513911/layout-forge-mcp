@@ -8,8 +8,12 @@ services/paths.py —— 项目目录约定（**单一真源**，别再各处硬
 <PROJECT_ROOT>/
 ├── services/           源码（含 json_utils / validation，无 shared/）
 ├── mcp_server/         MCP 工具层
+├── orchestration/      ★ L3 编排与控制：规则装配 / 前置自检 / 状态机（2026-10-14 新增，见 LAYERS.md）
+├── observability/      ★ L4 可观测性：遥测 / 时间线 / 统计（2026-10-14 新增）
+├── eval/               ★ L5 度量与评测：suites / truth / baselines（runs/ 是产物，不进 git）
 ├── knowledge/          ★ 热更新数据层：specs / cases / rules（改 JSON 不用重连 MCP）
 ├── docs/               项目文档（SOP 维护手册、使用者 SOP、SKILL API 报告）
+├── LAYERS.md           ★ 五层能力 ↔ 模块映射（分层与依赖方向的唯一权威）
 ├── .trash/             隔离区（**可恢复**，由 footprint_builder._quarantine_file 维护）
 └── Tools/
     ├── *.py  *.il  *.md        CLI 脚本（人要读/要跑的）
@@ -56,10 +60,25 @@ LOG_DIR = os.path.join(TOOLS_DIR, "log")
 #: 文件隔离区（`footprint_builder._quarantine_file()` 用同一个）
 TRASH_DIR = os.path.join(PROJECT_ROOT, ".trash")
 
+#: ★ L3 编排与控制层（规则装配 / 前置自检 / 状态机）—— 2026-10-14 新增，分层见 LAYERS.md
+ORCHESTRATION_DIR = os.path.join(PROJECT_ROOT, "orchestration")
+
+#: ★ L4 可观测性层（遥测 / 时间线 / 统计）—— 2026-10-14 新增
+OBSERVABILITY_DIR = os.path.join(PROJECT_ROOT, "observability")
+
+#: ★ L5 度量与评测层（suites / truth / harness）—— 2026-10-14 新增
+EVAL_DIR = os.path.join(PROJECT_ROOT, "eval")
+
+#: ★ 遥测 JSONL 落盘目录（每次运行的产物，**不进 git**）
+RUNS_DIR = os.path.join(EVAL_DIR, "runs")
+
+#: ★ 冻结的评测基线（**进 git**：它是「上一次被认可的行为」的唯一记录）
+BASELINE_DIR = os.path.join(EVAL_DIR, "baselines")
+
 
 def ensure_dirs() -> None:
-    """确保 test / log / .trash 都存在（幂等）。"""
-    for d in (TEST_DIR, LOG_DIR, TRASH_DIR):
+    """确保 test / log / .trash / eval 的 runs 目录都存在（幂等）。"""
+    for d in (TEST_DIR, LOG_DIR, TRASH_DIR, RUNS_DIR):
         try:
             os.makedirs(d, exist_ok=True)
         except OSError as e:                # noqa: BLE001

@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "case": "fpc0510_6p",
+  "read_by": "ai-read-2026-10-15",
+  "pdf_sha256": "91f4cdc7c2e2",
+  "fields": {
+    "mount": {
+      "value": "smd",
+      "page": 1,
+      "quote": "RECOMMEND PCB LAYOUT / TOLERANCE: ±0.05（焊盘为顶层矩形 SMD 盘，图示无插件孔）"
+    },
+    "pin_count": {
+      "value": 6,
+      "page": 1,
+      "quote": "CKT 6 | A 4.77 | B 2.50 | C 3.60 | D 4.27；标题栏 PRODUCT NAME: 0.5mm Pitch FPC 前掀盖H1.0，PATER NUMBER 系列名 FPC 0510-XXB2-G1R"
+    },
+    "pitch_x": {
+      "value": 0.5,
+      "page": 1,
+      "quote": "0.50±0.05（RECOMMEND PCB LAYOUT 相邻信号焊盘中心距，6 个盘共 5 个 0.50 间隔）"
+    },
+    "pitch_y": {
+      "value": null,
+      "null_reason": "单排信号脚（rows=1），y 方向不存在相邻引脚；固定脚 7/8 位于另一 y 且非规则阵列，其 y 差 2.81mm 不是 pitch。规格书未规定任何 y 方向引脚间距。"
+    },
+    "body_x": {
+      "value": 4.77,
+      "page": 1,
+      "quote": "CKT 表 CKT=6 行 A 列 = 4.77；上视图/下视图标注 *A±0.15（A 为沿焊盘排列方向的本体总长）"
+    },
+    "body_y": {
+      "value": 3.6,
+      "page": 1,
+      "quote": "CKT 表 CKT=6 行 C 列 = 3.60；下视图标注 C±0.05（C 为垂直于焊盘排列方向的本体宽）"
+    },
+    "pad_x": {
+      "value": 0.3,
+      "page": 1,
+      "quote": "0.30±0.03（RECOMMEND PCB LAYOUT 信号焊盘宽度标注，左右各标一次）"
+    },
+    "pad_y": {
+      "value": 0.65,
+      "page": 1,
+      "quote": "0.65（RECOMMEND PCB LAYOUT 信号焊盘高度标注，左侧引出线）"
+    }
+  },
+  "unreadable": [],
+  "cross_check": {
+    "dra": "Tools/test/NB_FPC0510_6P_4D77X3D6/NB_FPC0510_6P_4D77X3D6.dra",
+    "method": "services.extracta_reader.read_via_extracta（unconfined python 驱动 Cadence extracta 四视图）拿到 pins/padstack/layers；PACKAGE GEOMETRY/ASSEMBLY_TOP 本体矩形 bbox size = [4.77, 3.6]；信号 padstack R0D3X0D65 size=[0.3,0.65]，固定脚 padstack R0D3X1D15 size=[0.3,1.15]；信号脚 xy x = -1.25,-0.75,-0.25,0.25,0.75,1.25（相邻差 0.5），固定脚 7/8 xy = (-2.135,0.575)/(2.135,0.575)。逐字段与 PDF 读数比对。",
+    "agree": ["mount", "pitch_x", "body_x", "body_y", "pad_x", "pad_y"],
+    "disagree": ["pin_count"],
+    "dra_values": {
+      "mount": "smd（全部 8 个 pin 仅 ETCH/TOP + SOLDERMASK_TOP + PASTEMASK_TOP 三层，无钻孔层；.dra 内无 THT 盘）",
+      "pin_count": "8（extracta raw_pin_count=8 / pins 数组 8 条：1-6 为 R0D3X0D65 信号脚，7/8 为 R0D3X1D15 固定脚）",
+      "pitch_x": 0.5,
+      "pitch_y": "n/a（信号脚单排 y=-2.235 恒定；固定脚 y=0.575）",
+      "body_x": 4.77,
+      "body_y": 3.6,
+      "pad_x": 0.3,
+      "pad_y": 0.65
+    }
+  },
+  "notes": "★ 口径核心：本连接器是「6 信号脚 + 2 固定脚」的非对称布局。规格书 CKT 表只有 CKT=6 行候选（B=2.50=5×0.5 与 6 个信号焊盘完全吻合），信号脚 pin_count=6；.dra 把人做的封装建模为 8 个 pin（含 2 个固定脚），所以 pin_count 两边数字不同——这是**口径差不是读数冲突**，两个值都按原样保留。\n★ body 轴向判断：规格书无 x/y 轴定义，按「body_x 沿焊盘排列方向 / body_y 垂直」的 canonical 口径取值。交叉验证：.dra 的 ASSEMBLY_TOP 本体矩形 size=[4.77,3.6]，且 4.77 方向正好容纳焊盘排（信号脚 x 跨度 ±1.25，固定脚 ±2.135），与 CKT 表 A=4.77 同轴、C=3.60 为另一轴，与本口径一一对应。\n★ 页面拓扑：PDF 共 9 页，第 3-9 页是印刷体规格文字（Scope/Materials/Rating/Performance/Operation/Precaution），第 1-2 页是无文本层的图纸页（get_text() 返回 0 字符，纯矢量 4559/4298 条 drawing）——所有尺寸都只在第 1 页（产品尺寸 + RECOMMEND PCB LAYOUT）与第 2 页（包装/载带）。locate_land_pattern_page() 因第 1 页无文本层而失配，返回 method=fallback/page=3，**该 hint 不可用于本案例**，真实 land pattern 在第 1 页。\n★ null 说明：pitch_y 判为 null。若签字方希望 pitch_y 表示「信号排与固定脚排的 y 向距离」，则该值为 2.81mm（来自 .dra：-2.235 → 0.575），不在规格书任何标注中，本报告不据此填值。\n★ 未使用的量：0.30±0.03 / 1.15（固定脚焊盘，非 canonical 字段）、1.91（信号排下缘到固定脚上缘）、(0.25)、(0.11)、(1.135)、(B+1.0)±0.05=3.50、(2.32±0.15)、(1.25)、2.90（本体高 H1.0 公称 2.90）、3.35±0.15、0.55±0.15、1.00±0.15、4.00 MIN / 3.00 MIN（Applicable FPC）。\n★ 置信度：8 个字段中 7 个 high（PDF 直读标注，且 .dra 独立口径完全一致）；pin_count 为 medium——数值 6 本身可靠（标题 6P + CKT 表 6 行 + 图上 6 个信号盘三重印证），但「只数信号脚」这一口径需人工确认。\n★ 诚实声明：既有 spec knowledge/specs/nb_fpc0510_6p_4d77x3d6.json 中 pin_count=8；本次未以其为读数来源，仅在本报告对照段列出。本草稿不含任何签字字段，签字权在人。"
+}

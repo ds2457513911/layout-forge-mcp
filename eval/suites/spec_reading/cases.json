@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "_comment": [
+    "评测集案例清单（Phase 2-b，2026-10-14 建）。",
+    "canonical 字段集 = 项目自己的 spec 指纹键（knowledge/specs/*.json 的 fingerprint），",
+    "不另造 schema：评测考的就是「项目复用的那 8 个数读得对不对」。",
+    "pdf / dra / spec 路径均相对 Layout 根（ROOT.parent），由打分器解析。",
+    "pdf_sha256 = 文件内容 sha256 前 12 位：真值必须绑定到具体 PDF 版本，",
+    "换版 PDF 会让真值静默失效 —— 打分器会比对实际哈希并报 ERROR。"
+  ],
+  "fields": [
+    "mount",
+    "pin_count",
+    "pitch_x",
+    "pitch_y",
+    "body_x",
+    "body_y",
+    "pad_x",
+    "pad_y"
+  ],
+  "cases": [
+    {
+      "id": "xtal4_3d2x2d5x0d7",
+      "title": "SMD 晶体 3225（4 脚）",
+      "origin": "existing_spec",
+      "kind": "SMD 无源晶体",
+      "pdf": "Data/footprint/3S48000163/3S48000163产品规格书_20220916_S1.pdf",
+      "pdf_sha256": "2f99b0859056",
+      "dra": "Data/footprint/3S48000163/nb_xtal4_3d2x2d5x0d7.dra",
+      "spec": "layout-forge-mcp/knowledge/specs/nb_xtal4_3d2x2d5x0d7.json",
+      "golden_dir": "layout-forge-mcp/Tools/test/NB_XTAL4_3D2X2D5X0D7",
+      "notes": "2026-10-09 首次读图入库；PDF 是中文规格书（印刷体），land pattern 在本体图页。",
+      "pdf_form": "printed"
+    },
+    {
+      "id": "audio6_cstj421",
+      "title": "3.5mm 耳机座 CSTJ-421-1010BG（6 脚，THT）",
+      "origin": "existing_spec",
+      "kind": "连接器 3.5mm 音频座",
+      "pdf": "Data/footprint/CSTJ-421-1010BG/CSTJ-421-1010BG.pdf",
+      "pdf_sha256": "b65b8c8add9e",
+      "dra": "Data/footprint/CSTJ-421-1010BG/nb_audio6_12x7d25x4d3.dra",
+      "spec": "layout-forge-mcp/knowledge/specs/nb_cstj421_aj35_6p.json",
+      "golden_dir": "layout-forge-mcp/Tools/test/NB_CSTJ421_AJ35_6P",
+      "notes": "THT：6 个脚 + 定位柱，pitch_x/pitch_y 语义要在真值里写清（本项目取相邻脚中心距）。",
+      "pdf_form": "printed"
+    },
+    {
+      "id": "lydpj_5p_12x6",
+      "title": "3.5mm 耳机座 LYD-PJ-35（5 脚，THT）",
+      "origin": "existing_spec",
+      "kind": "连接器 3.5mm 音频座",
+      "pdf": "Data/footprint/LYDPJ-H23CB1Y-053N/LYDPJ-H23CB1Y-053N.pdf",
+      "pdf_sha256": "6c4a4dc670a3",
+      "dra": "Data/footprint/LYDPJ-H23CB1Y-053N/nb_audio5_13d05x6d3x4d2.dra",
+      "spec": "layout-forge-mcp/knowledge/specs/nb_lydpj_5p_12x6.json",
+      "golden_dir": "layout-forge-mcp/Tools/test/NB_LYDPJ_5P_12X6",
+      "notes": "spec 里 pitch_x/pitch_y 均为 null；真值要判「确实无规则间距」还是「没读到」。spec 记录的 source_pdf 路径已漂移（Data/footprint/NB_LYDPJ_5P_12X6/ 不存在），本清单按实际存在的目录钉住。",
+      "pdf_form": "cad_vector"
+    },
+    {
+      "id": "fpc0510_6p",
+      "title": "FPC 0.5mm 6P 前掀盖下接触（8 脚）",
+      "origin": "existing_spec",
+      "kind": "连接器 FPC/ZIF",
+      "pdf": "layout-forge-mcp/Tools/test/NB_FPC0510_6P_4D77X3D6/FPC0510系列 Pitch0.5 H1.0 前掀盖+下接触.pdf",
+      "pdf_sha256": "91f4cdc7c2e2",
+      "dra": "layout-forge-mcp/Tools/test/NB_FPC0510_6P_4D77X3D6/NB_FPC0510_6P_4D77X3D6.dra",
+      "spec": "layout-forge-mcp/knowledge/specs/nb_fpc0510_6p_4d77x3d6.json",
+      "golden_dir": "layout-forge-mcp/Tools/test/NB_FPC0510_6P_4D77X3D6",
+      "notes": "★ 该 PDF 与 .dra 只存在于 Tools/test/（被 .gitignore 的 Tools/* 规则挡住，不进 git）→ 真值只靠哈希钉住，文件丢了就无法复核。",
+      "pdf_form": "printed"
+    },
+    {
+      "id": "lmbr140et1g_2p",
+      "title": "SOD-323HE 肖特基二极管 LMBR140ET1G（2 脚）",
+      "origin": "existing_spec",
+      "kind": "分立器件 二极管",
+      "pdf": "layout-forge-mcp/Tools/test/NB_LMBR140ET1G_2P/LMBR140ET1G.pdf",
+      "pdf_sha256": "7556edb5bce3",
+      "dra": "Data/footprint/LMBR140ET1G/nb_sod-323_2_2d7x1d4x0d75.dra",
+      "spec": "layout-forge-mcp/knowledge/specs/nb_lmbr140et1g_2p.json",
+      "golden_dir": "layout-forge-mcp/Tools/test/NB_LMBR140ET1G_2P",
+      "notes": "同一份 PDF 在 Data/footprint/LMBR140ET1G/ 有逐字节相同的副本（sha256 相同），真值钉的是 Tools/test 那份（spec 当初读的就是它）。spec 的 body_x=2.7/body_y=1.4 与 .dra 文件名 nb_sod-323_2_2d7x1d4x0d75 一致。",
+      "pdf_form": "scan"
+    },
+    {
+      "id": "type_c24",
+      "title": "USB 4.0 Type-C 24P 母座（板上四脚插 + 双排 SMT）",
+      "origin": "new",
+      "kind": "连接器 Type-C",
+      "pdf": "Data/footprint/DB_typec_126-223-240005-U4G--USB 4.0 TYPE-C 24P/步步精126-223-240005-U4G--USB 4.0 TYPE-C 24P 母座 有后盖 单壳 板上四脚插 带柱 端子双排SMT 外壳脚长0.60 L=9.17 CH=1.57 编带.pdf",
+      "pdf_sha256": "2d13237efe18",
+      "dra": "Data/footprint/DB_typec_126-223-240005-U4G--USB 4.0 TYPE-C 24P/nb_type_c24_9d17x8d94x3d31_0d5.dra",
+      "spec": null,
+      "golden_dir": "Data/footprint/DB_typec_126-223-240005-U4G--USB 4.0 TYPE-C 24P",
+      "notes": "新增例。规格书大（788 KB，多页），有推荐 PCB layout 图。",
+      "pdf_form": "printed"
+    },
+    {
+      "id": "hdmi19",
+      "title": "HDMI 19P 母座 CSTHM-1921-1KPD0A",
+      "origin": "new",
+      "kind": "连接器 HDMI",
+      "pdf": "Data/footprint/HDMI_CSTHM-1921-1KPD0A/科新城CSTHM-1921-1KPD0A（C版）.pdf",
+      "pdf_sha256": "a9f7700161d9",
+      "dra": "Data/footprint/HDMI_CSTHM-1921-1KPD0A/nb_hdmi19_15x12d5x5d55_1.dra",
+      "spec": null,
+      "golden_dir": "Data/footprint/HDMI_CSTHM-1921-1KPD0A",
+      "notes": "新增例。19 脚两排 + 4 个外壳脚：pin_count 取信号脚 19 还是含外壳 23，必须在真值里写明口径。",
+      "pdf_form": "printed"
+    },
+    {
+      "id": "bga496",
+      "title": "LPDDR5 BGA 496 ball（496b_y31m_qdp_8dp）",
+      "origin": "new",
+      "kind": "IC BGA",
+      "pdf": "Data/footprint/496b_y31m_qdp_8dp_mobile_lpddr5/496b_y31m_qdp_8dp_mobile_lpddr5.pdf",
+      "pdf_sha256": "e4460a88bd05",
+      "dra": "Data/footprint/496b_y31m_qdp_8dp_mobile_lpddr5/nb_bga496_14x12d4x0d77_0d4.dra",
+      "spec": null,
+      "golden_dir": "Data/footprint/496b_y31m_qdp_8dp_mobile_lpddr5",
+      "notes": "新增例。496 球用 BGA 生成器而非逐脚读数：真值口径 = 本体尺寸 + ball pitch（0.4 由 .dra 名给出）+ 球径。",
+      "pdf_form": "printed"
+    },
+    {
+      "id": "tf9",
+      "title": "TF 卡座 9 pin 外焊 H=1.85",
+      "origin": "new",
+      "kind": "连接器 TF/microSD 卡座",
+      "pdf": "Data/footprint/CD.01.02-13-00039Pin H=1.85/CD.01.02-13-0003--TF卡座 外焊9Pin H=1.85 贴片 带柱 双弹片外壳 平脚镀镍 编带 .pdf",
+      "pdf_sha256": "83de7cb8275e",
+      "dra": "Data/footprint/CD.01.02-13-00039Pin H=1.85/nb_tf9_14d5x16d19x2.dra",
+      "spec": null,
+      "golden_dir": "Data/footprint/CD.01.02-13-00039Pin H=1.85",
+      "notes": "新增例。9 个信号脚 + 外壳焊盘；pad_x/pad_y 取信号脚推荐焊盘。",
+      "pdf_form": "cad_vector"
+    },
+    {
+      "id": "zif30",
+      "title": "FPC 0.5mm 30P 翻盖下接 H=1.75（AFC68）",
+      "origin": "new",
+      "kind": "连接器 FPC/ZIF",
+      "pdf": "Data/footprint/130-221-300004-W3G--FPC 0.5-30P/130-221-300004-W3G--FPC 0.5-30P 翻盖下接 H=1.75 (AFC68).pdf",
+      "pdf_sha256": "ef5c7e2750e9",
+      "dra": "Data/footprint/130-221-300004-W3G--FPC 0.5-30P/nb_zif30_19x4d3x1d75_0d5.dra",
+      "spec": null,
+      "golden_dir": "Data/footprint/130-221-300004-W3G--FPC 0.5-30P",
+      "notes": "新增例。30 脚 0.5mm 间距，与既有 fpc0510_6p 同族（同族不同 pin 数，用来查「同族套用参数」这种错）。",
+      "pdf_form": "cad_vector"
+    }
+  ]
+}

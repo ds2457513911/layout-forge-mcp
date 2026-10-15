@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 from services.pdf_locate import find_land_pattern_page
-from services.pdf_renderer import _render_page
+from services.pdf_renderer import _render_page, safe_stem as _safe_stem
 
 
 # ---------- 文件发现 ----------
@@ -84,21 +84,44 @@ def locate_land_pattern_page(pdf_path: Path) -> dict:
       文本层稀薄的国产件规格书（两 FPC / TF 卡座 / HDMI / LMBR），
       其中 LMBR 是**纯位图扫描件**（文本 0 字符 + 矢量 0 条），任何文本方案都无解。
 
+    ★ 2026-10-14 补：定位器已改为**文本 + 结构双证据**（`services/pdf_locate.py`），
+      新增 `confidence` / `needs_visual` / `candidates`。`page=None` 不再等于
+      「什么都没有」，而是三种不同含义，看 `method`：
+        - `ambiguous`：多页证据并列（如 bga496 的 p11/p12 信号完全相同）→ 拒绝瞎猜；
+        - `scan_only`：纯位图扫描件 → 必须走缩略图拼版；
+        - `no_match`：确实没有任何证据。
+      本函数把这些统一翻成 `hint`（下一步怎么做）与 `candidate_pages`（先看哪几页）。
+
     :param pdf_path: PDF 绝对路径
-    :return: find_land_pattern_page 的原始返回 +（失配时）`hint` / `text_chars`
+    :return: find_land_pattern_page 的原始返回 + `candidate_pages` + `hint`
     """
     res = find_land_pattern_page(pdf_path)
+    cand_pages = [c.get("page") for c in (res.get("candidates") or [])]
+    res["candidate_pages"] = cand_pages
+    cand_txt = f"候选页：{cand_pages}；" if cand_pages else ""
+
     if res.get("page") is None:
         text_chars = _count_text_chars(pdf_path)
         res["text_chars"] = text_chars
-        if text_chars == 0:
-            why = "该 PDF 文本层为空（纯扫描件/位图页），关键词匹配必然失败"
+        method = res.get("method")
+        if method == "scan_only":
+            why = "该 PDF 是纯位图扫描件（文本层为空、无矢量图元），关键词匹配必然失败"
+        elif method == "ambiguous":
+            why = "文本证据在多页并列/弱关键词不足以指认，定位器拒绝按页码先后瞎猜"
+        elif text_chars == 0:
+            why = "该 PDF 文本层为空（纯位图页），关键词匹配必然失败"
         else:
             why = f"PDF 有 {text_chars} 字符文本，但没有命中 land pattern 关键词"
         res["hint"] = (
-            f"{why}。→ 改用 `render_pdf_contact_sheet` 生成**缩略图拼版**，"
+            f"{why}。{cand_txt}→ 先用 `render_pdf_contact_sheet` 生成**缩略图拼版**，"
             f"AI 扫一眼即可定位尺寸页（实测 11 页的扫描件，1 张拼图就够，"
-            f"比逐页读整页省 5~6 张图）。"
+            f"比逐页读整页省 5~6 张图）；也可以直接对候选页做 `render_pdf_region` 区域渲染。"
+        )
+    elif res.get("needs_visual"):
+        res["hint"] = (
+            f"该页由结构/弱关键词推定（method={res.get('method')}、"
+            f"confidence={res.get('confidence')}；{cand_txt}{res.get('reason')}）"
+            f"→ **读数值前先渲染这一页确认是尺寸页**；若发现不对，按 candidates 换页。"
         )
     return res
 
@@ -157,7 +180,7 @@ def get_or_render_image(
     """
     # 缓存检查（仅 pymupdf 输出路径可预测）
     if engine == "pymupdf":
-        cached = out_root / pdf_path.stem / "pymupdf_pages" / f"page_{page}.png"
+        cached = out_root / _safe_stem(pdf_path.stem) / "pymupdf_pages" / f"page_{page}.png"
         if cached.is_file():
             return cached
 
@@ -238,7 +261,7 @@ def build_contact_sheet(
             draw.text((x + 4, y + th + 3), f"p{i + 1}", fill="black")
             page_index[str(i + 1)] = [x, y, thumb_width, th]
 
-        out_dir = Path(out_root) / Path(pdf_path).stem
+        out_dir = Path(out_root) / _safe_stem(Path(pdf_path).stem)
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / "contact_sheet.png"
         sheet.save(str(out_path))
@@ -374,7 +397,7 @@ def render_region(
                 return {"ok": False,
                         "error": f"rect 与页面无交集: {rect} vs {pg.rect}"}
             pm = pg.get_pixmap(dpi=dpi, clip=clip)
-            out_dir = Path(out_root) / Path(pdf_path).stem / "regions"
+            out_dir = Path(out_root) / _safe_stem(Path(pdf_path).stem) / "regions"
             out_dir.mkdir(parents=True, exist_ok=True)
             tag = (f"p{page}_{clip.x0:.0f}-{clip.y0:.0f}-"
                    f"{clip.x1:.0f}-{clip.y1:.0f}@{dpi}")

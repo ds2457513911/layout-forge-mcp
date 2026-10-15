@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "case": "bga496",
+  "title": "LPDDR5 BGA 496 ball（496b_y31m_qdp_8dp）",
+  "pdf": "Data/footprint/496b_y31m_qdp_8dp_mobile_lpddr5/496b_y31m_qdp_8dp_mobile_lpddr5.pdf",
+  "pdf_sha256": "e4460a88bd05",
+  "signed_by": "ds245 (对话中确认：10 例全照草案)",
+  "signed_at": "2026-10-15",
+  "source_note": "真值草稿由 AI 读图起草（ai-read-2026-10-15）；证据见 drafts/bga496.md 与 drafts/bga496.json。**未签字前不得用于冻结基线**。\n已签字（2026-10-15）：人工复核 REVIEW.md 后确认**10 例全照草案**，未改任何字段值。",
+  "fields": {
+    "mount": {
+      "value": "smd",
+      "page": 12,
+      "quote": "on Ø0.24 SMD ball pads."
+    },
+    "pin_count": {
+      "value": 496,
+      "page": 12,
+      "quote": "496X Ø0.27 ±0.05"
+    },
+    "pitch_x": {
+      "value": 0.4,
+      "page": 12,
+      "quote": "0.4 TYP"
+    },
+    "pitch_y": {
+      "value": 0.4,
+      "page": 12,
+      "quote": "0.4 TYP"
+    },
+    "body_x": {
+      "value": 14.0,
+      "page": 12,
+      "quote": "14 ±0.1"
+    },
+    "body_y": {
+      "value": 12.4,
+      "page": 12,
+      "quote": "12.4 ±0.1"
+    },
+    "pad_x": {
+      "value": 0.24,
+      "page": 12,
+      "quote": "on Ø0.24 SMD ball pads."
+    },
+    "pad_y": {
+      "value": 0.24,
+      "page": 12,
+      "quote": "on Ø0.24 SMD ball pads."
+    }
+  },
+  "unreadable": [],
+  "cross_check": {
+    "dra": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\496b_y31m_qdp_8dp_mobile_lpddr5\\nb_bga496_14x12d4x0d77_0d4.dra",
+    "method": "extracta 四视图（pins / pads / PACKAGE GEOMETRY / REF DES）经 services/extracta_reader.read_via_extracta 解析为结构体后逐字段推导：pin_count=len(pins)；pitch=对上唯一 X/Y 坐标排序后相邻差的众数（X 27 差全 0.4、Y 26 差全 0.4，且 X 极差 10.8、Y 极差 10.4 与图纸 10.8 CTR / 10.4 CTR 自洽）；body=assembly_top 外框 bbox 尺寸；pad=pin.pads 中 ETCH/TOP 铜箔 figure CIRCLE 的 [w,h]（padstack C0D24）；mount=pad 层集合无 ~DRILL → 无通孔。",
+    "agree": [
+      "mount",
+      "pin_count",
+      "pitch_x",
+      "pitch_y",
+      "body_x",
+      "body_y",
+      "pad_x",
+      "pad_y"
+    ],
+    "disagree": [],
+    "dra_values": {
+      "mount": "smd",
+      "pin_count": 496,
+      "pitch_x": 0.4,
+      "pitch_y": 0.4,
+      "body_x": 14.0,
+      "body_y": 12.4,
+      "pad_x": 0.24,
+      "pad_y": 0.24
+    }
+  },
+  "pdf_form": "printed",
+  "signed_via": "chat"
+}
