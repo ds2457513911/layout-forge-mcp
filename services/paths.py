@@ -75,6 +75,35 @@ RUNS_DIR = os.path.join(EVAL_DIR, "runs")
 #: ★ 冻结的评测基线（**进 git**：它是「上一次被认可的行为」的唯一记录）
 BASELINE_DIR = os.path.join(EVAL_DIR, "baselines")
 
+# ------------------------------------------------------------
+# ★ 工作区数据层（2026-10-16 新增）：库目录在 workspace 根，不在项目根
+#
+# 真实布局（刻意维持 plan A「不搬迁」，见 2026-10-14 重构计划）：
+#   C:\Users\ds245\Documents\Work_Bmorn\Layout\        <- WORKSPACE_ROOT
+#   ├── layout-forge-mcp\                              <- PROJECT_ROOT
+#   └── Data\                                          <- DATA_DIR（三个库）
+#       ├── PCB_Footprint\    大封装库（.dra，无规格书）
+#       ├── footprint\        小封装库（每子目录 1 PDF + 1 .dra）
+#       └── footprint_test\   测试干活区（建封装走这里）
+# 注意：Data 在 workspace 根 —— geometry G3/G4、collect_run_logs、
+# install_shadow_library 都要跨出 PROJECT_ROOT 才能扫到它。
+# ------------------------------------------------------------
+
+#: 工作区根（PROJECT_ROOT 的上一级）
+WORKSPACE_ROOT = os.path.dirname(PROJECT_ROOT)
+
+#: 工作区数据层（规格书 + 封装库）
+DATA_DIR = os.path.join(WORKSPACE_ROOT, "Data")
+
+#: 大封装库（253 颗 .dra，无规格书 PDF）
+GOLDEN_LIB_DIR = os.path.join(DATA_DIR, "PCB_Footprint")
+
+#: 小封装库（每个子目录 = 1 份规格书 + 1 颗 .dra）
+TEMPLATE_LIB_DIR = os.path.join(DATA_DIR, "footprint")
+
+#: 测试干活区（建封装产物落这里，check_log/ 归档位）
+TEST_LIB_DIR = os.path.join(DATA_DIR, "footprint_test")
+
 
 def ensure_dirs() -> None:
     """确保 test / log / .trash / eval 的 runs 目录都存在（幂等）。"""
@@ -135,6 +164,7 @@ def _unique_target(dst_dir: str, name: str, stamp: str) -> str:
 def collect_run_logs(
     *src_dirs: Optional[str],
     log_dir: Optional[str] = None,
+    recursive: bool = False,
 ) -> Dict[str, Any]:
     """
     ★ 把图纸目录里本次运行产生的日志/痕迹**搬进 `Tools/log`**。
@@ -151,6 +181,9 @@ def collect_run_logs(
 
     :param src_dirs: 要扫的源目录；**不传**则默认扫 `Tools/test` + `Tools/`
     :param log_dir:  目标目录；默认 `Tools/log`
+    :param recursive: True 时对每个源目录做**递归一层**扫描（2026-10-16 约定：
+         库目录里每个封装一个子目录，`<封装>/allegro.jrl` 只能靠递归才扫得到；
+         默认 False 保持旧的单层行为，`Tools/selfcheck_skill_syntax.py` 12d 依赖它）
     :return: {"log_dir": str, "moved": [...], "skipped": [...], "scanned": [...]}
     """
     ensure_dirs()
@@ -164,22 +197,26 @@ def collect_run_logs(
     scanned: List[str] = []
 
     seen: set = set()
-    for src in srcs:
+
+    def _scan_dir(src: str) -> None:
+        """扫一个目录（单层），把运行痕迹搬走；绝不抛异常。"""
         if src == dst_dir or src in seen or not os.path.isdir(src):
-            continue
+            return
         seen.add(src)
         scanned.append(as_posix(src))
         try:
             names = sorted(os.listdir(src))
         except OSError as e:                # noqa: BLE001
             skipped.append({"path": as_posix(src), "error": str(e)})
-            continue
-
+            return
+        subdirs: List[str] = []
         for name in names:
-            if not is_run_artifact(name):
-                continue
             path = os.path.join(src, name)
-            if not os.path.isfile(path):
+            if os.path.isdir(path):
+                if recursive:
+                    subdirs.append(path)    # 递归一层：库目录的 <封装>/ 子目录
+                continue
+            if not is_run_artifact(name):
                 continue
             try:
                 target = _unique_target(dst_dir, name, stamp)
@@ -189,6 +226,11 @@ def collect_run_logs(
             except OSError as e:
                 # ★ 最常见：Allegro 还开着这个文件（共享冲突）—— 正常，跳过
                 skipped.append({"path": as_posix(path), "error": str(e)})
+        for sub in subdirs:
+            _scan_dir(sub)
+
+    for src in srcs:
+        _scan_dir(src)
 
     return {
         "log_dir": as_posix(dst_dir),

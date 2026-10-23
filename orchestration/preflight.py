@@ -32,7 +32,8 @@ import json
 import sys
 from pathlib import Path
 
-__all__ = ["classify_folder", "preflight", "PDF_SUFFIX", "DRA_SUFFIX", "ACTION_HINT"]
+__all__ = ["classify_folder", "preflight", "PDF_SUFFIX", "DRA_SUFFIX", "ACTION_HINT",
+           "REPORT_DIR_NAME", "is_noise", "is_noise_path"]
 
 PDF_SUFFIX = ".pdf"
 DRA_SUFFIX = ".dra"
@@ -44,6 +45,11 @@ NOISE_PREFIXES = ("~$", "autosave", ".~", "allegro.jrl")
 NOISE_SUFFIXES = (".bak", ".tmp", ".lck", ".jrl", ".run")
 #: 通配噪声（历史检查报告 / Allegro 日志）——**旧报告不是证据**（S2：本次结论只能来自本次运行）
 NOISE_GLOBS = ("checklist_report_*.json", "signoise.log*", "dbdoctor.log*", "*.log")
+
+#: 报告归档目录名（★ 2026-10-16 约定）：每个封装目录各建一个 `check_log/`，
+#: 之后的检查报告 JSON 直接「搬进去」。**里面的报告是合法归档，不算噪声**；
+#: 只有散放在封装目录根下的 `checklist_report_*.json` 仍是 S2 噪声（复用旧报告 = 静默错）。
+REPORT_DIR_NAME = "check_log"
 
 #: 每种 verdict 对应的建议动作与给模型看的一句话提示
 ACTION_HINT = {
@@ -84,6 +90,24 @@ def is_noise(name: str) -> bool:
     （G4 报 26、preflight 报 145）。**复用常量 ≠ 复用规则**：要么调同一个函数，要么迟早分叉。
     """
     return _is_noise(name)
+
+
+def is_noise_path(parts) -> bool:
+    """路径级判噪：递归扫描（rglob）时用这个，而不是逐文件调 `is_noise(name)`。
+
+    与 `is_noise` 的唯一差别：路径中任何一段等于 `check_log`（`REPORT_DIR_NAME`）
+    的文件**不算噪声** —— 那是报告的合法归档位（2026-10-16 约定）。
+    `parts` 接受 Path、str 或段的序列（相对/绝对均可，只用各段名字判断）。
+    """
+    from pathlib import PurePath
+
+    if isinstance(parts, (str, PurePath)):
+        segs = [s.lower() for s in PurePath(parts).parts]
+    else:
+        segs = [s.lower() for s in PurePath(*[str(x) for x in parts]).parts]
+    if REPORT_DIR_NAME in segs:
+        return False
+    return _is_noise(segs[-1])
 
 
 def _scan(folder: Path):

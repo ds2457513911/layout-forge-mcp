@@ -66,7 +66,7 @@ def _write_checklist_json(
 
     :param result: check_footprint_by_rules 的结果（含 conclusion/summary/items）
     :param dra_file_path: .dra 路径；None 时从 result.footprint_data 推断
-    :param output_dir: 输出目录；None 时用 .dra 所在目录
+    :param output_dir: 输出目录；None 时用 `.dra 所在目录/check_log/`（报告归档位）
     :param filename: 文件名；None 时带时间戳
     :return: {"ok": bool, "path": str, "error": str}
     """
@@ -79,7 +79,8 @@ def _write_checklist_json(
             fp_data = result.get("footprint_data") or {}
             dra_file_path = fp_data.get("source_file")
         if dra_file_path:
-            output_dir = Path(dra_file_path).parent
+            # ★ 2026-10-16 约定：报告直接落 <封装目录>/check_log/，不再散在 .dra 旁边
+            output_dir = Path(dra_file_path).parent / "check_log"
         else:
             return {
                 "ok": False,
@@ -304,6 +305,7 @@ def register(mcp: FastMCP) -> None:
         semantic_result: dict | None = None,
         save_report: bool = True,
         compact: bool = True,
+        output_dir: str | None = None,
     ) -> dict:
         """
         从 .dra 提取封装数据，跑完整的数值规则检查，并自动保存 JSON 报告、
@@ -338,6 +340,9 @@ def register(mcp: FastMCP) -> None:
                       / save_error / render_error
             - False → 额外返回 items / failed / warned / footprint_data
             - save_report=False 时，compact 强制为 False（否则返回无意义）
+        :param output_dir: 报告输出目录；None 时默认 `<dra 所在目录>/check_log/`
+            （★ 2026-10-16 约定：每个封装一个 check_log/，报告直接搬进去，
+              不再散落在 .dra 旁边；预检与 G4 不把 check_log 里的报告当噪声）
         :return: 见上方字段说明。
         """
         # ---------- 边界：save_report=False 时 compact 无意义，强制降级 ----------
@@ -382,7 +387,8 @@ def register(mcp: FastMCP) -> None:
         if save_report:
             # 4a. 保存 JSON 报告
             try:
-                save_res = _write_checklist_json(result, dra_file_path=dra_file_path)
+                save_res = _write_checklist_json(result, dra_file_path=dra_file_path,
+                                                 output_dir=output_dir)
                 report_path = save_res.get("path", "")
                 save_error = save_res.get("error", "")
             except Exception as e:
