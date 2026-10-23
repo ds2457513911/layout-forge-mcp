@@ -67,6 +67,23 @@
     "saved_at": "2026-10-14 11:05:00",
     "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/Data/footprint/LYDPJ-H23CB1Y-053N/LYDPJ-H23CB1Y-053N.pdf"
   },
+  "nb_typec24p_p2g": {
+    "family": "TYPE-C",
+    "file": "nb_typec24p_p2g.json",
+    "fingerprint": {
+      "body_x": 9.45,
+      "body_y": 4.67,
+      "mount": "smd",
+      "pad_x": null,
+      "pad_y": null,
+      "pin_count": 28,
+      "pitch_x": null,
+      "pitch_y": null
+    },
+    "name": "nb_typec24p_p2g",
+    "saved_at": "2026-10-16 11:25:48",
+    "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/Data/footprint_test/126-221-240001-P2G--TYPE-C 24P 母座 四脚插 双排SMT L=7.9 CH=0.78 沉板0.8 带焊点 编带.pdf"
+  },
   "nb_xtal4_3d2x2d5x0d7": {
     "family": "SMD-Crystal-3225",
     "file": "nb_xtal4_3d2x2d5x0d7.json",

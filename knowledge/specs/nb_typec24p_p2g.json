@@ -1,0 +1,442 @@
+{
+  "schema": "layout-forge-spec/1",
+  "name": "nb_typec24p_p2g",
+  "saved_at": "2026-10-16 11:25:48",
+  "family": "TYPE-C",
+  "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/Data/footprint_test/126-221-240001-P2G--TYPE-C 24P 母座 四脚插 双排SMT L=7.9 CH=0.78 沉板0.8 带焊点 编带.pdf",
+  "notes": "★ 坑：① 心形外壳脚是异形，用 OBLONG 1.64×1.90 近似（中心 ±4.17 折中，真实圆部中心 ±4.32，8.64 标注=圆部中心距）；② B 排焊盘 0.85 长、A 排 0.95 长（hatch 矢量上下边缘精确判定，非绘图噪声）；③ B 排相对 A 排左移 0.25 半间距错位，B1 在最右，脚名直接用 A1-A12/B1-B12+S1-S4；④ 标定 1mm=11.053pt（0.5 pitch=5.5265pt 反推）；⑤ 11.04=蛋圆中心距、9.45=壳体宽、1.20=心/蛋横向错位；⑥ 5.80/1.40 两标注未解码（不影响焊盘）。",
+  "fingerprint": {
+    "mount": "smd",
+    "pin_count": 28,
+    "pitch_x": null,
+    "pitch_y": null,
+    "body_x": 9.45,
+    "body_y": 4.67,
+    "pad_x": null,
+    "pad_y": null
+  },
+  "spec": {
+    "symbol_name": "NB_TYPEC24P_P2G_L7D9",
+    "component_type": "connector",
+    "mount": "smd",
+    "dim_source": "drawing",
+    "pin_count": 28,
+    "pins_override": [
+      {
+        "number": "1",
+        "x": -2.625,
+        "y": 0.65,
+        "padstack": "R0D3X0D95",
+        "pad_size": [
+          0.3,
+          0.95
+        ]
+      },
+      {
+        "number": "2",
+        "x": -2.125,
+        "y": 0.65,
+        "padstack": "R0D3X0D95",
+        "pad_size": [
+          0.3,
+          0.95
+        ]
+      },
+      {
+        "number": "3",
+        "x": -1.625,
+        "y": 0.65,
+        "padstack": "R0D3X0D95",
+        "pad_size": [
+          0.3,
+          0.95
+        ]
+      },
+      {
+        "number": "4",
+        "x": -1.125,
+        "y": 0.65,
+        "padstack": "R0D3X0D95",
+        "pad_size": [
+          0.3,
+          0.95
+        ]
+      },
+      {
+        "number": "5",
+        "x": -0.625,
+        "y": 0.65,
+        "padstack": "R0D3X0D95",
+        "pad_size": [
+          0.3,
+          0.95
+        ]
+      },
+      {
+        "number": "6",
+        "x": -0.125,
+        "y": 0.65,
+        "padstack": "R0D3X0D95",
+        "pad_size": [
+          0.3,
+          0.95
+        ]
+      },
+      {
+        "number": "7",
+        "x": 0.375,
+        "y": 0.65,
+        "padstack": "R0D3X0D95",
+        "pad_size": [
+          0.3,
+          0.95
+        ]
+      },
+      {
+        "number": "8",
+        "x": 0.875,
+        "y": 0.65,
+        "padstack": "R0D3X0D95",
+        "pad_size": [
+          0.3,
+          0.95
+        ]
+      },
+      {
+        "number": "9",
+        "x": 1.375,
+        "y": 0.65,
+        "padstack": "R0D3X0D95",
+        "pad_size": [
+          0.3,
+          0.95
+        ]
+      },
+      {
+        "number": "10",
+        "x": 1.875,
+        "y": 0.65,
+        "padstack": "R0D3X0D95",
+        "pad_size": [
+          0.3,
+          0.95
+        ]
+      },
+      {
+        "number": "11",
+        "x": 2.375,
+        "y": 0.65,
+        "padstack": "R0D3X0D95",
+        "pad_size": [
+          0.3,
+          0.95
+        ]
+      },
+      {
+        "number": "12",
+        "x": 2.875,
+        "y": 0.65,
+        "padstack": "R0D3X0D95",
+        "pad_size": [
+          0.3,
+          0.95
+        ]
+      },
+      {
+        "number": "24",
+        "x": -2.875,
+        "y": -0.65,
+        "padstack": "R0D3X0D85",
+        "pad_size": [
+          0.3,
+          0.85
+        ]
+      },
+      {
+        "number": "23",
+        "x": -2.375,
+        "y": -0.65,
+        "padstack": "R0D3X0D85",
+        "pad_size": [
+          0.3,
+          0.85
+        ]
+      },
+      {
+        "number": "22",
+        "x": -1.875,
+        "y": -0.65,
+        "padstack": "R0D3X0D85",
+        "pad_size": [
+          0.3,
+          0.85
+        ]
+      },
+      {
+        "number": "21",
+        "x": -1.375,
+        "y": -0.65,
+        "padstack": "R0D3X0D85",
+        "pad_size": [
+          0.3,
+          0.85
+        ]
+      },
+      {
+        "number": "20",
+        "x": -0.875,
+        "y": -0.65,
+        "padstack": "R0D3X0D85",
+        "pad_size": [
+          0.3,
+          0.85
+        ]
+      },
+      {
+        "number": "19",
+        "x": -0.375,
+        "y": -0.65,
+        "padstack": "R0D3X0D85",
+        "pad_size": [
+          0.3,
+          0.85
+        ]
+      },
+      {
+        "number": "18",
+        "x": 0.125,
+        "y": -0.65,
+        "padstack": "R0D3X0D85",
+        "pad_size": [
+          0.3,
+          0.85
+        ]
+      },
+      {
+        "number": "17",
+        "x": 0.625,
+        "y": -0.65,
+        "padstack": "R0D3X0D85",
+        "pad_size": [
+          0.3,
+          0.85
+        ]
+      },
+      {
+        "number": "16",
+        "x": 1.125,
+        "y": -0.65,
+        "padstack": "R0D3X0D85",
+        "pad_size": [
+          0.3,
+          0.85
+        ]
+      },
+      {
+        "number": "15",
+        "x": 1.625,
+        "y": -0.65,
+        "padstack": "R0D3X0D85",
+        "pad_size": [
+          0.3,
+          0.85
+        ]
+      },
+      {
+        "number": "14",
+        "x": 2.125,
+        "y": -0.65,
+        "padstack": "R0D3X0D85",
+        "pad_size": [
+          0.3,
+          0.85
+        ]
+      },
+      {
+        "number": "13",
+        "x": 2.625,
+        "y": -0.65,
+        "padstack": "R0D3X0D85",
+        "pad_size": [
+          0.3,
+          0.85
+        ]
+      },
+      {
+        "number": "S1",
+        "x": -4.17,
+        "y": 0.08,
+        "padstack": "OB1D64X1D9",
+        "pad_size": [
+          1.64,
+          1.9
+        ]
+      },
+      {
+        "number": "S2",
+        "x": 4.17,
+        "y": 0.08,
+        "padstack": "OB1D64X1D9",
+        "pad_size": [
+          1.64,
+          1.9
+        ]
+      },
+      {
+        "number": "S3",
+        "x": -5.52,
+        "y": -4.45,
+        "padstack": "OB1D1X2D25",
+        "pad_size": [
+          1.1,
+          2.25
+        ]
+      },
+      {
+        "number": "S4",
+        "x": 5.52,
+        "y": -4.45,
+        "padstack": "OB1D1X2D25",
+        "pad_size": [
+          1.1,
+          2.25
+        ]
+      }
+    ],
+    "body": {
+      "x": 9.45,
+      "y": 4.67
+    },
+    "body_center": [
+      0,
+      -3.075
+    ],
+    "pin1_corner": "top-left",
+    "pin1_mark_axis": "y",
+    "refdes_text": "#REF",
+    "refdes_targets": [
+      "refdes_assembly"
+    ],
+    "refdes_place": "body_center",
+    "refdes_justify": "left",
+    "extra_padstacks": [
+      {
+        "name": "R0D3X0D95",
+        "layers": [
+          {
+            "layer": "TOP",
+            "figure": "RECTANGLE",
+            "size": [
+              0.3,
+              0.95
+            ]
+          },
+          {
+            "layer": "SOLDERMASK_TOP",
+            "figure": "RECTANGLE",
+            "size": [
+              0.4,
+              1.05
+            ]
+          },
+          {
+            "layer": "PASTEMASK_TOP",
+            "figure": "RECTANGLE",
+            "size": [
+              0.3,
+              0.95
+            ]
+          }
+        ]
+      },
+      {
+        "name": "R0D3X0D85",
+        "layers": [
+          {
+            "layer": "TOP",
+            "figure": "RECTANGLE",
+            "size": [
+              0.3,
+              0.85
+            ]
+          },
+          {
+            "layer": "SOLDERMASK_TOP",
+            "figure": "RECTANGLE",
+            "size": [
+              0.4,
+              0.95
+            ]
+          },
+          {
+            "layer": "PASTEMASK_TOP",
+            "figure": "RECTANGLE",
+            "size": [
+              0.3,
+              0.85
+            ]
+          }
+        ]
+      },
+      {
+        "name": "OB1D64X1D9",
+        "layers": [
+          {
+            "layer": "TOP",
+            "figure": "OBLONG",
+            "size": [
+              1.64,
+              1.9
+            ]
+          },
+          {
+            "layer": "SOLDERMASK_TOP",
+            "figure": "OBLONG",
+            "size": [
+              1.74,
+              2.0
+            ]
+          },
+          {
+            "layer": "PASTEMASK_TOP",
+            "figure": "OBLONG",
+            "size": [
+              1.64,
+              1.9
+            ]
+          }
+        ]
+      },
+      {
+        "name": "OB1D1X2D25",
+        "layers": [
+          {
+            "layer": "TOP",
+            "figure": "OBLONG",
+            "size": [
+              1.1,
+              2.25
+            ]
+          },
+          {
+            "layer": "SOLDERMASK_TOP",
+            "figure": "OBLONG",
+            "size": [
+              1.2,
+              2.35
+            ]
+          },
+          {
+            "layer": "PASTEMASK_TOP",
+            "figure": "OBLONG",
+            "size": [
+              1.1,
+              2.25
+            ]
+          }
+        ]
+      }
+    ],
+    "place_bound_expand_mm": 0.5
+  }
+}

@@ -1,6 +1,6 @@
 # Data/specs/ —— spec 库（每颗料解析成果的沉淀处）
 
-> 建立：2026-10-09 ｜ 最后更新：2026-10-15（补登记 `nb_lydpj_5p_12x6.json` + 修 2 处 `source_pdf` 死链 + 索引重建）
+> 建立：2026-10-09 ｜ 最后更新：2026-10-23（补登记 `nb_typec24p_p2g.json`，库内 5 → 6 份）
 > 维护者：`services/spec_library.py`（读写都走它，别手改 JSON 后忘记重建索引）
 
 ## 这个目录是干什么的
@@ -24,9 +24,10 @@
 | `nb_cstj421_aj35_6p.json` | CSTJ-421 音频插座（THT） | Audio-Jack-3.5 | 第一个通孔件；槽孔；三种焊盘 |
 | `nb_lmbr140et1g_2p.json` | LMBR140ET1G 二极管 | SOD-323HE | 非对称焊盘；首个全程 MCP 生成的件 |
 | `nb_lydpj_5p_12x6.json` | LYDPJ-H23CB1Y-053N 耳机座 5P | 3.5mm 耳机座 (LYD-PJ-35) | ★ 首个**焊盘由 `conventions.json` 派生**的 spec（spec 只声明孔尺寸与 pin 布局）；5 脚全为金属化椭圆槽孔；本体/Place_Bound 经工程师复核第 5 版重修（见 `notes`） |
+| `nb_typec24p_p2g.json` | TYPE-C 24P 母座（126-221-240001-P2G） | TYPE-C | ★ 首个**双排错位 + 异形外壳脚**的 spec：A/B 两排骨中心错位 0.25（半间距），脚名 A1-A12 / B1-B12 + S1-S4；心形外壳脚用 OBLONG 1.64×1.90 近似；标定 1mm=11.053pt（由 0.5 pitch 反推）。`notes` 里记了 6 条读图坑 |
 
-> 5 份 spec 中只有 `nb_lydpj_5p_12x6.json` 没有 `pad` 块（走约定引擎派生），
-> 因此它的指纹里 `pad_x/pad_y = null` —— 见下方坑 ⑦。
+> 6 份 spec 中 `nb_lydpj_5p_12x6.json` 与 `nb_typec24p_p2g.json` 没有 `pad` 块（走约定引擎派生），
+> 因此它们的指纹里 `pad_x/pad_y = null` —— 见下方坑 ⑦。
 
 ## 单个文件的结构
 
@@ -81,7 +82,7 @@
    - `nb_lydpj_5p_12x6.json`：源目录已改名 `Data/footprint/NB_LYDPJ_5P_12X6/`
      → `Data/footprint/LYDPJ-H23CB1Y-053N/`。
    目录改名/换机是常态：**存 spec 时顺手记的路径会腐烂**，复核 spec 库时
-   先跑一次"5 份 `source_pdf` 是否都 `is_file()`"再谈别的。
+   先跑一次"6 份 `source_pdf` 是否都 `is_file()`"再谈别的。
    （`_index.json` 里也存了同一字段，所以必须"改 JSON → `rebuild_index()`"，别只改索引。）
 
 ## 配套工具（MCP）
