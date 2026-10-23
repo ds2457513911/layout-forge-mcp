@@ -31,11 +31,21 @@ spec_reading / geometry_regression）。漏跑一条没有任何人会知道 —
     python eval/check_eval.py --show-fail           # 红了的套件，附带打印它的输出尾部
 
 ★ **解释器**：五套件共用一个解释器，选择顺序与 `suites/geometry_regression` 一致
-  （`--python` → `$LAYOUT_FORGE_PY` → `<项目>/.venv` → 缓存区不受限副本
-  `$LAYOUT_FORGE_UNCONFINED_PY` → 兄弟仓 `<Layout>/layout-check-mcp/.venv` → `sys.executable`）。
+  （`--python` → `$LAYOUT_FORGE_PY` → 缓存区不受限副本 `$LAYOUT_FORGE_UNCONFINED_PY`
+  → `<项目>/.venv` → 兄弟仓 `<Layout>/layout-check-mcp/.venv` → `sys.executable`）。
   本机实测：**工作区内的解释器会被沙箱掐**，geometry 的 extracta 会崩在 PAD_DEF 视图，
   分数整片变红（见 `eval/suites/geometry_regression/check_geometry_regression.py` 文件头）。
   所以这里优先选「工作区外 + 有依赖」的那一个，并在表头如实打出选中的是哪个。
+
+★★ **光选对解释器还不够 —— 完整性级别是继承的，且换解释器逃不出去**。本机实测三组
+  对照（同一脚本、同一解释器路径，只有驱动进程不同）：驱动=工作区内 `.venv`（IL=Low）
+  → geometry 报 7 条 ERROR（G6 崩 + R4 四条连带假红）；驱动=缓存区副本（IL=Medium）
+  → 只报 3 条真问题。原因是 `icacls` 显示**工作区那个 python.exe 自身带
+  `Mandatory Label/Low Mandatory Level:(I)(NW)`**，进程 IL 取「父进程令牌」与「exe 标签」
+  的较低者；连 Low 父进程去启动无标签副本，子进程也仍是 Low（实测仍是 rid=0x1000）。
+  所以 `main()` 先自检 IL，**是 Low 就拒绝出分并打印正确用法**（退出码 2），
+  而不是硬跑出一片假红、也不假装能自己换解释器。
+  `--python` 显式指定仍然权威：给了就照用，不替用户改意图。
 
 退出码：0 = 五套全绿；1 = 有任一套红。
 """
@@ -59,6 +69,107 @@ UNCONFINED_PY = Path(
     or (Path.home() / "WorkBuddy" / "Layout" / ".workbuddy" / "cache" / "tools"
         / "venv-unconfined" / "Scripts" / "python.exe")
 )
+
+#: SECURITY_MANDATORY_* 的 RID → 名字（只用于表头/告警文案）
+_IL_NAMES = {0x0000: "Untrusted", 0x1000: "Low", 0x2000: "Medium",
+             0x3000: "High", 0x4000: "System"}
+
+
+def current_integrity_rid() -> int | None:
+    """读当前进程的完整性级别（IL）；读不到返回 None（不谎报成 Medium）。
+
+    为什么需要这个：IL 是**继承**的。本机实测同一脚本、同一解释器路径，只有驱动进程
+    的 IL 不同 —— 驱动=工作区 `.venv`（Low）时 geometry 报 7 条 ERROR（G6 崩 + R4 四条
+    连带假红）；驱动=缓存区副本（Medium）时只报 3 条真问题。所以只"选对解释器"不够，
+    还得确认**自己**不在 Low 上跑。
+    """
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes
+        import ctypes.wintypes as wt
+    except Exception:  # noqa: BLE001
+        return None
+
+    TOKEN_QUERY, TokenIntegrityLevel = 0x0008, 25
+
+    class SID_AND_ATTRIBUTES(ctypes.Structure):
+        _fields_ = [("Sid", ctypes.c_void_p), ("Attributes", wt.DWORD)]
+
+    class TOKEN_MANDATORY_LABEL(ctypes.Structure):
+        _fields_ = [("Label", SID_AND_ATTRIBUTES)]
+
+    try:
+        adv = ctypes.WinDLL("advapi32", use_last_error=True)
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        # 必须声明 argtypes/restype：GetCurrentProcess 返回伪句柄 -1，
+        # 不声明会被截成 32 位 int，OpenProcessToken 直接 ERROR_INVALID_HANDLE(6)。
+        k32.GetCurrentProcess.restype = wt.HANDLE
+        adv.OpenProcessToken.argtypes = [wt.HANDLE, wt.DWORD, ctypes.POINTER(wt.HANDLE)]
+        adv.OpenProcessToken.restype = wt.BOOL
+        adv.GetSidSubAuthorityCount.restype = ctypes.POINTER(ctypes.c_ubyte)
+        adv.GetSidSubAuthorityCount.argtypes = [ctypes.c_void_p]
+        adv.GetSidSubAuthority.restype = ctypes.POINTER(wt.DWORD)
+        adv.GetSidSubAuthority.argtypes = [ctypes.c_void_p, wt.DWORD]
+
+        token = wt.HANDLE()
+        if not adv.OpenProcessToken(k32.GetCurrentProcess(), TOKEN_QUERY,
+                                    ctypes.byref(token)):
+            return None
+        try:
+            size = wt.DWORD(0)
+            adv.GetTokenInformation(token, TokenIntegrityLevel, None, 0, ctypes.byref(size))
+            if not size.value:
+                return None
+            buf = ctypes.create_string_buffer(size.value)
+            if not adv.GetTokenInformation(token, TokenIntegrityLevel, buf, size.value,
+                                           ctypes.byref(size)):
+                return None
+            label = ctypes.cast(buf, ctypes.POINTER(TOKEN_MANDATORY_LABEL)).contents
+            sid = label.Label.Sid
+            count = adv.GetSidSubAuthorityCount(sid).contents.value
+            if not count:
+                return None
+            return int(adv.GetSidSubAuthority(sid, count - 1).contents.value)
+        finally:
+            k32.CloseHandle(token)
+    except Exception:  # noqa: BLE001 - 静态环境（非 Windows / 受限）一律当作未知
+        return None
+
+
+def _guard_confined(has_explicit_python: bool) -> int | None:
+    """自身 IL 比 Medium 低时**拒绝出分**，返回退出码 2；正常时返回 None。
+
+    为什么是「拒绝」而不是「自己换解释器跑」：IL 取**父进程令牌**与**可执行文件标签**
+    的较低者。本机 `icacls` 实测 `<项目>/.venv/Scripts/python.exe` 上带
+    `Mandatory Label\\Low Mandatory Level:(I)(NW)`，缓存区那份副本上没有标签 —— 所以
+    在 Low 父进程里就算启动无标签的副本，子进程仍是 Low（已实测：
+    `Low 父 → unconfined 副本` 读回来还是 `IL rid=0x1000 (Low)`）。**换解释器逃不出去**，
+    能做的只有如实报告，让调用方换一个不受限的启动环境（或直接以不受限副本为驱动）。
+
+    不拦的两种情况：
+      · `--python` 显式给了 → 尊重用户点名用的那个解释器，不偷偷改意图（同 pick_interpreter）
+      · 非 Windows / 读不到 IL → 不猜，照常跑
+    """
+    if has_explicit_python:
+        return None
+    rid = current_integrity_rid()
+    if rid is None or rid >= 0x2000:
+        return None
+    shown = _IL_NAMES.get(rid, hex(rid))
+    print(
+        f"[X] 环境无效：当前进程 IL={shown}（被沙箱压低，低于 Medium）。\n"
+        f"    这样的进程拉起的 extracta 会崩在 PAD_DEF 视图（rc=3221226505），\n"
+        f"    geometry 的 G6/R4 会整片假红 —— 本机实测同样脚本同样逻辑会从 3 条真问题\n"
+        f"    变成 7 条 ERROR。为了不让你拿假红当回归，这里拒绝出分（退出码 2）。\n"
+        f"\n"
+        f"    修法：用工作区外那份无 Low 标签的解释器直接当驱动：\n"
+        f"      \"{UNCONFINED_PY}\" eval/check_eval.py\n"
+        f"    或在一个未被压低的终端里跑（那个环境下 IL=Medium，命令不变）。\n"
+        f"    注意：`--python <工作区内解释器>` 也逃不出 Low（标签在 exe 上，是继承的）。",
+        flush=True,
+    )
+    return 2
 
 
 class Suite(NamedTuple):
@@ -106,9 +217,14 @@ def pick_interpreter(explicit: str | None) -> tuple[str, bool]:
     cands: list[Path] = []
     if os.environ.get("LAYOUT_FORGE_PY"):
         cands.append(Path(os.environ["LAYOUT_FORGE_PY"]))
+    # ★ 顺序要害：**工作区外的不受限副本必须排在 `<项目>/.venv` 之前**。
+    #   工作区内的解释器进程带 Low 完整性标签，它拉起的 extracta 会崩在 PAD_DEF 视图
+    #   （rc=3221226505），R4/G6 整片假红 —— 本机实测：同一个脚本换个解释器就从 7 个
+    #   ERROR 降到 3 个真问题。本文件头注释与 geometry 套件的候选清单都写明「优先选
+    #   工作区外那个」，此前实现却把 .venv 放在前面，与设计意图相反（真 bug，非环境问题）。
     cands += [
-        ROOT / ".venv" / "Scripts" / "python.exe",
         UNCONFINED_PY,
+        ROOT / ".venv" / "Scripts" / "python.exe",
         LAYOUT_DIR / "layout-check-mcp" / ".venv" / "Scripts" / "python.exe",
         Path(sys.executable),
     ]
@@ -298,6 +414,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{s.name:<20} {s.rel}{req}")
             print(f"{'':<20} {s.note}")
         return 0
+
+    # 自身被沙箱压低（IL<Medium）时拒绝出分：这种进程拉起的 extracta 会崩，
+    # geometry 会整片假红（详见 _guard_confined 的 docstring 与文件头）。
+    # `--python` 显式指定时不拦 —— 用户点了名就按他的来，不偷偷改意图。
+    rc = _guard_confined(bool(args.python))
+    if rc is not None:
+        return rc
 
     selected = list(SUITES)
     if args.only:

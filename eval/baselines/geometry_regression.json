@@ -1,23 +1,21 @@
 {
-  "frozen_at": "2026-10-14T17:03:45",
+  "frozen_at": "2026-10-23T23:44:31",
   "schema_version": 2,
-  "interpreter": "C:\\Users\\ds245\\WorkBuddy\\Layout\\.workbuddy\\cache\\tools\\venv-unconfined\\Scripts\\python.exe",
+  "interpreter": "C:/Users/ds245/WorkBuddy/Layout/.workbuddy/cache/scratch/il_probe/pylite/python/python.exe",
   "inventory": {
     "golden_dra": 253,
     "golden_dir": "Data/PCB_Footprint",
     "template_dirs": 14,
     "template_pdf": 14,
     "template_dra": 14,
-    "specs": 5,
+    "specs": 6,
     "cases": 10,
-    "noise_files": [
-      "Data/PCB_Footprint/dfn1006_3_1x0d6x0d5_esd5324n.dra.lck"
-    ]
+    "noise_files": []
   },
   "runs": {
     "geometry": {
       "rc": 0,
-      "seconds": 0.4,
+      "seconds": 0.1,
       "timeout": false,
       "passed": 239,
       "total": 239,
@@ -26,7 +24,7 @@
     },
     "skill_syntax": {
       "rc": 0,
-      "seconds": 0.4,
+      "seconds": 0.1,
       "timeout": false,
       "passed": 222,
       "total": 222,
@@ -35,7 +33,7 @@
     },
     "conventions": {
       "rc": 0,
-      "seconds": 0.2,
+      "seconds": 0.1,
       "timeout": false,
       "passed": 35,
       "total": 35,
@@ -45,10 +43,10 @@
     "extracta": {
       "ok": true,
       "sample": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\3S48000163\\nb_xtal4_3d2x2d5x0d7.dra",
-      "cwd": "C:\\Users\\ds245\\AppData\\Local\\Temp\\extracta_probe_owlpjhnn",
-      "cdsroot": "D:\\Dev_tools\\Cadence_17.2\\Cadence\\Cadence_SPB_17.2-2016",
-      "extracta": "D:\\Dev_tools\\Cadence_17.2\\Cadence\\Cadence_SPB_17.2-2016\\tools\\bin\\extracta.exe",
-      "seconds": 0.3,
+      "cwd": "C:\\Users\\ds245\\AppData\\Local\\Temp\\extracta_probe_f7np9u45",
+      "cdsroot": "C:\\Software\\Cadence\\Cadence_SPB_17.2-2016",
+      "extracta": "C:\\Software\\Cadence\\Cadence_SPB_17.2-2016\\tools\\bin\\extracta.exe",
+      "seconds": 0.1,
       "rc": 0,
       "views": [
         {
@@ -81,33 +79,55 @@
       "healthy": true
     },
     "benchmark": {
-      "reused_from": "Tools\\log\\golden_benchmark\\stdout_20261014_unconfined.txt",
-      "seconds": null,
+      "rc": 2,
+      "seconds": 40.9,
       "timeout": false,
       "passed": null,
       "total": null,
       "failed": null,
-      "tail": "\u0000 \u0000 \u0000P\u0000A\u0000S\u0000S\u0000 \u00007\u0000 \u0000\\� \u0000W\u0000A\u0000R\u0000N\u0000 \u00000\u0000 \u0000\\� \u0000F\u0000A\u0000I\u0000L\u0000 \u00008\u00001\u0000 \u0000\\� \u0000vQ�N/\u0000�c�S1Y%� \u00001\u00008\u00002\u0000\n\u0000\n\u0000 \u0000 \u0000�O\u0016Y�N\b�\tg \u0000F\u0000A\u0000I\u0000L\u0000/\u0000W\u0000A\u0000R\u0000N\u0000 \u0000y�\t�\u001a�2\u00003\u00001\u0000 \u0000�N \u0000�! \u0000e\u0000x\u0000c\u0000e\u0000p\u0000t\u0000i\u0000o\u0000n\u0000s\u0000/\u0000\b�,{ \u00002\u0000 \u0000B\\ \u0000A\u0000I\u0000 \u0000\nY8h��eQ\t�\n\u0000\n\u0000 \u0000 \u0000\u0007c�~ \u0000e\u0000x\u0000a\u0000c\u0000t\u0000 \u0000}T-N\u001a�0\u0000/\u00002\u00005\u00003\u0000\n\u0000\n\u0000 \u0000 \u0000�bJT\u001a�C\u0000:\u0000\\\u0000U\u0000s\u0000e\u0000r\u0000s\u0000\\\u0000d\u0000s\u00002\u00004\u00005\u0000\\\u0000D\u0000o\u0000c\u0000u\u0000m\u0000e\u0000n\u0000t\u0000s\u0000\\\u0000W\u0000o\u0000r\u0000k\u0000_\u0000B\u0000m\u0000o\u0000r\u0000n\u0000\\\u0000L\u0000a\u0000y\u0000o\u0000u\u0000t\u0000\\\u0000l\u0000a\u0000y\u0000o\u0000u\u0000t\u0000-\u0000f\u0000o\u0000r\u0000g\u0000e\u0000-\u0000m\u0000c\u0000p\u0000\\\u0000T\u0000o\u0000o\u0000l\u0000s\u0000\\\u0000l\u0000o\u0000g\u0000\\\u0000g\u0000o\u0000l\u0000d\u0000e\u0000n\u0000_\u0000b\u0000e\u0000n\u0000c\u0000h\u0000m\u0000a\u0000r\u0000k\u0000\\\u0000b\u0000e\u0000n\u0000c\u0000h\u0000m\u0000a\u0000r\u0000k\u0000_\u0000s\u0000u\u0000m\u0000m\u0000a\u0000r\u0000y\u0000.\u0000c\u0000s\u0000v\u0000\n\u0000\n\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000=\u0000\n\u0000\n\u0000",
-      "pieces": null,
-      "pass": null,
-      "warn": null,
-      "fail": null,
-      "other_or_error": null,
-      "exceptions": null,
-      "exact": null,
-      "extract_errors": null,
-      "rc": 0,
+      "tail": "  [250/253] tvs_1x0d6x0d53_esd54231n.dra                 REVIEW_REQUIRED  P12/F0/W1/NA3  none\n  [251/253] tvs_1x0d6x0d5_esd5411n.dra                   FAIL  P11/F1/W1/NA3  none\n  [252/253] xtal2_3d2x1d5x0d9.dra                        REVIEW_REQUIRED  P14/F0/W1/NA2  none\n  [253/253] y_4p_smd3225.dra                             REVIEW_REQUIRED  P15/F0/W1/NA1  none\n\n================================================================\n  完成：253 件，用时 41s\n  PASS 7 ｜ WARN 0 ｜ FAIL 81 ｜ 其他/提取失败 183\n  例外件（有 FAIL/WARN 项）：230 件 → exceptions/（第 2 层 AI 复核输入）\n  指纹 exact 命中：0/253\n  报告：C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\Tools\\log\\golden_benchmark\\benchmark_summary.csv\n================================================================",
+      "pieces": 253,
+      "pass": 7,
+      "warn": 0,
+      "fail": 81,
+      "other_or_error": 183,
+      "exceptions": 230,
+      "exact": 0,
+      "extract_errors": 183,
       "csv_data": {
         "csv": "C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp/Tools/log/golden_benchmark/benchmark_summary.csv",
         "pieces": 253,
         "pass_rows": 7,
         "fail_rows": 81,
         "warn_rows": 0,
-        "empty_rows": 17,
+        "empty_rows": 18,
         "extract_errors": 17,
-        "exception_rows": 231,
+        "extract_error_files": [
+          "shape0d6x0d2_lu0d12.dra",
+          "shape0d6x0d2_ru0d12.dra",
+          "shape0d7x0d3_lu0d12.dra",
+          "shape0d7x0d3_ru0d12.dra",
+          "shape2d65x1d185_l.dra",
+          "shape2d65x1d185_l_sold.dra",
+          "shape2d65x1d185_r.dra",
+          "shape2d65x1d185_r_sold.dra",
+          "shape3d21x2d28_np.dra",
+          "shape_0d5x0d25_lu0d18.dra",
+          "shape_0d5x0d25_ru0d18.dra",
+          "shaper2d63x1d3.dra",
+          "shaper4d45x2d19.dra",
+          "shp39x36-sl.dra",
+          "shp39x36-sr.dra",
+          "shp43x40-sl.dra",
+          "shp43x40-sr.dra"
+        ],
+        "declared_unreadable_rows": 1,
+        "declared_unreadable_files": [
+          "NB_BGA1516_35x25x1d15_WCL.dra"
+        ],
+        "exception_rows": 230,
         "exact_rows": 0,
-        "match_none_rows": 236
+        "match_none_rows": 235
       }
     }
   }

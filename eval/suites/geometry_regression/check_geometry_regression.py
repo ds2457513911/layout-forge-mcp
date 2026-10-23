@@ -28,6 +28,17 @@ R4 的语义是「**不比基线差**」而不是「必须全 0」：金标准�
 （`extracta pins.txt 输出为空`），硬要求 0 会让闸门永远红着 ＝ 等于没有闸门。
 件数/提取失败/FAIL 任一退化 → ERROR；变好不会报错（要更新基线就 `--update`）。
 
+★ **R4 的已声明不可读（`DECLARED_UNREADABLE`，2026-10-23）**：声明制，和
+`check_architecture.py::DECLARED_EXCEPTIONS` 同一套思路 —— **仍然打印，但不计入提取失败**。
+准入条件两条，缺一不可：
+  1. 失败原因是**宿主 Cadence 版本能力**（不是解析器 bug、不是视图语法）；
+  2. 有 `extracta` 自己的原文报错作证据（不是"我猜它读不了"）。
+典型例：`NB_BGA1516_35x25x1d15_WCL.dra` 在基线冻结时（2026-10-14，extracta 取自
+已不存在的 `D:/Dev_tools/Cadence_17.2/…`）能读出 `P14/F0/W2/NA1`；换到本机
+`C:/Software/Cadence/Cadence_SPB_17.2-2016` 后同一份文件（mtime 未变）报
+`ERROR(SPMHOD-29): … Design was saved under a newer release` —— 属**环境迁移事实**，
+不是产品退化。**登记不等于豁免**：未登记的新失败照样红，且每一条都靠 "≥ 基线" 兜底。
+
 ★ **G4 的语义**：库目录必须是干净的 —— 里面只该有规格书、`.dra` 与配套的 `.pad`/`.psm`。
 2026-10-15 噪声名单扩到「运行痕迹 + 历史报告」后，G4 当场转红（三库共 145 个：110 `*.log` +
 9 个历史 `checklist_report_*.json` + 26 个 `allegro.jrl`/`master.tag` 之类）。**这是真发现**：
@@ -118,14 +129,35 @@ PROBE = Path(__file__).resolve().parent / "_extracta_probe.py"
 #: 对拍产物目录（R4 读这里的 benchmark_summary.csv）
 BENCHMARK_DIR = TOOLS / "log" / "golden_benchmark"
 
+#: R4 的**已声明不可读**（声明制：仍打印，但不计入提取失败）。准入条件见文件头。
+#: ★ 只收“宿主 Cadence 版本能力”造成的失败，且必须有 extracta 原文报错作证据；
+#:   解析器 bug / 视图语法 / 我猜它读不了 —— 一律不许登记。
+#: ★ 登记不等于豁免：未登记的新失败照样让 R4 红。
+#: ★ 清偿方向：换装能读该版本的 Cadence，或把这份资产重存为 17.2 可读，然后从这里删掉。
+DECLARED_UNREADABLE = [
+    {
+        "file": "NB_BGA1516_35x25x1d15_WCL.dra",
+        "reason": "本机 SPB 17.2-2016 无法读取高版本 .dra",
+        "evidence": "extracta: ERROR(SPMHOD-29): Unable to open design, Design was saved "
+                    "under a newer release and contains features not compatible with this "
+                    "version of software.",
+        "host": "C:\\Software\\Cadence\\Cadence_SPB_17.2-2016",
+        "declared_at": "2026-10-23",
+        "note": "基线冻结时（2026-10-14，extracta 取自已不存在的 D:\\Dev_tools\\Cadence_17.2\\…）"
+                "同一份文件（mtime 未变）可读出 P14/F0/W2/NA1 —— 属环境迁移，不是产品退化。",
+    },
+]
+
 #: 解释器探测顺序（除 --python / 环境变量外）
 #: ★ 项目 .venv 在“工作区内”时会被 DSH 沙箱限制 → extracta 会崩（见文件头"沙箱坑"）；
 #:   所以工作区外那份 venv 副本排在兄弟仓 .venv 之前（本机实测只有它 R4/G6 不假红）。
 UNCONFINED_PY = Path(os.environ.get("LAYOUT_FORGE_UNCONFINED_PY")
                      or r"C:\Users\ds245\WorkBuddy\Layout\.workbuddy\cache\tools\venv-unconfined\Scripts\python.exe")
 PY_CANDIDATES = [
-    ROOT / ".venv" / "Scripts" / "python.exe",
+    # ★ 不受限副本必须排在 `<项目>/.venv` 之前，理由见本文件头「解释器」第 4 条：
+    #   工作区内的解释器带 Low 完整性标签，extracta 会崩在 PAD_DEF（rc=3221226505）。
     UNCONFINED_PY,
+    ROOT / ".venv" / "Scripts" / "python.exe",
     LAYOUT_DIR / "layout-check-mcp" / ".venv" / "Scripts" / "python.exe",
 ]
 
@@ -152,15 +184,21 @@ def _noise_predicate():
     2026-10-15 preflight 新增 `NOISE_GLOBS`（`*.log` / `checklist_report_*.json` …）后，
     这里的判断**看不见新规则**，同一批目录同一个概念算出两个数（G4 报 26、preflight 报 145）。
     教训：复用常量 ≠ 复用规则。
+
+    2026-10-16：这里改用**路径级**的 `preflight.is_noise_path` —— 递归扫描时会走进
+    `<封装>/check_log/`，而里面的 `checklist_report_*.json` 是报告的合法归档位
+    （2026-10-16 约定：每个封装一个 check_log/，报告直接搬进去），不算 G4 噪声；
+    散放在封装目录根下的旧报告仍是噪声（S2）。
     """
     sys.path.insert(0, str(ROOT))
     from orchestration import preflight           # noqa: PLC0415
-    return preflight.is_noise
+    return preflight.is_noise_path
 
 
 def _noise_files(root: Path) -> list[Path]:
     is_noise = _noise_predicate()
-    return [p for p in sorted(root.rglob("*")) if p.is_file() and is_noise(p.name)]
+    return [p for p in sorted(root.rglob("*"))
+            if p.is_file() and is_noise(p.relative_to(root))]
 
 
 def _inventory() -> dict:
@@ -294,6 +332,11 @@ def _parse_benchmark_csv(path: Path) -> dict | None:
 
     conclusions = [(r.get("conclusion") or "").strip().upper() for r in rows]
     matches = [(r.get("spec_match") or "").strip().lower() for r in rows]
+    declared = {d["file"] for d in DECLARED_UNREADABLE}
+    bad = [(r.get("file") or "").strip() for r in rows
+           if (r.get("extract_error") or "").strip()]
+    declared_hit = [n for n in bad if n in declared]
+    undeclared_bad = [n for n in bad if n not in declared]
     return {
         "csv": path.as_posix(),
         "pieces": len(rows),
@@ -301,7 +344,12 @@ def _parse_benchmark_csv(path: Path) -> dict | None:
         "fail_rows": sum(1 for c in conclusions if c == "FAIL"),
         "warn_rows": sum(1 for c in conclusions if c == "WARN"),
         "empty_rows": sum(1 for c in conclusions if not c),
-        "extract_errors": sum(1 for r in rows if (r.get("extract_error") or "").strip()),
+        # ★ 提取失败只算「未声明」的：已声明不可读单列成 declared_unreadable_rows，
+        #   仍会打印出来（声明制不许静默），但不让闸门为环境迁移永远红着。
+        "extract_errors": len(undeclared_bad),
+        "extract_error_files": undeclared_bad,
+        "declared_unreadable_rows": len(declared_hit),
+        "declared_unreadable_files": declared_hit,
         "exception_rows": sum(1 for r in rows if _int(r, "fail") or _int(r, "warn")),
         "exact_rows": sum(1 for m in matches if m.startswith("exact")),
         "match_none_rows": sum(1 for m in matches if m == "none"),
@@ -471,6 +519,12 @@ def check(baseline: dict, current: dict, skip_benchmark: bool) -> list[dict]:
             _add(f, "R4", "error",
                  f"金标准件数从基线 {base_csv['pieces']} 变成 {cur_csv['pieces']}"
                  f"（少=库被动过；多=新入库，--update 冻结）")
+        # 已声明不可读：声明制 —— 仍然打印，但不算退化（准入条件见文件头）
+        if cur_csv.get("declared_unreadable_rows"):
+            names = "、".join(cur_csv["declared_unreadable_files"])
+            _add(f, "R4", "warn",
+                 f"{cur_csv['declared_unreadable_rows']} 件已声明不可读（不计入提取失败）：{names}"
+                 f" —— 属宿主 Cadence 版本能力，换装或重存后可删除声明")
         # 提取失败 / FAIL / 例外件：只许变好，不许变差
         for key, label in (("extract_errors", "提取失败件数"), ("fail_rows", "FAIL 件数"),
                            ("exception_rows", "例外件数")):
@@ -597,6 +651,7 @@ def main() -> int:
           f"FAIL {csv_data.get('fail_rows', b.get('fail'))} / "
           f"例外 {csv_data.get('exception_rows', b.get('exceptions'))} / "
           f"提取失败 {csv_data.get('extract_errors', b.get('extract_errors'))} / "
+          f"已声明不可读 {csv_data.get('declared_unreadable_rows', 0)} / "
           f"exact {csv_data.get('exact_rows')}  rc={b.get('rc')} {b.get('seconds', '')}s"
           + (f"  ← 复用 {b['reused_from']}" if b.get("reused_from") else ""))
     print(f"\n  ERROR {len(errors)} 项 / WARN {len(warns)} 项   （用时 {time.time() - t0:.0f}s）")
