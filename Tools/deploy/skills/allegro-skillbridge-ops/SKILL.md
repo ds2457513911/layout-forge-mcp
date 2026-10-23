@@ -7,64 +7,14 @@ metadata:
   eval_baseline: "eval/baselines/tool_contract.json（36 工具）+ geometry_regression.json（239/222/35/253 件） + spec_reading.json（92.5%）"
 description: |
   在 Cadence Allegro (SPB 17.2+) 上通过 SkillBridge 通道做自动化时的运维与排障技能。
-  解决九类高频硬骨头：(1) 判断某个 AXL/SKILL 函数「文档里有但运行时有吗」；
-  (2) SkillBridge 通道错位/卡死后的恢复与「让 Allegro 自己重启服务」；
-  (3) 避免调用会弹模态对话框的 API 把通道彻底搞死；
-  (4) 运行痕迹（.jrl/.log/master.tag）的落盘位置与归集、产物覆盖保护（别用 os.remove）；
-  (5) 从命令行/自动化环境启动 Allegro（启动依赖、管道挂死陷阱、GUI 进程不能跨命令驻留），
-  以及「后台挂住维持存活 / TaskStop 收回窗口即关闭」的完整生命周期管理（含孤儿 .lck 副作用）；
-  (6) ★ 产物落点错位：axlCompileSymbol / axlSaveDesign 写的是**工作目录**而非
-  图纸目录；getWorkingDir 读取、axlShell("cd") 改向、编译前断言；
-  以及「编译成功判据必须以磁盘产物证据为准」（axlCompileSymbol 实测恒返 nil）。
-  (7) ★ 任务收尾即关闭 Allegro（**默认动作，不是可选项**）：四条关闭路径
-  （stop_allegro.py / axlShell("exit") / taskkill / TaskStop）的取舍，
-  ★ 且「关进程」与「收回后台挂住的 shell」是**两件独立的事、必须都做**
-  （漏收后果：Allegro 已死但后台任务一直空转，界面挂着"运行中"），
-  「socket 被 reset ≠ 失败」与「tasklist 输出是 GBK」两个实测坑。
-  (8) ★ 不用 Allegro 也能读 .dra：extracta + 视图文件；`CLASS = "..."` 是
-  **过滤器**会造成静默缺口（几何视图挡掉 REF DES 位号且不报错）、
-  必须分层取数（几何一路 / 位号一路）。
-  (9) ★ 尺寸取值口径：规格书尺寸「图上标注 → 取标注值 / 需查表 → 取 MAX」，
-  命名永远用中值；已废除「recommended → 中值 / 没标 → 中值+公差」旧口径（5.4.3）。
-  (10) ★ 位号口径以**人工模板库**为准：`#REF` @ `REF DES/ASSEMBLY_TOP`、
-  居中于本体、LEFT 对齐（14/14 模板实测，5.4.2）。
-  (11) ★ 库落位：`.dra` 与它的 `.pad` **同目录即可，不需要挂 padpath**
-  —— `.dra` 自带 padstack 副本（三种隔离环境实测一致），5.4.4。
-  (12) ★★★ 图元被**静默丢弃**：`drawing extents` 是硬边界，
-  **矩形与线段都受约束**，越界时 `axlDBCreateRectangle` / `axlDBCreateLine`
-  **返回 nil 且不报错、不弹框** —— 表现为"几十步里只挂 1 步"。
-  以及配套陷阱：空图纸时 `axlDBGetDesign` 返回对象上的 `bBox` 属性，
-  给的是 **设计 extents（模板页框）而不是内容框**。见第十五节。
-  触发词：Allegro、SkillBridge、axl 函数探测、通道错位、pyKillServer、
-  pyStartServer、回复积压、evaluating SKILL、ilinit、AXL API 存在性、
-  allegro.jrl、编译日志、os.remove 丢产物、日志归集、
-  命令行启动 Allegro、start_allegro、allegro.exe 启动失败、SIGTERM 挂死、
-  关闭 Allegro、回收窗口、TaskStop、dra.lck 孤儿锁、命令边界回收、
-  axlCompileSymbol 返回 nil、编译成功判据、Create symbol completed、
-  getWorkingDir、工作目录、psm 落点、产物凭空消失、export_psm 误判失败、
-  stop_allegro、任务收尾关闭、任务结束即关闭、axlShell exit、进程收尾干净、
-  后台任务没关、后台任务运行中、后台挂住没收、定时清后台任务、收尾漏了、
-  extracta、视图文件、footprint_views、FULL_GEOMETRY、CLASS 过滤器、
-  静默缺口、位号 refdes、REF DES 层、#REF、SPMHCS-1、分层取数、
-  位号放哪层、ASSEMBLY_TOP、位号文本、justify、make_axlTextOrientation、
-  padpath、psmpath、pad 同目录、影子库、库落位、padstack 找不到、
-  verify_colocation、dra 自带 padstack、
-  尺寸口径、图上标注、查表取 MAX、resolve_dim、dim_source、dim_tables、
-  中值口径、公差、标注值、封装实体尺寸、Assembly 尺寸、Place_Bound 尺寸、
-  图元消失、图元没画出来、静默返回 nil、只挂 1 步、extents、绘图范围、
-  outside the new extents、axlDBCreateRectangle 返回 nil、Place_Bound 画不出、
-  axlDBGetDesign 的 bBox、模板页框、空图纸 bBox、页框当内容框。
-  (13) ★ MCP 服务层（36 个工具）+ spec 库：工具链怎么配合本技能、哪些参数 /
-  默认落点与既有规则冲突；同封装零读图复用与建完存档；扫描件定位兜底。
-  触发词：MCP、layout-forge-mcp、solve_footprint_geometry、extra_spec、
-  参数透传、install_shadow_library、归档口径、new_symbol_drawing、change_drawing_extents、
-  spec 库、save_spec、load_spec、find_spec、零读图、几何指纹、locate 失配、
-  page 为 null、扫描件、文本层为空、contact sheet、缩略图拼版、
-  ★ 判形态、pdf_probe、render_pdf_region、measure_region、CAD 矢量图、读尺寸数字。
-  (14) ★ 引脚号字号不一致（随脚号变大）：`make_axlPinText` 简化写法的坑，
-  见 drawing-ops.md 5.4.2b。触发词：引脚号字号、pin number 大小不一、
-  text block、make_axlPinText、PIN_NUMBER。
-agent_created: true
+  覆盖：AXL/SKILL 函数「文档里有但运行时有没有」、通道错位/卡死后的恢复、
+  会弹模态框把通道搞死的 API 清单、Allegro 的启动与收尾生命周期（收尾必须
+  关进程 + 收回后台 shell 两件都做）、产物落点错位与「编译成功只认磁盘证据」、
+  不用 Allegro 也能读 .dra（extracta + 视图文件）、图元被 extents 静默丢弃、
+  尺寸/位号/库落位口径，以及 layout-forge-mcp 的 36 个工具怎么配合本技能。
+  只要任务涉及 Allegro 自动化、axl 函数、SkillBridge 通道、.dra/.psm 产物、
+  启动/关闭 Allegro、建封装或归档封装，就先读本技能，即使对方没提 "SkillBridge"。
+
 ---
 
 # Allegro SkillBridge 运维与 API 探测
@@ -248,6 +198,13 @@ install_shadow_library(symbol_name="<符号名>", pn="<符号名>",
 
 它还**不做**的两件事（需手工补）：① 规格书 PDF 移入该目录；② 写 `README.md`。
 细节见 `references/mcp-tools.md` 第 2 节 + `compile-psm.md` 第十三节。
+
+**★ check_log 归档（2026-10-16 约定）**：每个封装目录各建一个 `<封装目录>/check_log/`，
+之后的检查报告 JSON（`checklist_report_*.json`）由 `check_footprint_by_rules`
+**自动写进这里**（不用传 `output_dir`）；Allegro 运行日志（`.jrl`/`.log`/`master.tag`）
+不要留在里面，用 `Tools/collect_logs.py` 收进项目 `Tools/log/`。
+预检与 G4 噪声扫描都**豁免** `check_log/` 里的报告（合法归档位）；
+散放在封装目录根下的旧报告仍是噪声 —— 遇到就搬进 `check_log/`。
 
 ### 3.3 以下三件不走 MCP（理由各异，不是"MCP 万能"）
 

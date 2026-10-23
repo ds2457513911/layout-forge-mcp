@@ -1,6 +1,10 @@
 # allegro-skillbridge-ops —— 技能源文件目录
 
-> 最后更新：**2026-10-08**（SKILL.md 拆分重构：body 从 38,946 → **3,595** 计量字符，压到 **9.2%**）
+> 最后更新：**2026-10-16**（SKILL.md §3.2 新增 **check_log 归档约定**：
+> 每个封装目录各建 `<封装目录>/check_log/`，`check_footprint_by_rules` 的报告 JSON
+> 自动写进去（`output_dir` 默认不传）；预检与 G4 豁免 check_log/ 里的报告；
+> `references/mcp-tools.md` 的 `check_footprint_by_rules` 行同步。
+> 此前 2026-10-08：SKILL.md 拆分重构，body 从 38,946 → **3,595** 计量字符）
 >
 > ★ **本文件是维护者文档，不参与技能执行**，也**故意没有被 SKILL.md 引用** ——
 > 它不会进入任何一次对话的上下文。只有人（或未来的我）要**改这个技能**时才读它。

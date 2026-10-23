@@ -79,3 +79,18 @@ Thumbs.db
 !Tools/selfcheck_conventions.py
 !Tools/compare_extracta.py
 !Tools/testdata/
+
+# ---------- SKILL 真源的分层参考文件（2026-10-23） ----------
+# 按 skill-creator 的 progressive disclosure 标准，footprint 技能把 SKILL.md 拆成了
+# 主干 + references/*.md。这些是**技能真源的一部分**，必须进 git —— 否则跨机重建
+# 只会得到 330 行的骨架 SKILL.md，6 份分层参考全部丢失（部署到三落点也带不过去）。
+#
+# ★ 坑：光写 `!Tools/deploy/skills/.../references/*.md` **不管用**。git 的规则是
+#   「父目录一旦被排除，里面的文件无法再被重新包含」，而上面的 `Tools/*` 把
+#   `Tools/deploy` 这个目录本身排除了，于是 git 根本不往里看，`!` 例外全部失效
+#   （实测 `git check-ignore -v` 仍报 .gitignore:58 `Tools/*`）。
+#   所以必须先把 `Tools/deploy/` 这个目录本身重新包含进来，例外才有机会生效。
+# 代价是 `Tools/deploy` 内部默认不再被 `Tools/*` 覆盖，因此下面显式补回两条不该进库的：
+!Tools/deploy/
+Tools/deploy/.deploy_manifest.json
+Tools/deploy/__pycache__/

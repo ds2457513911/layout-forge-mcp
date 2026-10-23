@@ -8,6 +8,10 @@ description: |
   naming convention, pad dimensions, spacing & origin, pin number, place-bound,
   assembly/silkscreen. Use when the user asks to verify footprint correctness,
   check pad dimensions, compare datasheet vs Allegro, or validate land pattern.
+  Also use for golden-standard batch benchmarking / rule-library calibration
+  ("金标准批量学习"、"批量对拍"、"校准规则库"), and whenever the user hands over a
+  footprint folder and asks whether it was built right — even if they never say
+  the word "check".
 license: MIT
 compatibility: >
   Requires Python 3.10+, fastmcp, skillbridge, PyMuPDF, pdfplumber, and the
@@ -43,14 +47,18 @@ requires-mcp-servers:
 
 检查 PCB 封装是否符合设计规范（datasheet 与 Allegro 封装是否一致）。
 
-## 触发条件
+## references 索引（细节按需读，不要一次读完）
 
-当用户提到以下意图时启用：
+正文只放工作流主干和「违反了也看不出来」的判据；下面 6 份细节**按症状查**：
 
-- “检查封装”、“验证 footprint”、“对比 datasheet 和 Allegro”
-- “焊盘尺寸对不对”、“land pattern 公差”
-- 给出一个封装文件夹路径，要求检查
-- “金标准批量学习”、“批量对拍”、“校准规则库” → 走模式 C
+| 文件 | 什么时候读 | grep 关键词 |
+|---|---|---|
+| `references/padstack-conventions.md` | **建或检查 THT 件之前**（层清单 / drill 实义 / 命名语法） | `OVAL_SLOT` `no_check` `BPM` `环宽` |
+| `references/image-reading-rules.md` | **每次要读规格书数字之前**（分辨率 / 交叉校验 / 公差 / schema） | `dpi` `render_pdf_region` `unconsumed` `SHAPE` |
+| `references/naming-pitfalls.md` | **做第 5 步语义检查之前**（四个会得出相反结论的口径） | `中值` `Place_Bound` `TOP VIEW` `丝印间距` |
+| `references/report-sample.md` | 收到 `markdown` 想核对结构是否完整时 | `6 大项` `⚠️` `结论行` |
+| `references/golden-learning.md` | 只在做金标准批量对拍 / 规则库校准时（模式 C） | `四层漏斗` `extracta` `裁定` |
+| `references/client-config.md` | 新机器首次接入 / 客户端"工具全都不见了" | `.venv` `mcpServers` `uv sync` |
 
 ## 核心原则
 
@@ -76,69 +84,12 @@ requires-mcp-servers:
 **通常是阻焊开窗尺寸**，比铜箔大 0.1mm，会导致误判。
 因此**禁止使用 `read_allegro_footprint`**，必须用 `check_footprint_by_rules`。
 
-### TH 件 padstack 层清单（2026-10-12 LYDPJ 事故新增，2026-10-13 二次修正）
+### TH 件 padstack 层清单
 
-建或检查**通孔插件（mount=tht）**封装时，padstack 必须满足
-（真源 `knowledge/conventions.json`，由 253 件金标准挖掘+裁定产生；
-check 与 create 读同一份约定）：
-
-1. **双面铜箔**：`ETCH/TOP` + `ETCH/BOTTOM` —— 缺 BOTTOM = 双面板底面无铜，无法焊接
-2. **双面阻焊**：`SOLDERMASK_TOP` + `SOLDERMASK_BOTTOM`（单边外扩 0.05）
-3. **钢网**：顶面 `PASTEMASK_TOP` = 焊盘尺寸；底面无（25/26 金标准口径）。
-   ~~"TH 不放钢网"~~ 旧口径作废（2026-10-13 修正）。
-   **家族例外**：个别金标准（LYDPJ/audio 族）自带 `BPM=焊盘尺寸`——须 spec
-   显式声明 `paste_bottom: true`，引擎放行并出 WARN 提示（2.10），不静默。
-   ★ 构造 API 层名陷阱：内层要传 `DEFAULT_INTERNAL`（db/extracta 显示为
-   `internal_pad_def`）；直接传视图名会被 no_check **静默忽略**（缺内层焊盘）。
-   另：pad 层 figure 名会被 API 按 figureSize 方向**自动改写**
-   （OBLONG_X+竖尺寸→OBLONG_Y，no_check 不报）——金标准 Editor 手工路径
-   才能保留 OBLONG_X+竖尺寸；形状/尺寸一致，仅名字不同，验收对拍时
-   此列差异需单独向工程师说明，不可当作"全字段一致"。
-4. **DRILL 实义是生死线（四次静默陷阱实锤）**：
-   - **oblong 槽孔必须用 `?holeType 'OVAL_SLOT`**（第 4 课，2026-10-13 工程师
-     否决第 3 版）：合法 holeType 只有 `CIRCLE_DRILL / SQUARE_DRILL /
-     OVAL_SLOT / RECTANGLE_SLOT`（官方 axlDBCreatePadStack.txt）——
-     `'OBLONG_DRILL` 不在列表里，被**静默回落成 CIRCLE_DRILL**：
-     尺寸/figure 全对、`.pad` 仍显示 through，但 Padstack Editor 显示
-     **Thru Pin 而非 Slot**。正确槽孔写法（三变体实验对拍金标准通过）：
-     `?holeType 'OVAL_SLOT ?plating ?slotSize {宽}:{长}
-     ?figure 'OBLONG_Y ?figureSize {宽}:{长}`（本地帧，X宽 Y长；
-     slotSize 反序会变 OBLONG_X 横槽）。
-   - 普通异形钻孔（`*_DRILL`）是**三件套**，缺一都被 `no_check=t` 静默零化：
-     `?drillDiameter {槽宽=min(size)}` + `?figure 'OBLONG_Y` +
-     `?figureSize {宽}:{长}`。漏 `?figure` → 丢整个 drill（PadType: smd）；
-     figure 写 `'OBLONG`（非法名，合法只有 `OBLONG_X`/`OBLONG_Y`）→
-     零化 figure/尺寸；漏 `?drillDiameter` → 同样全零
-     （`.pad` 仍显示 `PadType: through`！holeType 残留会骗人）。
-   - 金标准口径：本地竖孔 + pin 旋转 90° → 板面横槽；槽型 OVAL SLOT；
-     环宽标准 0.3/边（紧凑 0.2 仅高密度 type-c）
-   - **drillChar（钻头表字符）是设计级数据，不照抄不强制**（2026-10-13 定性）：
-     extracta DRILL 行的 drillChar（金标准=OA）是 NC 钻头表引用，**随图纸变**
-     （语料实锤：同族槽孔有空/OA/if，圆孔=H），不是 padstack 构造约定——
-     builder 不设置、规则不校验；验收对拍时该列差异属设计级预期差异，
-     与 figure 名 X/Y 差异一样需单独说明，不得当作"全字段一致"。
-   - **验证口诀：`.pad` 的 PadType 字符串不可信，必须 extracta 回读 DRILL 行
-     （size>0 + figure 非空 + holeType 列）**——规则 2.7 已内置 holeType 校验
-     （oblong 孔 holeType≠OVAL SLOT 即 FAIL）
-5. **命名语法**：`POB{孔长}X{孔短}HOB{盘长}X{盘短}`（长轴在前、板面尺寸序）；
-   `NP` 前缀 = 非金属化机械孔（环宽豁免）；`OS{X|Y}{off}` = 槽偏移后缀
-6. 检查兜底：规则 **2.7（层完整性+钻孔实义）/ 2.8（环宽）/ 2.9（命名）/ 2.10（钢网）**
-   FAIL 禁止交付；builder 出厂自检（extracta 回读）FAIL 同样不 success。
-7. **Package Height Max 必设**（2026-10-14 LYDPJ 复核第 1 条错误）：
-   Editor 的 Setup→Areas→Package Height 本质 = 给 PLACE_BOUND shape 挂
-   `PACKAGE_HEIGHT_MAX` 属性。`build_footprint_from_params(package_height=…)`
-   已内置原子挂接（值取规格书侧视图「板面以上本体高」）。
-   API 实锤（探针三轮 + 官方示例 axldbctprop.il）：
-   - 函数名是 **`axlDBAddProp`**（`axlDBAddProperty` 在 17.2 不存在）；
-   - 属性形态 = flat list：`axlDBAddProp(dbid list("NAME" value))`；
-   - ★ **回读必须 `axlDBGetProperties(dbid)`** —— `dbid->PROP` 箭头只暴露
-     系统属性，用户属性读不到也不出现在 `->?`（挂成功也会被误判失败）；
-   - 值落库形态 `'4.2 MM'`（字符串带单位）；extracta 回读**看不到**属性，
-     验收时 Package Height 以挂接回读/Editor 人工确认为准。
-8. **paste_bottom 是 per-padstack 键**（2026-10-14 LYDPJ v5 实锤）：
-   金标准可能主 padstack 带 BPM、extra padstack 不带——在 padstack 字典里
-   逐个声明，禁止 spec 级全局键（会把 extras 一起挂上 BPM）；engine 派生
-   结果回填该键保证二次 apply_conventions 幂等。
+建或检查**通孔插件（mount=tht）**封装时，padstack 层清单是生死线 ——
+2026-10-12 LYDPJ 事故（零 drill 全链路绿灯被工程师否决）就出在这里。
+双面铜箔 / 双面阻焊 / 钢网 / DRILL 实义四类静默陷阱 / 命名语法 / paste_bottom 键，
+完整清单见 `references/padstack-conventions.md`，**建或检查 THT 件之前必读**。
 
 ### 报告渲染（重要）
 
@@ -206,79 +157,15 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
 
 ---
 
-## 模式 C：金标准批量学习（四层漏斗，2026-10-13 扩容）
+## 模式 C：金标准批量学习（四层漏斗）
 
 **适用场景**：手里有一个"已知正确"的金标准封装库（如 `Data\PCB_Footprint`，几百个 .dra），
-用它全量对拍检查器，达到四个目的：① **挖掘构造规约（第 0 层）** ② 校准规则阈值
+用它全量对拍检查器：① 挖掘构造规约（第 0 层）② 校准规则阈值
 ③ 沉淀库惯例裁定 ④ 验证两条数据源一致。
-**不需要 PDF、不需要 AI 读图**——第 0/1 层数值收割与对拍全部 0 token。
+**不需要 PDF、不需要 AI 读图** —— 第 0/1 层数值收割与对拍全部 0 token。
 
-> ★ 为什么扩成四层：三层漏斗的学习对象是"规则检查输出"，规则没覆盖的构造事实
-> （drill 实义、环宽、命名、paste）等于不存在——LYDPJ 零 drill 全链路绿灯被
-> 工程师否决的根因。第 0 层直接从图纸事实挖约定，check/create 共用一份
-> `knowledge/conventions.json`（单一真源，2026-10-13 架构裁定）。
-
-### C0 第 0 层：构造规约挖掘（先于一切对拍）
-
-| 步骤 | 做什么 | 产出 |
-|---|---|---|
-| 收割 | `Tools/mine_conventions.py`（全量 extracta，cwd=临时目录不污染根；原始 pads.txt 逐件归档 `Tools/log/conventions_raw/`） | `Tools/log/conventions_padstacks.json` 逐件事实 + 原始 dump 归档 |
-| 聚合 | `Tools/mine_conventions.py --reaggregate`（调语法/阈值后秒级重算，不必重跑收割） | `knowledge/conventions.json`（带支持度）+ `docs/conventions_report.md` |
-| 列守卫 | 聚合时对归档 dump 做 27 列全普查（2026-10-13 起） | "未消费且未豁免"的非空列显名进报告——新字段/schema 漂移必须人工裁定，不可能静默丢失 |
-| 裁定 | 支持度不收敛的参数分组裁定（环宽 0.3 标准/0.2 紧凑、NP 豁免、命名变体） | 裁定写进 miner 的 `ADJUDICATED` 常量 + `save_case` 案例 |
-| 接线 | builder `convention_engine.apply_conventions` 派生 / checker 2.7-2.10 校验 / 出厂自检 `verify_built_footprint` | 一份约定三处消费（drillChar 例外：设计级钻头表字符，report-only 不强制） |
-
-### C1 数值对拍漏斗（严格按层推进，不得跳层）
-
-| 层 | 做什么 | 怎么做 | 产出 |
-|---|---|---|---|
-| **第 1 层** | 离线全量对拍 | `Tools/benchmark_golden.py`（参数 `--src/--out/--only/--limit`），内部强制 `LAYOUT_CHECK_FORCE_SOURCE=extracta` 单源，不碰 Allegro | `Tools/log/golden_benchmark/`：`benchmark_report.json` + `exceptions/` 逐件例外；退出码 0=全过 / 1=参数错 / 2=有例外 |
-| **第 2 层** | AI 例外裁定 | 只读 `exceptions/`，按「规则×原因」**分组**裁定（见 C3） | 机器可修的改代码/阈值；惯例类写 `save_case` 分组案例 |
-| **第 3 层** | 实机抽样对拍 | 启动 Allegro（`Tools/start_allegro.cmd`），强制 `LAYOUT_CHECK_FORCE_SOURCE=skillbridge` 抽 2~3 件，与第 1 层 extracta 结果**逐规则 diff** | 两路一致性结论；发现不一致 = 单路伪影，修 reader 后全库重跑 |
-
-**第 3 层不可省**：2026-10-12 实锤——extracta 路径不处理 pin 旋转，侧边 pin bbox 宽高反 90°，
-第 1/2 层把 26 件重叠**误裁成"真实设计"**，第 3 层实机对拍才证伪。单靠离线全量对拍发现不了单路伪影。
-
-### C2 数据源坑（253 件实锤，改 reader 前先对照）
-
-- **图纸单位可能是 mil**：extracta / skillbridge 两路都必须归一 mm
-  （`_normalize_result_units`），`units_raw` 保留原值。
-- **pin bbox 必须 etch 铜箔优先**：阻焊/钢网比铜箔大，拿它们推 bbox 会虚胖，
-  3.3 重叠检查成片假 FAIL。
-- **extracta 必须处理 pin 旋转**：视图加 `PIN_ROTATION` 字段（实测合法），
-  90°/270° 时宽高互换，否则侧边 pin bbox 反 90°。
-- **阈值判定加容差**：范围判定加 eps=0.005 消浮点压线；重叠判定加 0.05mm²
-  消 bbox 擦边；覆盖检查加 0.1mm 内缩。
-
-### C3 第 2 层裁定纪律
-
-1. **先分"机器可修"与"惯例类"**：
-   - 机器可修（改 `rule_checker.py` / `checker_rules.json`）：规则逻辑错、
-     缺 NA 口径（如 chip/≤3 脚无丝印→NA、npth/pth 机械件无 assembly→NA、
-     place_bound 零面积点→NA）、阈值需容差。
-   - 惯例类（不改代码，写案例）：库历史命名/命名不编码 etch/外扩离散等，
-     用 `save_case` 按「规则×原因」**分组**写 `GOLDEN-CONV-*` 案例
-     （`verdict`: false_positive / review_note / keep_fail / mixed），
-     **不逐件写**，每组给 affected 数量 + 例举件名 + 证据数值。
-2. **裁定必须给证据**：件名 + 实测数值 + 原因，禁止"看起来合理"式裁定。
-3. **每改一轮必须重跑全量对拍验证**：警惕 PASS 不升反降——NA 口径放宽松会让
-   REVIEW_REQUIRED 激增，逐层排查后再收。
-4. **裁定可能被第 3 层证伪**：发现单路伪影后，回头修正已入库的案例
-   （改 findings.reason / affected / verdict 并注明修正依据）。
-5. **金标准库的三条已知惯例**（新库对拍前先想到）：padstack 命名不编码 etch 尺寸、
-   阻焊外扩惯例 0.08mm 但离散（0~0.076 均有）、chip 类不画丝印、
-   assembly 只画外框（min_elements=1）。
-
-### C4 收尾
-
-- 重跑 `Tools/selfcheck_geometry.py`（239 项）+ `Tools/selfcheck_skill_syntax.py`（222 项）
-  + `Tools/selfcheck_conventions.py`（约定链路：数据管道契约 + 消费覆盖率）回归。
-- **验收对拍强制工具化**：声明「与金标准一致」必须附
-  `Tools/compare_extracta.py <金标准dump目录> <重建dump目录> --ignore-col 13`
-  的完整输出（逐列 diff，非零退出码即未通过）；**禁止肉眼比对后手写"一致"**
-  （holeType 差异曾在输出里被肉眼放过）。忽略列须逐列说明理由。
-- commit 顺序：代码修复 → 案例库 → （第 3 层）案例修正，分开提交便于回溯。
-- **Allegro 用完必须按 `allegro-skillbridge-ops` 规矩关闭**（`Tools/stop_allegro.py`）。
+四层漏斗的每一步命令、数据源坑（253 件实锤）、第 2 层裁定纪律、收尾强制工具化的对拍要求，
+全在 `references/golden-learning.md`。**只在做金标准批量对拍/校准时读。**
 
 ---
 
@@ -333,34 +220,14 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
 
 #### 提取规则
 
-- **★ 分辨率铁律（2026-09-29 实测踩中）**：**禁止用整页低分辨率图读数字**。
-  实测同一份规格书（3S48000163 p5 LAND PATTERN）：
-  - 200 dpi 整页渲染 → 把纵向间隙 `0.5` 读成了 `0.7`（**读错**）
-  - 450 dpi **区域裁剪放大** → 读对 `1.2 | 0.5 | 1.2`
-  正确做法：先定位区域 → 用 MCP 工具 `render_pdf_region(pdf_file_path, page, rect, dpi)` **裁到该区域 + 提高 dpi（≥400）** → 再读数。
-  （旧写法"用 PyMuPDF `clip`"已废止：手写解析与禁止条 5 冲突，且 `render_pdf_page` 固定 150 dpi、做不到区域裁剪。）
-- **★ 交叉校验（读完之后必做，至少两条）**：
-  1. **图纸内自洽**：相邻标注求和是否等于总尺寸（如 `1.2 + 0.5 + 1.2` 应等于标注的总高）
-  2. **与既有产物比对**：同名件若已有 `.dra` / 历史 `checklist_report_*.json`（报告默认落在图纸子目录，历史归档在项目 `Tools/log/`），用它的实测值反查本次读数
-  3. 只有"数值范围守门"（0.2~5 mm）**挡不住** 0.5↔0.7 这类量级相近的误读，别拿它当保险
-- 图片可能旋转 90 度，先在心里旋转再读数
-- 只读 **land pattern / recommended pad / 推荐焊盘** 区域，不读器件外形尺寸
-- 区分"器件尺寸"（3.2×2.5 是器件本体）和"焊盘尺寸"（1.4×1.2 是铜箔）——**只要焊盘尺寸**
-- pin 号必须是整数，不要输出 "1" 或 1.0
-- 单位统一 mm；mil 换算：1 mil = 0.0254 mm
-- spacing_x / spacing_y 是焊盘中心间距，无标注填 null
-- 数值合理性自检：单个焊盘通常 0.2~5mm；小于 0.1 或大于 10 肯定误读
-- 图纸模糊 → note 里说明，不编造
+**分辨率铁律**：禁止用整页低分辨率图读数字 —— 200 dpi 整页曾把纵向间隙 `0.5` 读成 `0.7`，
+450 dpi 区域裁剪才对。正确做法：先定位区域 → `render_pdf_region(rect, dpi≥400)` → 再读数。
 
-#### 公差提取规则
+读完之后**必须**做至少两条交叉校验（图纸内自洽 / 与既有产物比对），
+并遵守公差提取与输出 schema 的完整规则（含 `unconsumed` spec 守卫、
+SHAPE 型自绘轮廓焊盘的 0.2 WARN 口径）—— 见 `references/image-reading-rules.md`。
 
-- 图纸写 `0.30±0.03` → tolerance = `{"min": -0.03, "max": 0.03}`
-- 图纸写 `0.30 +0.03/-0.01` → tolerance = `{"min": -0.01, "max": 0.03}`
-- 图纸只写名义值（如 `1.4`）→ 该维度 tolerance 填 null
-- 公差区域模糊 → 填 null，note 里说明
-- **图纸没标公差 ≠ 数据不可用**，正常提取名义值
-
-#### 输出格式
+**输出格式**（`theoretical_payload` 的 schema，`validate_land_pattern_json` 会校验）：
 
     {
       "unit": "mm",
@@ -376,21 +243,6 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
       "unconsumed": [],
       "note": ""
     }
-
-**★ `unconsumed`（spec 守卫，2026-10-13 起）**：规格书里看到、但上面
-schema 没有字段承载的约束（如安装扭矩、平面度、非常规公差基准、
-特殊镀层要求），**必须**逐条声明在这里（`{"item": 名称, "value": 值,
-"note": 说明}`），禁止静默丢弃。`validate_land_pattern_json` 会校验格式，
-检查器把每条作为 WARN 打进报告（0.1 spec 守卫）供工程师裁定——
-忽略可以，忽略而不告诉你不行。没有就留空数组。
-
-**★ SHAPE 型焊盘（0.2 显名，2026-10-13 建模）**：读图或 extracta 里
-`figure_name='SHAPE'` 的焊盘是**自绘轮廓**（如开口焊盘
-JOPEN25X30_S-L-P），工具只拿得到包围盒、轮廓几何未建模——检查器
-自动出 0.2 WARN，报告解读时这类件的形状类目测项（轮廓与规格书
-一致性）必须提示人工复核，不得宣称"形状已验证"。喂
-`solve_footprint_geometry` 的 spec 也不接受未知键（builder 未知键
-守卫会 WARN 显名）。
 
 ### 第 4 步：提取 .dra 原始数据（供语义检查用）
 
@@ -432,38 +284,13 @@ JOPEN25X30_S-L-P），工具只拿得到包围盒、轮廓几何未建模——�
 
 **注意**：datasheet 没写的维度填 null，不要编造。
 
-**★ 四个易误判的口径（2026-09-29 实测实证，务必先读）**
+**★ 四个易误判的口径（实测实证，务必先读）**
 
-1. **命名用「中值」、画实体用「最大值」** —— 两者**允许差一个公差**。
-
-   | 项 | 命名里写的 | 实体 / assembly 实测 |
-   |---|---|---|
-   | 3S48000163 本体 | `3D2X2D5X0D7` = 3.2 × 2.5 × 0.7（**中值**）| 3.2 × 2.5（该件金标准也用了中值）|
-   | 若严格按规范画实体 | 同上（中值）| 应为 **3.3 × 2.6**（= 3.2+0.1 / 2.5+0.1）|
-
-   → 拿命名值去比 assembly 实体，遇到本体公差 ±0.1 的件会**误判为不一致**。
-     正确口径：**命名 ↔ 中值**、**实体 ↔ 最大值**，分别比。
-
-2. **`Place_Bound` 的外扩基准是「器件本体」，不是「焊盘阵列」。**
-   3S48000163：本体 3.2×2.5 + 单边 0.35 → **3.9 × 3.2** ✓
-   若误按焊盘阵列（含阻焊 3.7×3.0）算会得 4.4 × 3.8 ✗。
-   ★ **连接器类金标准常是"非对称外扩"**（LYDPJ：左 1.90 / 右 1.01 /
-   上 1.90 / 下 1.95，2026-10-14 复核第 2 条错误）——「本体+均匀外扩」
-   推导必错；有金标准时**显式声明金标准 rect**（`place_bound` 显式传参），
-   没有金标准才用推导值。读图时本体宽高也要按 TOP VIEW 标注取
-   （LYDPJ 教训：12.20×6.70 被误读成 12.00×6.00，"宽 6"直接进了绿框）。
-
-3. **丝印间距：规范 vs 实物有落差。**
-   [规范] 要求丝印与焊盘间距 ≥ 0.20 mm，但金标准实物只有 **0.06 mm**
-   （检查器 6.6 只卡 `> 0`）。遇到 WARN 而非 FAIL 时**不必当缺陷** ——
-   这是"本体小于焊盘跨距"的封装（本体 3.2×2.5 vs 焊盘跨距 3.7×3.0）的必然结果：
-   丝印只能贴焊盘外缘画。
-
-4. **pin 编号方向必须看 datasheet 的 TOP VIEW。**
-   4-pad 方阵常见排布是**逆时针、`#1` 在左下**
-   （3S48000163 规格书实测：#1 左下 / #2 右下 / #3 右上 / #4 左上）。
-   凭"左上角是 1 脚"的直觉去比，会**把方向反了的封装判成正确** ——
-   这类错误会直接导致贴片反向、整批报废。
+命名用中值 / 实体用最大值 → 比 assembly 实体时差一个公差是**正常**的；
+`Place_Bound` 外扩基准是**器件本体**不是焊盘阵列，连接器类的非对称外扩必须显式传 rect；
+丝印 0.06 vs 规范 0.20 的落差遇 WARN 不必当缺陷；
+pin 编号方向必须看 datasheet TOP VIEW（凭直觉会把反了的封装判成正确 → 贴片反向、整批报废）。
+四条**完整推论与实测数值**见 `references/naming-pitfalls.md`。
 
 #### 5.2 pin number 语义检查
 
@@ -532,6 +359,10 @@ JOPEN25X30_S-L-P），工具只拿得到包围盒、轮廓几何未建模——�
 - `semantic_result` = 第 5.4 步的 semantic_result
 - `save_report` = `True`（默认，可不传）
 - `compact` = `True`（默认，可不传）
+- `output_dir` = 不传（默认 `None`）。★ 2026-10-16 约定：**报告直接落 `<封装目录>/check_log/`**，
+  工具内部自动建目录、自动命名，AI **不需要也不能**自己传 `output_dir` 把报告写去别处；
+  确有归档到指定位置的需要时才显式传（如批量迁移历史报告）。
+- `output_dir` 想覆盖时才传；`report_path` 返回值可核对落点。
 
 **默认精简模式（compact=True）** 返回：
 - `conclusion` / `component_type` / `summary`
@@ -572,40 +403,9 @@ JOPEN25X30_S-L-P），工具只拿得到包围盒、轮廓几何未建模——�
 
 ## 报告格式
 
-报告由 `check_footprint_by_rules` 内部的 `render_markdown` 生成，AI **原样贴出 markdown 字段**。
-
-### 渲染结果示例
-
-    ## nb_xtal4_3d2x2d5x0d7 — ✅ PASS
-
-    数值 19（18✅ 1⚠️，单位 mm）｜报告 checklist_report_20260917_110517.json
-
-    | 大项 | 检查项 | 实测 | 要求 | 状态 |
-    |---|---|---|---|---|
-    | **1 命名规范** | 前缀 | nb_ | 前缀 = NB_ | ⚠️ |
-    | | 小数点 | 无 | 不含 '.' | ✅ |
-    | | 含数字 | 4, 3, 2 | 含数字 | ✅ |
-    | | 命名语义（类型/引脚数/尺寸/pitch） | 全部一致 | 一致 | ✅ |
-    | **2 焊盘尺寸** | 焊盘尺寸与命名一致性 | 一致 | = padstack 命名值 ±0.05 | ✅ |
-    | | 阻焊开窗外扩 | x 0.05 / y 0.05 | 单边 0.05 ± 0.02 | ✅ |
-    | | 钢网与焊盘等大 | 等大 | 钢网 = 焊盘 | ✅ |
-    | **3 间距与原点** | Pin pitch | x 2.2 / y 1.7 | — | ✅ |
-    | | pitch 与 datasheet 一致 (x) | 2.2 = 2.2 | = 2.2 ± 0.05 | ✅ |
-    | | pitch 与 datasheet 一致 (y) | 1.7 = 1.7 | = 1.7 ± 0.05 | ✅ |
-    | | 焊盘不重叠 | 最小间距 0.4 | 间距 > 0 | ✅ |
-    | | 原点在封装中心 | [0, 0] | ≤ 0.05 | ✅ |
-    | **4 pin number** | pin 数量 | 4 = 4 | 一致 | ✅ |
-    | | pin 编号与位置 | 一一对应 | 一致 | ✅ |
-    | **5 Place_Bound** | Place_Bound_Top 存在 | 有 | 必须存在 | ✅ |
-    | | Place_Bound 外扩量（ic） | x 0.35 / y 0.35 | 单边 0.35 ± 0.05 | ✅ |
-    | **6 Assembly / Silkscreen** | Assembly_Top 存在 | 2 元素 | 必须存在 | ✅ |
-    | | Assembly 有内容 | 2 元素 | ≥ 2 元素 | ✅ |
-    | | Assembly 有 1 脚标识 | 2 个元素 | 有 1 脚标识 | ✅ |
-    | | Silkscreen_Top 存在 | 3 元素 | 必须存在 | ✅ |
-    | | Silkscreen 有 1 脚标识 | 1 个复杂 path | 有 1 脚标识 | ✅ |
-    | | Silkscreen 不与焊盘重叠 | 最小间隙 0.06 | 间距 > 0 | ✅ |
-
-    > 理论值由 AI 读图获取，建议对照 PDF 原图复核。
+报告由 `check_footprint_by_rules` 内部的 `render_markdown` 生成，AI **原样贴出 markdown 字段**，
+禁止改写、补充、解释。完整渲染示例（19 项 / 6 大项 / PASS+WARN 混排）见
+`references/report-sample.md` —— 用来判断"收到的报告结构是不是和往常一样"。
 
 ---
 
@@ -666,7 +466,7 @@ JOPEN25X30_S-L-P），工具只拿得到包围盒、轮廓几何未建模——�
 | 原来靠 AI 记的 | 现在由谁保证 | AI 该读什么 |
 |---|---|---|
 | S1 目录里多份 `.dra`/PDF 不许瞎猜 | `folder_preflight` 工具（内部 `orchestration/preflight.py`） | `ambiguous` 字段（布尔）+ `verdict ∈ ambiguous_pdf|ambiguous_dra` + `pdf_files`/`dra_files` 候选清单 + `action`（`confirm` 就是"去问用户"） |
-| S2 历史 `checklist_report_*.json` 不算本次证据 | 同一工具（`orchestration.preflight.is_noise`） | `noise_files` 字段 —— 落在这里的都不是候选、也不是证据；`verdict=empty` + `action=stop` 就是"缺料，别再往下走" |
+| S2 历史 `checklist_report_*.json` 不算本次证据 | 同一工具（`orchestration.preflight.is_noise` / `is_noise_path`） | `noise_files` 字段 —— 落在这里的都不是候选、也不是证据；**`check_log/` 里的报告是合法归档，不算噪声**（2026-10-16 约定）；`verdict=empty` + `action=stop` 就是"缺料，别再往下走" |
 | S4 触 Alegro 前先探通道 | `inspect_allegro_environment` + `orchestration/pipeline.py` 的 `env-check` 步 | `connected` / `error`（`connected=false` 时 `error` 必非空）；`pipeline` 会给出失败码 `CHANNEL_NOT_READY` |
 | 数值 vs 语义分工、NA 不参与比对 | `rule_checker.py` 判据 | 每个 `_item` 的 `status ∈ PASS|FAIL|WARN|NA`（**NA 不是 FAIL**，报告里已分类） |
 | 报告不得二次加工 | `check_footprint_by_rules` 的返回 | `markdown` / `report_path` 字段本体（原样贴出） |
@@ -678,6 +478,8 @@ JOPEN25X30_S-L-P），工具只拿得到包围盒、轮廓几何未建模——�
   禁止默认拿第一个就跑。检查完用报告头 `symbol_name` 与文件名核对，防止张冠李戴。
 - **S2 只看本次结果**：结论只能来自本次 `check_footprint_by_rules` 返回的 `report_path` / `markdown`。
   读历史报告仅限第 3 步交叉校验理论值，且必须先核对报告内 `symbol_name` 与本次目标一致。
+  历史报告的归档位是 **`<封装目录>/check_log/`**（2026-10-16 起）；散放在封装目录根下的
+  旧报告会被 `folder_preflight` 判为噪声 —— 遇到就提醒用户搬进 `check_log/`，别拿它当证据。
 - **S3 禁推理文字泄漏**：最终输出只允许报告 `markdown` 字段本体。AI 自己的读图过程、中间 JSON、
   tool 参数、复核思路一律不出现在回复里（报告内部的 blockquote 提示行属报告内容，可保留）。
 - **S4 通道失败码要按码处置**：`inspect_allegro_environment` 返回 `connected=false`
@@ -717,7 +519,7 @@ JOPEN25X30_S-L-P），工具只拿得到包围盒、轮廓几何未建模——�
 | `measure_region` | ★ 矢量量距（图元包围盒），与读数做**交叉校验**；非主读数 | `pdf_file_path`, `page`, `rect` |
 | `validate_land_pattern_json` | 校验 AI 输出的 JSON | `raw_json` |
 | `read_full_footprint` | 提取 .dra 原始数据（pins/layers）供语义检查 | `dra_file_path` |
-| **`check_footprint_by_rules`** | **跑 6 大项数值检查 + 存档 + 渲染 markdown** | `dra_file_path`, `theoretical_payload`, `semantic_result`, `save_report`, `compact`（默认 True，精简返回） |
+| **`check_footprint_by_rules`** | **跑 6 大项数值检查 + 存档 + 渲染 markdown** | `dra_file_path`, `theoretical_payload`, `semantic_result`, `save_report`, `compact`（默认 True，精简返回）, `output_dir`（**默认不传**：报告自动落 `<封装目录>/check_log/`，2026-10-16 约定） |
 
 ### 废弃工具（禁止使用）
 
@@ -752,36 +554,9 @@ JOPEN25X30_S-L-P），工具只拿得到包围盒、轮廓几何未建模——�
 
 ## 客户端配置示例
 
-本技能与 `allegro-skillbridge-ops` 共用同一个 MCP 服务 `layout-forge-mcp`
-（36 个工具：建封装 18 + spec/案例库 7 + 读 PDF/目录 7 + 检查 2 + 编排/统计 2）。已经注册过就不用再配。
-
-下面给的是**换机器 / 给同事**时的写法。
-
-### 推荐：直接指向项目 venv 的 Python（改代码即生效，无缓存）
-
-    {
-      "mcpServers": {
-        "layout-forge-mcp": {
-          "command": "C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp/.venv/Scripts/python.exe",
-          "args": [
-            "-c",
-            "import sys; sys.path.insert(0, r'C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp'); from mcp_server.server import main; main()"
-          ]
-        }
-      }
-    }
-
-★ **`command` 必须指向装了 fastmcp / skillbridge 的那个 Python。**
-本项目是 `.venv/Scripts/python.exe` —— 实测系统 Python 和 WorkBuddy 托管
-Python 都 `import skillbridge` 失败，用错解释器会直接连不上 Allegro。
-
-★★ **`.venv` 不存在时先 `uv sync` 重建**（步骤见 `docs/SOP-工程维护手册.md` 的"重建 venv"一节）：
-2026-10-14 实测**本机 `layout-forge-mcp\.venv\` 不存在**，而 WorkBuddy 的 `--mcp-config`
-里 `command` 仍指向它 —— 也就是说**这台机器上 `layout-forge-mcp` 根本起不来**，
-客户端只会看到"工具全都不见了"。判断方法：`Test-Path .venv\Scripts\python.exe`。
-临时替代解释器：兄弟仓 `layout-check-mcp\.venv\Scripts\python.exe`（含 fastmcp 4.0.3 + skillbridge）。
-
----
+本技能与 `allegro-skillbridge-ops` 共用同一个 MCP 服务 `layout-forge-mcp`（36 个工具）。
+已经注册过就不用再配。**换机器 / 给同事**时的 JSON 写法、`command` 必须指向 `.venv` 的理由、
+`.venv` 不存在时怎么重建，见 `references/client-config.md`。
 
 ## 维护提示
 
@@ -818,3 +593,11 @@ Python 都 `import skillbridge` 失败，用错解释器会直接连不上 Alleg
    ★ **加规则前先问：能不能下沉成工具字段**（像 `ambiguous` / `noise_files` / `CHANNEL_NOT_READY`）？
    能下沉就不许写进 SKILL —— 这是 Phase 3 验收硬指标「SKILL 待记条数 ≤5」的口径：
    按去重后的实质条目算 **4 条 ≤ 5 ✓**（含铁律区重复表述则字面为 6，属同一批规矩的重复写法）。
+9. ★ **正文与 `references/` 的分工**（2026-10-23 拆分）：正文留「每次都用的工作流 + 违反了也看不出来的判据」，
+   `references/` 放「按症状查的细节」（THT padstack 层清单 / 读图规则 / 四个易误判口径 /
+   报告示例 / 模式 C 四层漏斗 / 客户端配置）。两条纪律：
+   - **新增一条硬规则时，先判断它属于"每次都用"还是"偶尔查"** —— 后者进 references，
+     并在上方索引表和触发处都写指针；否则正文会重新膨胀回 800+ 行。
+   - **`references/` 里的数值和命令与代码同源**（如 `conventions.json`、`checker_rules.json`）：
+     改代码导致口径变化时，同轮改对应 reference，否则模型按旧口径办事而没人发现。
+     `--verify-skills` 只比 hash 不读语义，救不了这种「三处一致但都过期」。
