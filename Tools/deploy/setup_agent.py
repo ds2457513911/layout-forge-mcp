@@ -107,7 +107,7 @@ def pick_config_target() -> tuple[str, Path, bool]:
     默认在 WorkBuddy 固定路径新建 ~/.workbuddy/mcp.json。
     ★ 空电脑（客户端还没装过）也直接写这个路径：目录由 write_mcp_config
       创建，客户端装好后启动即读取，不需要等客户端先装好。
-      （旧行为：退化成生成 deploy\mcp-config.json 让用户手工合并，
+      （旧行为：退化成生成 deploy\\mcp-config.json 让用户手工合并，
        违背"空电脑一键部署"目标，2026-10-14 删除。）
     """
     home = Path.home()
@@ -116,6 +116,23 @@ def pick_config_target() -> tuple[str, Path, bool]:
             return name, path, True
 
     return "WorkBuddy", home / ".workbuddy" / "mcp.json", False
+
+
+def default_venv_python(project_root: Path) -> Path:
+    """MCP 配置里该写的解释器。
+
+    ★ 默认必须是**项目 .venv**，不能是 `sys.executable`：
+    本脚本可能被工作区外的解释器跑（沙箱绕过 / 临时 venv / 系统 python），
+    那种解释器路径写进配置后，一旦那个目录被清理，MCP 就会静默起不来。
+    (2026-10-16 实测：用缓存区 venv 跑本脚本，mcp.json 被写成了缓存区路径。)
+    """
+    for candidate in (
+        project_root / ".venv" / "Scripts" / "python.exe",   # Windows
+        project_root / ".venv" / "bin" / "python",           # POSIX
+    ):
+        if candidate.is_file():
+            return candidate
+    return Path(sys.executable)
 
 
 def build_server_entry(project_root: Path, venv_python: Path) -> dict:
@@ -477,9 +494,21 @@ def verify_skills() -> int:
     return 0
 
 
-def sync_skills(project_root: Path) -> int:
-    """把真源同步到三个落点（junction 写一次真身），随后复核。"""
+def sync_skills(project_root: Path, dry_run: bool = False) -> int:
+    """把真源同步到三个落点（junction 写一次真身），随后复核。
+
+    ★ 2026-10-23 修复（--dry-run 空转缺陷）：旧版这里硬编码 dry_run=False，
+      且 main 的 --sync-skills 分支不传参，导致 `--sync-skills --dry-run`
+      **照样真写盘**（实测把三落点覆盖了一遍、还写了部署记录）。
+      现在：dry_run=True 时只走 install_skills() 的预览分支，不写部署记录，
+      也不做复核（复核比对的正是没被改动的旧文件，没有信息量）。
+    """
     hr("E. 同步 SKILL 到三个落点")
+    if dry_run:
+        log("[DRY-RUN] 只预览差异，不写任何文件", "WARN")
+        install_skills(dry_run=True)
+        log("[DRY-RUN] 跳过部署记录与复核", "WARN")
+        return 0
     written = install_skills(dry_run=False)
     if not written:
         log("没有可写的落点。", "WARN")
@@ -636,6 +665,10 @@ def main() -> int:
                     help="项目根目录（默认：本文件所在目录的上一级）")
     ap.add_argument("--pcbenv", default=None,
                     help="手动指定 Allegro 的 pcbenv 目录")
+    ap.add_argument("--venv-python", default=None,
+                    help="写进 MCP 配置的 python.exe（默认=项目 .venv 的解释器）。"
+                         "★ 在受限环境里用「工作区外」的解释器跑本脚本时**必须**显式给这个参数，"
+                         "否则配置会被写成那个临时解释器的路径（2026-10-16 实测）。")
     ap.add_argument("--dry-run", action="store_true", help="只预览，不写文件")
     ap.add_argument("--no-mcp", action="store_true", help="跳过 MCP 注册")
     ap.add_argument("--no-skills", action="store_true", help="跳过 Skill 安装")
@@ -648,13 +681,22 @@ def main() -> int:
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve()
-    venv_python = Path(sys.executable)
+    venv_python = (
+        Path(args.venv_python).resolve()
+        if args.venv_python
+        else default_venv_python(project_root)
+    )
+    if args.venv_python is None and venv_python != Path(sys.executable):
+        log(f"配置里将写入项目 .venv：{venv_python}（本脚本运行在 {sys.executable}）", "WARN")
+    elif not venv_python.is_file():
+        log(f"没找到解释器 {venv_python}；请先用部署脚本建好 .venv。", "ERR")
+        return 1
 
     # ★ 两个「只干这一件事」的入口：不重复跑 MCP/冒烟，装完就能单独复核。
     if args.verify_skills:
         return verify_skills()
     if args.sync_skills:
-        return sync_skills(project_root)
+        return sync_skills(project_root, dry_run=args.dry_run)
 
     print("=" * 62)
     print(" layout-forge-mcp  一键配置")

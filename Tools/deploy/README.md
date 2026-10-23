@@ -1,8 +1,12 @@
 # deploy/ —— 一键部署
 
-> 最后更新：2026-10-15（v7.3：加 `.deploy_manifest.json` + `--verify-skills` / `--sync-skills` 防静默回退；
-> 修 junction 被 `shutil.move` 移走导致三落点陈旧的旧 bug；SKILL 头部三声明软校验。此前 v7.2：
-> 工具数 36 + 实测补记「skills 目录是 Junction」的部署坑）
+> 最后更新：2026-10-16（v7.5：`deploy.bat` 支持**本地离线部署** —— 三档定位 + 本地模式先
+> `git pull`、pull 失败只 WARN 不阻断，新增 `/nopull`；「两种模式」升级为「三种定位」。
+> 此前 v7.4：`setup_agent.py` 新增 `--venv-python`（缺省取项目 `.venv`，不再把调用者解释器
+> 写进 `mcp.json`）+ `install_skillbridge.py` 强制 UTF-8 修 C 步中断；坑 14 重写为
+> 「跑脚本的解释器 ≠ 写进配置的解释器」。此前 v7.3：加 `.deploy_manifest.json` +
+> `--verify-skills` / `--sync-skills` 防静默回退；修 junction 被 `shutil.move` 移走导致三落点陈旧的旧 bug；
+> SKILL 头部三声明软校验。此前 v7.2：工具数 36 + 实测补记「skills 目录是 Junction」的部署坑）
 
 ## 这个目录是干什么的
 
@@ -19,6 +23,7 @@ deploy.bat                          双击即可，默认装到 %USERPROFILE%\la
 deploy.bat /dir "D:\tools\lfm"      指定安装目录
 deploy.bat /pcbenv "D:\...\pcbenv"  手工指定 Allegro 的 pcbenv，跳过自动搜索
 deploy.bat /nobridge                不要动 allegro.ilinit
+deploy.bat /nopull                  local 模式：连 git pull 也不试（纯离线）
 deploy.bat /dry                     只打印要做什么，一个文件都不写
 ```
 
@@ -40,25 +45,36 @@ python Tools\deploy\setup_agent.py --verify-skills    # 只读校验：全部 MA
 （MATCH / STALE / DIVERGED / MISSING）与「为什么需要它」见下面坑 15 ——
 **改了 SKILL 却不 `--sync-skills`，模型读到的可能还是旧版，而且你不会收到任何报错。**
 
-## 两种模式
+## 三种定位（v7.5 起）
 
-| 模式 | 触发条件 | 行为 |
+脚本第 0 步按「由近及远」三档找项目根，**任何一档命中就不再访问 GitHub**：
+
+| 档 | 触发条件 | 行为 |
 |--|--|--|
-| **local** | `deploy\` 的上一级有 `pyproject.toml` | 原地部署这份代码，**不 clone**，也不需要 git |
-| **clone** | 上一级没有 `pyproject.toml` | 从 GitHub clone 到 `/dir` 指定目录（默认 `%USERPROFILE%\layout-forge-mcp`） |
+| **(a) local** | `deploy.bat` 的上一级（`..\..`）有 `pyproject.toml`，即它正坐在 `<检出>\Tools\deploy\` 里 | 原地部署这份代码，**不 clone** |
+| **(b) local** | `deploy.bat` 自己所在目录就有 `pyproject.toml`，即它被 `curl` 下载到了检出根目录 | 同上，锚定 `%~dp0` |
+| **(c) clone** | 两处都没有 `pyproject.toml` | 从 GitHub clone 到 `/dir`（默认 `%USERPROFILE%\layout-forge-mcp`） |
 
-分发给别人时，通常是把 `deploy.bat` 单独发给对方 → 走 clone 模式。
-在本机开发目录里跑 → 走 local 模式。
+★ 档位判定结果会打印在第 0 步（`MODE = local / clone`），**不会静默回退**。
+
+**local 模式现在会先 `git pull`**（第 4 步），并且：
+
+- `git` 缺失 → 只 WARN，pull 跳过，其余步骤照跑（代码已经在本地，local 模式本来就不需要 git）；
+- `git pull` 失败（离线 / 代理 / 冲突）→ **只 WARN**，用当前检出原样继续部署，**不阻断后续任何环节**；
+- 想完全跳过网络尝试 → 加 `/nopull`。
+
+> 这正是文档开头那条 `curl -L -o deploy.bat <raw url> && deploy.bat` 的离线友好化：
+> 如果你**已经**在项目里（或把 bat 下到了项目根），就一个字节都不下载。
 
 ## 部署做了什么（脚本里的 6 步）
 
 | 步骤 | 脚本输出 | 做什么 |
 |--|--|--|
-| 0 | `[0/6] Locate project` | 判定 local / clone 模式，确定项目根 |
+| 0 | `[0/6] Locate project` | 三档定位（见上），确定项目根并打印 `MODE` |
 | 1 | `[1/6] Check winget` | 查 winget 在不在（没有也能跑，只要 uv/git 已有） |
 | 2 | `[2/6] Check uv / python` | 找 uv；没有就找 python；都没有才用 winget 装 uv |
-| 3 | `[3/6] Check git` | 仅 clone 模式需要 |
-| 4 | `[4/6] Fetch project` | clone 或 pull |
+| 3 | `[3/6] Check git` | clone 模式必需；local 模式**可选**（只用于第 4 步的 pull） |
+| 4 | `[4/6] Fetch project` | clone 模式 = `git clone`；local 模式 = `git pull`（失败只 WARN，`/nopull` 可跳过） |
 | 5 | `[5/6] Create .venv and install dependencies` | `uv sync`，或 `python -m venv` + `pip install -e .` |
 | 6 | `[6/6] Register MCP, install Skills, config SkillBridge` | 调 `setup_agent.py`，见下 |
 
@@ -152,13 +168,30 @@ python Tools\deploy\setup_agent.py --verify-skills    # 只读校验：全部 MA
       历史遗留已移到 `C:\Users\ds245\WorkBuddy\Layout\.workbuddy\cache\scratch\skill_junction_backups\`。
     - 现在不必手工打三处：`setup_agent.py --sync-skills` 会按 `realpath` 去重后一次写完
       （`.dsh` 与 `.skills-manager` 常是同一真身）。
-14. ★ **本机（DSH 会话）跑部署要用「不受沙箱限制的解释器」**：
-    用工作区内的 `layout-check-mcp\.venv\Scripts\python.exe` 跑 `setup_agent.py` 时，
-    写 `%USERPROFILE%\.workbuddy` 会被拒绝 ——
-    `PermissionError [WinError 5] 拒绝访问`（`shutil.move` 与 `os.makedirs` 都失败；
-    该解释器只有**工作区 + TEMP** 可写）。改用**系统 python** 或 pwsh 执行安装步即可：
-    `python Tools\deploy\setup_agent.py --no-mcp --no-skillbridge --no-smoke`（本次 exit=0）。
-    注：MCP 自身仍必须用项目 `.venv`（见坑 1），只有「写用户目录」的部署动作需要放宽。
+14. ★ **本机（DSH 会话）跑部署要用「不受沙箱限制的解释器」，且必须带 `--venv-python`**：
+    - **症状**：用工作区内的解释器（`layout-forge-mcp\.venv\Scripts\python.exe` 或
+      `layout-check-mcp\.venv\Scripts\python.exe`）跑 `setup_agent.py`，写 `%USERPROFILE%\.workbuddy`
+      被拒 —— `PermissionError [Errno 13] Permission denied` / `[WinError 5] 拒绝访问`
+      （`shutil.copy2` → `open(dst,'wb')` / `shutil.move` / `os.makedirs` 都失败；
+      该解释器只有**工作区 + TEMP** 可写）。实测同一目录用工作区外解释器写 → OK。
+    - **正确命令**（跑脚本与写进配置是两个解释器，别混）：
+      ```
+      "C:\Users\ds245\WorkBuddy\Layout\.workbuddy\cache\tools\venv-unconfined\Scripts\python.exe" ^
+        Tools\deploy\setup_agent.py ^
+        --venv-python "<项目根>\.venv\Scripts\python.exe"
+      ```
+      （缓存区那份需备 fastmcp / skillbridge / PyMuPDF / pdfplumber；见 `cache\tools\venv-unconfined`。）
+    - ★ **不传 `--venv-python` 会留下更隐蔽的坏现场**：2026-10-16 之前脚本用
+      `Path(sys.executable)` 当 command，于是**谁跑脚本就把谁的路径写进 `mcp.json`** ——
+      实测被写成缓存区临时解释器 `...\.workbuddy\cache\tools\venv-unconfined\Scripts\python.exe`。
+      注册看着成功、客户端也能连，**但缓存区一清理 MCP 就静默消失**（不报错）。
+      现已修：`--venv-python` 缺省取 `<项目根>\.venv`（`default_venv_python()`），
+      运行解释器 ≠ 目标解释器时打 WARN，目标 `.venv` 不存在直接 ERR 退出。
+    - 注：MCP 自身仍必须用项目 `.venv`（见坑 1），只有「写用户目录」的部署动作需要放宽。
+    - 顺带（同日修）：`install_skillbridge.py` 的中文 OK/WARN/ERR 前缀是 `✅/⚠️/❌`，
+      被 `setup_agent.py` 以管道调用时（无控制台）在 cp936 下抛
+      `UnicodeEncodeError: 'gbk' codec can't encode character '\u2705'` → 一键部署断在 C 步。
+      现已在入口 `reconfigure(encoding="utf-8", errors="replace")`。
 15. ★ **防静默回退：`.deploy_manifest.json` + `--verify-skills` / `--sync-skills`（2026-10-15 新增）**：
     - 每次部署会写 `deploy/.deploy_manifest.json`（schema `layout-forge-deploy-manifest/1`）：
       记录真源 `source_hashes`（每份 skill 的 `{相对路径: sha256}`，**跳过 `_user_meta.json`**）、

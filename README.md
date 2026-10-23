@@ -4,7 +4,11 @@ Allegro 封装**生成** MCP —— 通过 SKILL 在 Allegro 里建 padstack / p
 
 与 `layout-check-mcp`（检查器，只读）互补：这个是**生成器**（写入）。
 
-> 最后更新：2026-10-14（Phase 0：新增 L3/L4/L5 三层目录 `orchestration/` `observability/` `eval/` + 分层权威 `LAYERS.md`；
+> 最后更新：2026-10-16（★ 环境重建实测：`uv sync --frozen` 只要 9.5 s，但建好后必须核**三处外部引用**
+> `~/.workbuddy/mcp.json` / `pcbenv/allegro.ilinit` / `.dsh/profiles/tauri/cordis.patch.yml`；
+> `Tools/deploy/setup_agent.py` 新增 `--venv-python`（默认取项目 `.venv`，不再写调用者解释器）；
+> 文档里的工具数/自检项数全部对齐现状 **36 工具 / 239 + 222 项自检**；
+> 此前：Phase 0：新增 L3/L4/L5 三层目录 `orchestration/` `observability/` `eval/` + 分层权威 `LAYERS.md`；
 > Phase 1：**工具 34 → 36**（`folder_preflight` / `get_run_stats`）+ 每次调用落遥测 `eval/runs/` + 工具契约断言 `eval/suites/tool_contract/`）
 
 ---
@@ -632,9 +636,9 @@ axlZoomBbox(nil)                                                ; ★ 读回真�
 ## 收尾：离线自检（不需要 Allegro）
 
 ```bash
-python tools/selfcheck_skill_syntax.py        # SKILL 表达式构造器：212 项
-python tools/selfcheck_skill_syntax.py -v     # 顺便打印每条表达式
-python tools/selfcheck_geometry.py            # 参数→几何求解器：180 项（含金标准逐值对拍 + 尺寸口径 + 视图防线）
+python Tools/selfcheck_skill_syntax.py        # SKILL 表达式构造器：222 项
+python Tools/selfcheck_skill_syntax.py -v     # 顺便打印每条表达式
+python Tools/selfcheck_geometry.py            # 参数→几何求解器：239 项（含金标准逐值对拍 + 尺寸口径 + 视图防线）
 ```
 
 `selfcheck_geometry.py` 的基准全部可追溯：[规范] 建库规范 xlsx、[规则] `DEFAULT_RULES`、
@@ -788,10 +792,10 @@ Cadence 手册里有、但运行时**未绑定**的函数真实存在。走错�
 ### 工具
 
 ```bash
-python tools/probe_api_exists.py axlCurrentDesign          # 单个
-python tools/probe_api_exists.py --suite symbol            # 内置套件
-python tools/probe_api_exists.py --suite server            # 服务控制类
-python tools/probe_api_exists.py --file candidates.txt     # 批量
+python Tools/probe_api_exists.py axlCurrentDesign          # 单个
+python Tools/probe_api_exists.py --suite symbol            # 内置套件
+python Tools/probe_api_exists.py --suite server            # 服务控制类
+python Tools/probe_api_exists.py --file candidates.txt     # 批量
 ```
 套件：`calib`（校准）/ `symbol` / `design` / `server` / `server-danger`（危险）
 
@@ -819,8 +823,8 @@ prog1(pyKillServer() load("<python_server.il>") pyStartServer ?id "7777" ?python
 - 发完立刻重连轮询
 
 ```bash
-python tools/restart_skillbridge.py            # 预览
-python tools/restart_skillbridge.py --execute  # 真重启
+python Tools/restart_skillbridge.py            # 预览
+python Tools/restart_skillbridge.py --execute  # 真重启
 ```
 
 ### 服务已死时（自动化无能为力）

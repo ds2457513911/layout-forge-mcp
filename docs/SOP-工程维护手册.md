@@ -1,6 +1,10 @@
 # layout-forge-mcp 工程维护手册（部署 / 排障 / 变更）
 
-> 最后更新：**2026-10-15**（★ 新增排障铁律：**先看退出码** —— GBK 控制台下 `print("✓")` 会让「五套全绿」反而 exit 1
+> 最后更新：**2026-10-16**（★ 重建环境实测：`uv sync --frozen` 本身只要 **9.5 秒**，但「建好」≠「能用」——
+> 同轮补齐 §3.5 **三处外部引用清单**（`~/.workbuddy/mcp.json` / `allegro.ilinit` / `cordis.patch.yml`）、
+> `--venv-python` 参数、沙箱解释器**写不了** `%USERPROFILE%\.workbuddy\*\*` 的坑（§3.6）、
+> 以及「收尾没关 Allegro → 它锁着 `allegro.jrl` 挡隔离」（§6）；顺手把 §1.1/§4.3/§9.1 里过期的 **31/28 工具数**对齐到 **36**。
+> 此前：★ 新增排障铁律：**先看退出码** —— GBK 控制台下 `print("✓")` 会让「五套全绿」反而 exit 1
 > （红分支打 ASCII 所以正常），六个入口已加 `_force_utf8_stdout()`；此前：Phase 3：`orchestration/playbook.json`（规则装配表）+ `pipeline.py`（状态机）落地，`behavior` 加 **B5** 守这两份东西（夹具 5/5），§7.2 补「改 playbook / pipeline 必须复跑 behavior」；此前：Phase 2-d：发布检查收成**一条命令** `python eval\check_eval.py`（五套断言 + 元判据 E1–E4）；此前：七项检查 + `behavior` 行为夹具（S1/S2/S4 可执行化）+ `preflight` 噪声规则扩到「运行痕迹 + 历史报告」→ G4 现形 145 个噪声文件（属真发现），**当日全部隔离进 `.trash/` 后复绿、判据未放宽**；再此前：六项检查 + `spec_reading` 读图准确率 92.5% + SKILL 三处落点 + `.venv`/解释器坑 + 沙箱解释器会让回归评分假红）
 >
 > 定位：给**维护这个项目的人**看（部署、排障、改代码后该跑什么）。
@@ -15,7 +19,7 @@
 | 层 | 位置 | 职责 |
 |---|---|---|
 | Agent（客户端） | WorkBuddy / Trae / Claude Desktop 等 | 承载 Skill 流程、调用 MCP 工具、**负责语义判断**（读规格书提参数、命名含义、极性标识） |
-| MCP 服务 | `mcp_server/` | 暴露 **31 个 tool** + resource + prompt，**负责数值计算**（几何求解、规则核验、PDF 渲染、归档） |
+| MCP 服务 | `mcp_server/` | 暴露 **36 个 tool** + resource + prompt，**负责数值计算**（几何求解、规则核验、PDF 渲染、归档） |
 | 业务源码 | `services/` | 求解器、建造器、extracta / SkillBridge 读写、PDF 服务、spec 库、规则表 |
 
 核心原则：**数值由代码算，语义由 AI 判断。**
@@ -31,7 +35,7 @@
 | 逐字节相同 10 件 | `mcp_server/{config,prompts,resources,__init__}`、`services/{pdf_locate,rule_checker,skillbridge_reader}`、`services/{json_utils,validation}`（原 `shared/` 3 件，2026-10-12 并入 services） |
 | ★ 更正（2026-10-14 实测） | 上表的「相同 10 件」是 **2026-10-13 的快照**，当天复测只剩 **4 件逐字节相同**：`pdf_locate.py`、`cdsroot_locator.py`、`allegro_service.py`、`report_renderer.py`；**6 件已分叉**：`pdf_service`（19.9 KB vs 4.2 KB）、`pdf_renderer`（4.6 vs 3.9）、`footprint_extractor`（7.6 vs 4.6）、`extracta_reader`（33.4 vs 21.0）、`skillbridge_reader`（14.7 vs 13.0）、`rule_checker`（60.9 vs 38.2）。改前 4 件仍要两仓同轮改，后 6 件只看本仓 |
 | 本项目单方增强 3 件 | `extracta_reader` 598→646（+REF DES 第 4 路视图）、`pdf_service` 136→264（+contact sheet）、`footprint_extractor` 128→182（+缺口检测） |
-| 工具覆盖 | 本项目 31 个 ⊇ 旧版 7 个，**7/7 全覆盖** |
+| 工具覆盖 | 本项目 36 个 ⊇ 旧版 7 个，**7/7 全覆盖** |
 
 → **旧版项目不再维护**，保留在 `Layout\` 下仅作历史参考。
 → 唯一遗留风险已消除：`rule_checker.py`（1114 行）曾在两边各存一份，改规则时"改哪边"不确定；现在只认**本项目这一份**。
@@ -101,12 +105,26 @@ C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp/.venv/Scripts/python
 Tools\deploy\deploy.bat                          :: 双击即可
 Tools\deploy\deploy.bat /dir "D:\tools\lfm"      :: 指定安装目录
 Tools\deploy\deploy.bat /pcbenv "D:\...\pcbenv"  :: 手工给 pcbenv
+Tools\deploy\deploy.bat /nopull                  :: local 模式：连 git pull 也不试（纯离线）
 Tools\deploy\deploy.bat /dry                     :: 只预览不改文件
 ```
 
 脚本干六件事：定位项目 → 查/装 uv·git → 取代码（local 原地 / clone 模式）
 → 建 `.venv` 装依赖 → 注册 MCP + 装 Skill + 配 SkillBridge → 冒烟验收。
 逐步中文对照见 `Tools\deploy\README.md`。
+
+★ **本地离线部署（v7.5 起）**：文档开头那条
+`curl -L -o deploy.bat <raw url> && deploy.bat` 现在**在项目内不会下载任何东西**。
+第 0 步按由近及远三档定位，**任一档命中就不访问 GitHub**：
+
+| 档 | 条件 | 行为 |
+|--|--|--|
+| (a) | `..\..\pyproject.toml` 存在（bat 正坐在 `<检出>\Tools\deploy\`） | local：原地部署 |
+| (b) | `%~dp0\pyproject.toml` 存在（bat 被 curl 下到检出根） | local：原地部署 |
+| (c) | 两处都没有 | clone：从 GitHub 取到 `/dir` |
+
+local 模式下第 4 步会尝试 `git pull`，但**git 缺失或 pull 失败都只 WARN，
+不影响后面任何环节**（代码已在本地）；不想联网就加 `/nopull`。
 
 只跑 Agent 侧配置（环境已建好时）：
 
@@ -119,13 +137,20 @@ Tools\deploy\deploy.bat /dry                     :: 只预览不改文件
 ```bash
 cd C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp
 
-# 建 venv（任选其一）
+# ★ 首选：按 uv.lock 精确复现（本项目有 uv.lock，2026-10-16 实测 9.5 秒、exit 0）
+uv sync --frozen
+
+# 退路（uv 不可用时，任选其一建 venv）
 .venv\Scripts\python.exe -m venv .venv          # 已有则跳过
 uv venv                                          # 用 uv 也行
 
-# 装依赖
+# 退路装依赖
 .venv\Scripts\python.exe -m pip install -e .     # 按 pyproject.toml
 ```
+
+★ **建完不要直接收工** —— 还有 §3.5 的三处外部引用要跟着改。
+★ `uv sync` 会装 `pymupdf / pdfplumber` 等 PDF 依赖；`fastmcp` 版本随锁文件（实测 4.0.10），
+  与 MCP 工具注册 API 相关，**不要手工 `pip install -U fastmcp`**（会偏离锁文件）。
 
 SkillBridge 自动加载由 `Tools\deploy\setup_agent.py` 的 C 步负责，
 等价于旧版的 `deploy_skillbridge.bat`（已移到 `Tools\deploy\_legacy\`）。
@@ -138,13 +163,64 @@ SkillBridge 自动加载由 `Tools\deploy\setup_agent.py` 的 C 步负责，
 .venv\Scripts\python.exe Tools\selfcheck_skill_syntax.py    # 222/222
 
 # ② MCP 工具注册数（离线，不需要 Allegro）
-#    期望 34（2026-10-13 起；此前 31/28）
+#    期望 36（2026-10-14 起；此前 34/31/28）
 ```
 
 ```bash
 # ③ 在线探活（需要 Allegro 已启动）
 #    走 MCP 调 inspect_allegro_environment() → connected: true
 ```
+
+### 3.5 ★ 重建环境：`uv sync` 之后还必须做的三件事
+
+**`uv sync` 只保证「包装在磁盘上」，不保证「客户端能用」。** 2026-10-16 全量重建实测：
+`uv sync --frozen` 自身 **9.5 秒**（exit 0，`uv.lock` 不变），但同一个 16 分钟窗口里
+974 秒只有 249 秒在跑工具 —— 其余是验证与修引用。**漏掉下面任一处，表现都是
+「MCP 连上了但没有工具 / 工具报 Unknown tool」，看起来像代码坏了，其实是配置没跟着走。**
+
+| # | 外部引用 | 位置 | 谁来写 | 漏掉的症状 |
+|---|---|---|---|---|
+| 1 | WorkBuddy MCP 注册 | `C:\Users\ds245\.workbuddy\mcp.json` | `Tools\deploy\setup_agent.py`（A 步，合并写入 + 先备份） | 客户端里整个 server 不见 |
+| 2 | SkillBridge 自动加载 | `D:\Dev_tools\Cadence_17.2\Cadence\SPB_Data\pcbenv\allegro.ilinit` | 同上（C 步，调 `Tools\install_skillbridge.py`） | 建封装报「连不上 Allegro」 |
+| 3 | DSH 侧连接器 | `C:\Users\ds245\.dsh\profiles\tauri\cordis.patch.yml`（`insert: - id: mcp-layout-forge-mcp`） | **手工**，非本仓库 | DSH 工具列表里没有这 36 个工具 |
+
+三处都指向**同一个**路径（`layout-forge-mcp\.venv\Scripts\python.exe`），重建后逐个对照：
+
+```bash
+# ① 注册是否正确（应看到项目 .venv 的绝对路径，不是临时解释器）
+python -c "import json,os;d=json.load(open(os.path.expanduser('~/.workbuddy/mcp.json'),encoding='utf-8'));print(d['mcpServers']['layout-forge-mcp']['command'])"
+
+# ② ilinit 是否正确（应看到 .venv\Scripts\pythonw.exe 与 python_server.il）
+findstr /C:"Python:" /C:"SKILL:" "D:\Dev_tools\Cadence_17.2\Cadence\SPB_Data\pcbenv\allegro.ilinit"
+
+# ③ 工具数（离线，正确应为 36）
+.venv\Scripts\python.exe -c "import sys,asyncio;sys.path.insert(0,'.');from mcp_server.server import mcp;print(len(asyncio.run(mcp.list_tools())))"
+```
+
+★ **改 DSH 配置（第 3 处）后必须重启宿主 / 刷新页面才生效**；MCP 注册（第 1 处）改完要重连客户端（§4.3）。
+
+### 3.6 ★ 沙箱里跑部署脚本：必须带 `--venv-python`
+
+**两个约束互相打架，这是本机重建时最容易踩的坑：**
+
+| 约束 | 事实 |
+|---|---|
+| 写 `%USERPROFILE%\.workbuddy\**` 的解释器 | **不能**是工作区内的 `.venv\Scripts\python.exe` —— 它被 DSH 沙箱限制，写用户目录抛 `PermissionError [Errno 13]`；只有**工作区外**的解释器能写 |
+| 写进 `mcp.json` 的 `command` | **必须**是项目 `.venv\Scripts\python.exe` —— `skillbridge` 只装在那里（§3.2） |
+
+所以**「跑脚本的解释器」≠「写进配置的解释器」**，必须显式分开：
+
+```bash
+# 跑脚本：工作区外、装了 fastmcp/skillbridge 的解释器（本项目缓存区那份）
+"C:\Users\ds245\WorkBuddy\Layout\.workbuddy\cache\tools\venv-unconfined\Scripts\python.exe" ^
+  Tools\deploy\setup_agent.py ^
+  --venv-python "C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp/.venv/Scripts/python.exe"
+```
+
+- `--venv-python` 默认取**项目 `.venv`**（`default_venv_python()`），不再是 `sys.executable`。
+  ★ 2026-10-16 之前是 `Path(sys.executable)` —— 换个解释器跑，`mcp.json` 就被写成了那个解释器的路径（实测踩到）。
+- 不传该参数且**运行解释器 ≠ 项目 `.venv`** 时，脚本打 WARN 提示；`.venv` 不存在则直接 ERR 退出。
+- 顺带：`install_skillbridge.py` 的中文输出已强制 UTF-8，cp936 控制台下不再 `UnicodeEncodeError` 崩掉 C 步。
 
 ---
 
@@ -186,8 +262,8 @@ MCP server 由客户端**拉起并长驻**，进程内缓存着启动时的代�
 改了任何 `services/` 或 `mcp_server/` 的文件后，**重启客户端 / 重连该连接器**才生效。
 
 > 与旧版不同：本项目 `mcp_server/config.py` **没有 `MCP_VERSION` 字段**，
-> 无法靠版本号判断有没有吃到新代码。判据是**重连后看工具总数是否为 28**，
-> 或直接调一个新加的工具（如 `list_specs`）看是否报"未知工具"。
+> 无法靠版本号判断有没有吃到新代码。判据是**重连后看工具总数是否为 36**，
+> 或直接调一个新加的工具（如 `folder_preflight` / `get_run_stats`）看是否报"未知工具"。
 
 ---
 
@@ -253,6 +329,9 @@ Tools\test\<符号名>\
 | 改了代码没生效 | MCP 进程缓存旧代码 | 重连 MCP（见 §4.3） |
 | 归档落在 `Data\footprint\` | `install_shadow_library` 的 `lib_root` 默认值 | 显式传 `lib_root=<规格书所在目录>` |
 | 路径含中文导致异常 | Allegro 不支持非 ASCII 路径 | 换英文路径 |
+| 隔离文件报 `[WinError 32] 另一个程序正在使用此文件` | **Allegro 进程还开着**，它持有工作目录里的 `allegro.jrl`（日志文件，0 字节也会被独占） | 先按 §5.2 的 **A** 关掉 Allegro（`Tools\stop_allegro.py`）再隔离。★ 2026-10-16 实测：`setup_agent.py` 跑完 C 步后可能留下一个 `allegro.exe`（父进程已退出，属孤儿），它会锁住 `Data\footprint\<料号>\allegro.jrl` |
+| 写 `%USERPROFILE%\.workbuddy\**` 报 `PermissionError [Errno 13]` / `[WinError 5]` | 用的解释器**在工作区内**（被 DSH 沙箱限制） | 换工作区外解释器跑部署脚本，并用 `--venv-python` 指定项目 `.venv`（§3.6） |
+| `check_eval` 里 geometry 套件假红（PASS 0 / FAIL 236） | 评分用了**工作区内**解释器，extracta 第 2 路崩（`rc=3221226505`） | 改用工作区外解释器（§7.2 的 ★★ 条目），**别去调 R4 阈值** |
 
 诊断工具：
 
@@ -343,10 +422,11 @@ GBK 控制台下汇总行打印 `[✓]`（U+2713）抛 `UnicodeEncodeError`，�
 真源 `Tools/deploy/skills/*` → `%USERPROFILE%\.workbuddy\skills\*`（跑 `setup_agent.py`）→
 `C:\Users\ds245\.skills-manager\skills\*`（`Copy-Item -Recurse -Force`，`.dsh\skills` 经 junction 随即变新）。
 装完顺手把 `.workbuddy\skills\*.bak_*` 移出该目录（带 `_user_meta.json` 的备份会被客户端当成第二个 skill）。
-★ **本机部署要用不受沙箱限制的解释器**：工作区内的 venv python 写 `%USERPROFILE%` 会
-`PermissionError [WinError 5]`，改用系统 python 或 pwsh（见 `Tools/deploy/README.md` 坑 14）。
-★ **`.venv` 缺失时先按 3.3.1 重建**（2026-10-14 实测本机就没有 `.venv`，而 MCP 配置还指向它 ——
-表现为「所有工具都不见了」，不是代码问题）。
+★ **本机部署要用不受沙箱限制的解释器，并且必须带 `--venv-python`**：工作区内的 venv python 写 `%USERPROFILE%` 会
+`PermissionError`，改用工作区外的解释器跑脚本；同一命令里用 `--venv-python` 把**写进配置**的路径钉在项目 `.venv`
+（两者不能混为一谈，详见 §3.6 与 `Tools/deploy/README.md` 坑 14）。
+★ **`.venv` 缺失时先按 3.3.1 重建，再按 §3.5 核三处引用**（2026-10-14 / 2026-10-16 两次实测本机都缺 `.venv`，
+而 MCP 配置还指向它 —— 表现为「所有工具都不见了」，不是代码问题）。
 
 ### 7.3 两个 Skill 为什么不合并
 
@@ -365,6 +445,10 @@ GBK 控制台下汇总行打印 `[✓]`（U+2713）抛 `UnicodeEncodeError`，�
 - `mcp_server/config.py` **无 `MCP_VERSION`**（旧版项目有）。别照抄旧版 SOP 里"更新版本号"那一步。
 - `config.py` 里 PDF 渲染输出目录变量叫 `RENDER_OUTPUT_ROOT`，落盘目录为 `Tools/log/render/`（历史名 `marker_out`，2026-10-12 迁入 Tools/log）。
 - `Tools/debug/` 下脚本定位项目根要用**上三级**（`parent.parent.parent`），迁入时修过。
+- `docs/规格书读取方案.md` 里的「31 个工具 / 34 个工具」是该方案写作时的**历史快照**，不是现状声明；
+  现状工具数以本手册 §9.1（36）与 `eval/suites/tool_contract` 基线为准。改工具数时**不必**回改该方案的正文，
+  但新写的文档别再引用旧数字。★ 2026-10-16 已把根 `README.md`、`docs/README.md` 里的遗留数字
+  （`212 项` / `180 项` 自检、`python tools/` 小写路径）一并修正。
 
 ---
 
@@ -384,27 +468,36 @@ GBK 控制台下汇总行打印 `[✓]`（U+2713）抛 `UnicodeEncodeError`，�
 
 ## 9. 附录
 
-### 9.1 MCP 工具速查（31 个）
+### 9.1 MCP 工具速查（36 个）
 
-**建封装（22）**：`inspect_allegro_environment`、`new_footprint_drawing`、`new_symbol_drawing`、
-`clear_footprint_drawing`、`create_padstack`、`add_footprint_pin`、`add_footprint_outline`、
-`add_footprint_text`、`change_drawing_extents`、`frame_drawing_view`、`save_footprint_drawing`、
-`export_psm`、`build_footprint_from_params`、`solve_footprint_geometry`、
-`validate_land_pattern_json`、`install_shadow_library`、`list_shadow_library`、
-`render_pdf_contact_sheet`
+★ 以 `mcp_server/tools.py` 的 `@mcp.tool` 实际注册为准（下表即从 `mcp.list_tools()` 实测抄录），
+门禁是 `eval/suites/tool_contract/check_tool_contract.py`（C1 冻结在 36）。
+
+**图纸 / 器件写侧（12）**：`inspect_allegro_environment`、`new_footprint_drawing`、`new_symbol_drawing`、
+`clear_footprint_drawing`、`change_drawing_extents`、`frame_drawing_view`、`create_padstack`、
+`add_footprint_pin`、`add_footprint_outline`、`add_footprint_text`、`save_footprint_drawing`、`export_psm`
+
+**几何求解与库（5）**：`solve_footprint_geometry`、`build_footprint_from_params`、
+`validate_land_pattern_json`、`install_shadow_library`、`list_shadow_library`
 
 **spec / 案例库（7）**：`save_spec`、`load_spec`、`find_spec`、`list_specs`、
 `save_case`、`find_case`、`list_cases`
 
-**读 PDF / 目录（4）**：`locate_land_pattern_page`、`render_pdf_page`、`list_subfolders`、`list_folder_files`
+**读 PDF / 目录（8）**：`list_subfolders`、`list_folder_files`、`locate_land_pattern_page`、
+`render_pdf_page`、`render_pdf_contact_sheet`、`pdf_probe`、`render_pdf_region`、`measure_region`
 
 **检查（2）**：`read_full_footprint`、`check_footprint_by_rules`
 
-> 18 + 7 + 4 + 2 = 31。分类是人为划分：`list_folder_files`、`render_pdf_page` 等
-> 在建、查两条链路都会用到。
+**编排 / 观测（2）**：`folder_preflight`（L3 目录预检）、`get_run_stats`（L4 遥测统计）
+
+> 12 + 5 + 7 + 8 + 2 + 2 = **36**（2026-10-14 起；此前 34 / 31 / 28）。
+> 分类是人为划分：`list_folder_files`、`render_pdf_page` 等在建、查两条链路都会用到。
 >
 > ★ 阈值类参数外置在 `knowledge/rules/checker_rules.json`（2026-10-12 起），
 > 改 JSON 立即生效、不用重启 MCP；判定逻辑仍在 `rule_checker.py`。
+> ★ 改工具清单必须同轮改 `Tools/deploy/setup_agent.py::EXPECTED_TOOLS`、
+> 两份 SKILL 的清单（含 `references/mcp-tools.md`），再
+> `python eval/suites/tool_contract/check_tool_contract.py --update` 冻结基线。
 
 ### 9.2 目录说明
 
@@ -422,6 +515,13 @@ GBK 控制台下汇总行打印 `[✓]`（U+2713）抛 `UnicodeEncodeError`，�
 | `Tools/log/archive/` | 历史渲染输出归档（原 `marker_out/`，2026-10-12 迁入；`RENDER_OUTPUT_ROOT` 见 9.3） |
 | `.trash/` | 隔离区（不直接删） |
 | `Tools/deploy/` | 部署脚本（2026-10-12 从根 `deploy/` 迁入） |
+| `orchestration/` | **L3 编排层**：`preflight.py`（目录预检）、`playbook.json`（规则装配表）、`pipeline.py`（五步状态机） |
+| `observability/` | **L4 观测层**：`telemetry.py`（工具调用落盘 `eval/runs/*.jsonl`）、`runstore.py`（读侧）、`stats.py`（统计，即 `get_run_stats` 后端） |
+| `eval/` | **L5 评测层**：`suites/*`（五套断言）、`baselines/*.json`（进 git 的基线）、`runs/`（遥测落盘，**不进 git**）；入口 `check_eval.py` |
+| `LAYERS.md` | 五层 ↔ 目录 ↔ 防线 ↔ 责任人对照表（改配置结构先读它） |
+
+| `data`-**side** `Data/` | 数据源（在工作区根，不在本项目内）：`Data/footprint/`（有规格书的封装，每料号一目录）、`Data/PCB_Footprint/`（无法规书的大封装库）、`Data/footprint_test/`、`Data/checklist/` |
+| `.deploy_manifest.json` | 部署指纹：两个 Skill × 三落点的 sha 记录（写在 `%USERPROFILE%\.workbuddy\`），`setup_agent.py --verify-skills` 据此判 MATCH / STALE / DIVERGED |
 
 ### 9.3 关键环境变量
 

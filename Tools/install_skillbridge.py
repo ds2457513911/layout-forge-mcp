@@ -417,6 +417,17 @@ def main():
                         help="手动指定 pcbenv 目录路径")
     args = parser.parse_args()
 
+    # ★ 中文 Windows 的默认 stdout 是 GBK，而 log() 用了 ✅/⚠️/❌ 这些符号：
+    #   被 setup_agent.py 以「管道」方式调用时（没有控制台），print 会直接抛
+    #   UnicodeEncodeError: 'gbk' codec can't encode character '\u2705'，
+    #   把整个一键部署打断在 C 步。这里统一切到 UTF-8，
+    #   与 setup_agent.py / orchestration/pipeline.py 的做法保持一致。
+    for _s in (sys.stdout, sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 - 被重定向到不支持 reconfigure 的对象时忽略
+            pass
+
     print("=" * 60)
     print(" SkillBridge 自动加载配置工具")
     print("=" * 60)

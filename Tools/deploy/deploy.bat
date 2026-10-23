@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
-title layout-forge-mcp deployer v7.2
+title layout-forge-mcp deployer v7.5
 
 REM ============================================================
 REM  deploy.bat -- layout-forge-mcp one-click deployer  (v7)
@@ -21,6 +21,7 @@ REM    deploy.bat                            auto-detect, install to %USERPROFIL
 REM    deploy.bat /dir "D:\tools\lfm"        choose install dir
 REM    deploy.bat /pcbenv "D:\...\pcbenv"    skip pcbenv auto-search
 REM    deploy.bat /nobridge                  do not touch allegro.ilinit
+REM    deploy.bat /nopull                    local mode: do not try git pull either
 REM    deploy.bat /dry                       dry run, print everything, write nothing
 REM
 REM  v7 changes vs the copy-from-check v6:
@@ -46,6 +47,36 @@ REM      killed the deploy with "No module named venv" (real case). Bad
 REM      candidates are skipped; if none is usable, uv is installed via
 REM      winget and manages Python itself.
 REM
+REM  v7.3 changes vs v7.2:
+REM    - OFFLINE-FRIENDLY RUN. The documented bootstrap is
+REM        curl -L -o deploy.bat <raw url> && deploy.bat
+REM      which drops deploy.bat into the CURRENT directory; when that
+REM      directory is already inside a checkout, there is nothing to
+REM      download. Detection now has three tiers:
+REM        a) deploy.bat sits under Tools\deploy\ of a checkout  (normal)
+REM        b) deploy.bat was downloaded into the repo ROOT next to
+REM           pyproject.toml                                     (curl case)
+REM        c) no checkout found          -> clone from GitHub
+REM      In tiers (a) and (b) GitHub is never contacted: the bat
+REM      anchors on its own location / on a pyproject.toml beside it.
+REM    - LOCAL MODE NOW PULLS. Tiers (a)/(b) run "git pull" first (git
+REM      is already required by the project flow, no network needed to
+REM      *find* it), and a pull failure is only a WARNING: the checked
+REM      out code is used as-is and the remaining steps still run.
+REM      Pass /nopull to skip the pull entirely.
+REM    - Step 0 prints the mode it picked, so a silent fallback is
+REM      visible instead of guessed.
+REM
+REM  v7.5 changes vs v7.3:
+REM    - :CleanWingetLeftover used "find /I". When Git for Windows is on
+REM      PATH ahead of System32, "find" resolves to Git's POSIX find.exe,
+REM      which rejects /I ("find: '/I': No such file or directory"): the
+REM      check always looked negative and a leftover winget.exe was never
+REM      cleaned. Switched to findstr with an explicit /C: search.
+REM      (Found 2026-10-16 while exercising the tier-(c) clone path.)
+REM    - No logic change to the three-tier detection itself; this release
+REM      is the bug fix above plus README/SOP documentation of v7.3.
+REM
 REM  Save requirement: pure ASCII or UTF-8 no BOM. English only.
 REM  Line endings MUST be CRLF - LF-only breaks "call :label".
 REM  Never put literal parentheses inside echo lines that sit in an
@@ -64,6 +95,7 @@ set "INSTALL_DIR=%USERPROFILE%\layout-forge-mcp"
 set "USER_PCENV="
 set "DRY_RUN=0"
 set "NO_BRIDGE=0"
+set "NO_PULL=0"
 
 :argloop
 if "%~1"=="" goto argdone
@@ -89,6 +121,11 @@ if /i "%~1"=="/nobridge" (
     shift
     goto argloop
 )
+if /i "%~1"=="/nopull" (
+    set "NO_PULL=1"
+    shift
+    goto argloop
+)
 if /i "%~1"=="/help" goto usage
 if /i "%~1"=="-h" goto usage
 echo   [X] unknown argument: %~1
@@ -98,7 +135,7 @@ goto usage
 
 echo.
 echo ============================================================
-echo  layout-forge-mcp deployer  v7.2
+echo  layout-forge-mcp deployer  v7.5
 echo ============================================================
 echo   Script dir  : %SCRIPT_DIR%
 echo   Install dir : %INSTALL_DIR%
@@ -109,18 +146,31 @@ call :RefreshPath
 call :CleanWingetLeftover
 
 REM ============ Step 0: locate project root ============
+REM  Three tiers, most-local first. Any tier that finds a checkout
+REM  means GitHub is never contacted (offline friendly).
 echo [0/6] Locate project
 set "LOCAL_ROOT="
 for %%i in ("%SCRIPT_DIR%\..\..") do set "LOCAL_ROOT=%%~fi"
 
+REM -- tier (a): deploy.bat lives in <checkout>\Tools\deploy\ --
 set "MODE=clone"
 set "PROJECT_ROOT=%INSTALL_DIR%"
 if exist "%LOCAL_ROOT%\pyproject.toml" (
     set "PROJECT_ROOT=%LOCAL_ROOT%"
     set "MODE=local"
-    echo       MODE = local - deploying this checkout in place
+    echo       MODE = local  - deploy.bat sits inside a checkout
 ) else (
-    echo       MODE = clone - no pyproject.toml above deploy\, will fetch code
+    REM -- tier (b): deploy.bat was curled into the checkout ROOT,
+    REM    i.e. next to pyproject.toml. Anchor on the bat's own dir.
+    if exist "%SCRIPT_DIR%\pyproject.toml" (
+        set "PROJECT_ROOT=%SCRIPT_DIR%"
+        set "MODE=local"
+        echo       MODE = local  - deploy.bat sits in the project root
+    ) else (
+        REM -- tier (c): nothing local, clone from GitHub --
+        echo       MODE = clone  - no pyproject.toml near deploy.bat,
+        echo                       will fetch the code from GitHub
+    )
 )
 echo       Project     : %PROJECT_ROOT%
 echo.
@@ -173,7 +223,15 @@ echo.
 REM ============ Step 3: git ============
 echo [3/6] Check git
 if "%MODE%"=="local" (
-    echo       local mode, git not required
+    REM  Local mode does not NEED git: the code is already here. It is
+    REM  only used for the optional "git pull" in step 4, so a missing
+    REM  git is a warning, never a failure.
+    where git >nul 2>&1
+    if errorlevel 1 (
+        echo   [!] local mode and git not found - pull will be skipped
+    ) else (
+        echo   [OK] git ready - local mode, pull is optional
+    )
 ) else (
     where git >nul 2>&1
     if errorlevel 1 (
@@ -200,10 +258,62 @@ echo.
 REM ============ Step 4: fetch code ============
 echo [4/6] Fetch project
 if "%MODE%"=="local" (
-    echo       using existing checkout, nothing to fetch
+    REM  Local checkout: try to update it, but a failure is NOT fatal.
+    REM  The whole point of local mode is that the code is already here;
+    REM  no network / no git / a dirty tree must not stop the deploy.
+    if "%NO_PULL%"=="1" (
+        echo       /nopull given, using the checkout as-is
+    ) else (
+        if "%DRY_RUN%"=="1" (
+            echo       [DRY-RUN] git pull not executed
+        ) else (
+        if not exist "%PROJECT_ROOT%\.git" (
+            echo       [!] not a git repo, skipping pull - using code as-is
+        ) else (
+            where git >nul 2>&1
+            if errorlevel 1 (
+                echo       [!] git not found, skipping pull - using code as-is
+            ) else (
+                echo       git pull - failure is tolerated, deploy continues...
+                pushd "%PROJECT_ROOT%"
+                git pull
+                if errorlevel 1 (
+                    echo       [!] git pull failed - offline, no upstream, or
+                    echo           local changes. Continuing with the
+                    echo           existing checkout; deploy is NOT aborted.
+                ) else (
+                    echo   [OK] checkout updated
+                )
+                popd
+            )
+        )
+        )
+    )
 ) else (
+    where git >nul 2>&1
+    if errorlevel 1 (
+        if "%HAVE_WINGET%"=="1" (
+            echo       git not found, installing via winget...
+            call :InstallViaWinget "where git" --id Git.Git -e --source winget --scope user
+            if errorlevel 1 (
+                echo   [X] git install failed after retries.
+                goto :fail
+            )
+        )
+    )
+    where git >nul 2>&1
+    if errorlevel 1 (
+        echo   [X] git is required to fetch the project.
+        echo       Install Git for Windows, or copy the project into:
+        echo         %PROJECT_ROOT%
+        goto :fail
+    )
+
     if exist "%PROJECT_ROOT%" (
         if exist "%PROJECT_ROOT%\.git" (
+            if "%DRY_RUN%"=="1" (
+                echo       [DRY-RUN] git pull not executed
+            ) else (
             echo       Project exists, running git pull...
             pushd "%PROJECT_ROOT%"
             git pull
@@ -215,12 +325,16 @@ if "%MODE%"=="local" (
             )
             popd
             echo   [OK] project updated
+            )
         ) else (
             echo   [X] %PROJECT_ROOT% exists but is not a git repo.
             echo       Delete that folder or pass /dir with a new path.
             goto :fail
         )
     ) else (
+        if "%DRY_RUN%"=="1" (
+            echo       [DRY-RUN] git clone not executed
+        ) else (
         echo       Cloning from GitHub, first time may take a while...
         git clone "%REPO_URL%" "%PROJECT_ROOT%"
         if errorlevel 1 (
@@ -229,6 +343,7 @@ if "%MODE%"=="local" (
             goto :fail
         )
         echo   [OK] project downloaded
+        )
     )
 )
 
@@ -354,11 +469,12 @@ exit /b 0
 
 :usage
 echo.
-echo   usage: deploy.bat [/dir path] [/pcbenv path] [/nobridge] [/dry]
+echo   usage: deploy.bat [/dir path] [/pcbenv path] [/nobridge] [/nopull] [/dry]
 echo.
 echo     /dir       install directory   default: %USERPROFILE%\layout-forge-mcp
 echo     /pcbenv    Allegro pcbenv dir  skip auto-search
 echo     /nobridge  do not modify allegro.ilinit
+echo     /nopull    local mode: skip git pull, use checkout as-is
 echo     /dry       print what would happen, change nothing
 echo.
 pause
@@ -416,7 +532,12 @@ set "PATH=%PATH%;C:\Program Files\Git\cmd"
 exit /b 0
 
 :CleanWingetLeftover
-tasklist /FI "IMAGENAME eq winget.exe" 2>nul | find /I "winget.exe" >nul
+REM  Use findstr, NOT find: when Git for Windows is on PATH ahead of
+REM  System32, "find" resolves to Git's POSIX find.exe, which rejects
+REM  /I and prints "find: '/I': No such file or directory" - the check
+REM  then always looks negative and leftover winget is never cleaned.
+REM  findstr has no such conflict. (Found 2026-10-16 in a tier-(c) run.)
+tasklist /FI "IMAGENAME eq winget.exe" /NH 2>nul | findstr /I /C:"winget.exe" >nul
 if not errorlevel 1 (
     echo   [!] Leftover winget process detected from a previous run.
     echo       Cleaning it up...
