@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 setlocal EnableDelayedExpansion
-title layout-forge-mcp deployer v7.5
+title layout-forge-mcp deployer v7.6
 
 REM ============================================================
 REM  deploy.bat -- layout-forge-mcp one-click deployer  (v7)
@@ -76,6 +76,14 @@ REM      cleaned. Switched to findstr with an explicit /C: search.
 REM      (Found 2026-10-16 while exercising the tier-(c) clone path.)
 REM    - No logic change to the three-tier detection itself; this release
 REM      is the bug fix above plus README/SOP documentation of v7.3.
+REM
+REM  v7.6 changes vs v7.5:
+REM    - STEP 5 NO LONGER REINSTALLS A WORKING VENV. The version probe
+REM      decided not to recreate, then "uv sync" ran unconditionally
+REM      anyway. Now a healthy venv (all four key deps import) jumps
+REM      straight to the skillbridge check. Falls through to uv sync /
+REM      pip install when any import fails, so a broken venv is still
+REM      repaired as before.
 REM
 REM  Save requirement: pure ASCII or UTF-8 no BOM. English only.
 REM  Line endings MUST be CRLF - LF-only breaks "call :label".
@@ -386,6 +394,25 @@ if exist "%VENV_PYTHON%" (
     )
 )
 
+REM ---- 2026-10-26: skip reinstall when the venv is already healthy ----
+REM Why: the version check above decides NOT to recreate the venv, but the
+REM   code below still ran "uv sync" unconditionally. uv sync aligns the
+REM   environment to the lockfile and reinstalls the local package: for an
+REM   already-working venv that is pure churn, and when pyvenv.cfg is
+REM   missing it touches an environment that works fine as-is.
+REM The gate is "the key deps actually import", i.e. a fact, not a file
+REM   existence check. If any import fails we fall through to the old path.
+set "VENV_HEALTHY=0"
+if exist "%VENV_PYTHON%" (
+    "%VENV_PYTHON%" -c "import fastmcp, skillbridge, pymupdf, pdfplumber" >nul 2>&1
+    if not errorlevel 1 set "VENV_HEALTHY=1"
+)
+if "!VENV_HEALTHY!"=="1" (
+    echo       [OK] existing .venv is healthy - key deps import fine
+    echo            skipping uv sync / pip install
+    goto :step5_verify
+)
+
 if defined UV (
     pushd "%PROJECT_ROOT%"
     "!UV!" sync
@@ -418,6 +445,7 @@ if not exist "%VENV_PYTHON%" (
 )
 echo   [OK] dependencies installed into .venv
 
+:step5_verify
 REM ---- hard check: skillbridge must be importable from this venv ----
 "%VENV_PYTHON%" -c "import skillbridge" >nul 2>&1
 if errorlevel 1 (

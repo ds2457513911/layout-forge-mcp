@@ -1,6 +1,8 @@
 # deploy/ —— 一键部署
 
-> 最后更新：2026-10-16（v7.5：`deploy.bat` 支持**本地离线部署** —— 三档定位 + 本地模式先
+> 最后更新：2026-10-26（v7.6：第 5 步**不再对已经可用的 `.venv` 重装依赖** ——
+> 判据是「四个关键包能 import」这个事实，任一失败才回落到原来的 `uv sync` / `pip install`。
+> 此前 v7.5：`deploy.bat` 支持**本地离线部署** —— 三档定位 + 本地模式先
 > `git pull`、pull 失败只 WARN 不阻断，新增 `/nopull`；「两种模式」升级为「三种定位」。
 > 此前 v7.4：`setup_agent.py` 新增 `--venv-python`（缺省取项目 `.venv`，不再把调用者解释器
 > 写进 `mcp.json`）+ `install_skillbridge.py` 强制 UTF-8 修 C 步中断；坑 14 重写为
@@ -75,7 +77,7 @@ python Tools\deploy\setup_agent.py --verify-skills    # 只读校验：全部 MA
 | 2 | `[2/6] Check uv / python` | 找 uv；没有就找 python；都没有才用 winget 装 uv |
 | 3 | `[3/6] Check git` | clone 模式必需；local 模式**可选**（只用于第 4 步的 pull） |
 | 4 | `[4/6] Fetch project` | clone 模式 = `git clone`；local 模式 = `git pull`（失败只 WARN，`/nopull` 可跳过） |
-| 5 | `[5/6] Create .venv and install dependencies` | `uv sync`，或 `python -m venv` + `pip install -e .` |
+| 5 | `[5/6] Create .venv and install dependencies` | `.venv` 已可用（四个关键包都能 import）→ **跳过安装**；否则 `uv sync`，或 `python -m venv` + `pip install -e .` |
 | 6 | `[6/6] Register MCP, install Skills, config SkillBridge` | 调 `setup_agent.py`，见下 |
 
 `setup_agent.py` 的五段：
