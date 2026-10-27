@@ -126,6 +126,16 @@ Tools\deploy\deploy.bat /dry                     :: 只预览不改文件
 local 模式下第 4 步会尝试 `git pull`，但**git 缺失或 pull 失败都只 WARN，
 不影响后面任何环节**（代码已在本地）；不想联网就加 `/nopull`。
 
+★★ **第 5 步永不删除 `.venv`（v7.7 起，2026-10-27 真实事故后修）**：
+旧脚本用 `python.exe --version` 探测版本，但该参数会被 argparse 直接吃掉、
+输出为空 → 误判「Python 不可用」→ `rmdir /S /Q .venv` → 删完重建失败，
+把一个健康环境（~9000 文件）打剩 35 个文件。现在：
+- 探测改用 `-V`；
+- 即使探测失败也**只隔离不删除** —— `.venv` 整体移入 `.trash/venv-broken-<时间戳>/`；
+- 搬不动（被 Allegro 等占用）就**停下报错**，绝不留下半个环境。
+
+踩坑详情与排查表见 `Tools\deploy\README.md` 坑 17。
+
 只跑 Agent 侧配置（环境已建好时）：
 
 ```bash

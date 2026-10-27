@@ -1,6 +1,10 @@
 # deploy/ —— 一键部署
 
-> 最后更新：2026-10-26（v7.6：第 5 步**不再对已经可用的 `.venv` 重装依赖** ——
+> 最后更新：2026-10-27（v7.7：**修掉会删毁健康 `.venv` 的破坏性缺陷** —— 版本探测
+> 从 `--version` 改为 `-V`（前者在 `python.exe` 下被 argparse 吃掉、输出为空，被误判成
+> 「Python 不可用」进而 `rmdir /S /Q` 删库）；两处 `rmdir` 全部改为移入 `.trash` 隔离，
+> 搬不动就停下报错，**永不删除、绝不半删**。详见坑 17。
+> 此前 v7.6：第 5 步**不再对已经可用的 `.venv` 重装依赖** ——
 > 判据是「四个关键包能 import」这个事实，任一失败才回落到原来的 `uv sync` / `pip install`。
 > 此前 v7.5：`deploy.bat` 支持**本地离线部署** —— 三档定位 + 本地模式先
 > `git pull`、pull 失败只 WARN 不阻断，新增 `/nopull`；「两种模式」升级为「三种定位」。
@@ -213,12 +217,27 @@ python Tools\deploy\setup_agent.py --verify-skills    # 只读校验：全部 MA
     不要用固定字符窗口：`allegro-skillbridge-ops` 的 description 长达 2.5 KB，会把 `metadata` 挤到
     2000 字符之外 → 固定窗口会「明明声明了却报缺失」（2026-10-15 实测踩到后才改成按 front-matter 切）。
     改 SKILL 内容时同轮更新 `mcp_min_commit`（当前 `a5bd61f`）与 `verified_with`。
+17. ★★ **`deploy.bat` 会把健康的 `.venv` 删残（v7.7 修，2026-10-27 真实事故）**：
+    - 现场：跑完部署后 `.venv` 文件数从 ~9000 掉到 **35**，只剩 `Scripts/` 和
+      `Lib/site-packages`（`Lib/os.py`、`encodings/` 全没了），venv 彻底不可用。
+    - 根因链：① 版本探测用 `python.exe --version` 取版本 —— 但 `python.exe` 的
+      argparse 遇到 `--version` 会直接 `SystemExit(2)`，**stdout 为空**；
+      ② 探测拿不到版本 → 判定「Python 不可用」→ 走重置分支；
+      ③ 重置分支是 `rmdir /S /Q "%PROJECT_ROOT%\.venv"` —— **先删后建**；
+      ④ 删完 `python -m venv` 在已残缺的目录上重建失败 → 停在一个既删了又没建成的现场。
+    - 修法：探测改 `-V`（`for /f "tokens=2"` 取 `3.12.10`）；即使探测失败也**不再删**，
+      改为 `call :QuarantineVenv` 移入 `.trash/venv-broken-<时间戳>/`（可恢复）；
+      搬不动（被占用）就 `goto :fail` 停下，**不会留下半个 .venv**。
+    - 教训：**「探测失败」和「资产不可用」是两件事**，不能让前者直接触发破坏性动作；
+      任何删除环境的动作都必须先隔离、再重建、失败可回滚。
+    - 顺带修：`echo` 行里带半角括号 `(` `)` 在 `if (...)` 块内会让 cmd 报
+      `... was unexpected at this time.` 并静默截断整个第 5 步 —— 提示语里禁止裸括号。
 
 ## 常见报错对照
 
 | 脚本输出 | 含义 / 处理 |
 |--|--|
-| `[X] skillbridge is NOT importable from the project venv` | 装错解释器了。删 `.venv` 重跑；确认 `pyproject.toml` 的 `requires-python` 没被改窄 |
+| `[X] skillbridge is NOT importable from the project venv` | 装错解释器了。**先把 `.venv` 移到 `.trash` 再重跑**（v7.7 起脚本自己也会隔离，不会删）；确认 `pyproject.toml` 的 `requires-python` 没被改窄 |
 | `[X] uv sync failed` | 网络 / 代理 / Python 版本问题。看上面的输出；可改用系统 python 模式（把 uv 从 PATH 摘掉再跑） |
 | `[!] SkillBridge 自动加载未配成` | 通常是没 pcbenv。启动一次 Allegro 再重跑，或用 `/pcbenv` 指定 |
 | 工具数与 `setup_agent.py` 的 `EXPECTED_TOOLS`（现 36）不符 | 少于期望 → 多半 clone 到了旧提交，`git pull` 后重启客户端；多于期望 → 本地加了新工具，去更新 `EXPECTED_TOOLS` |
