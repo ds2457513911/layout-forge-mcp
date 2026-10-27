@@ -87,6 +87,26 @@
     "tag": "真缺陷保留",
     "verdict": "keep_fail"
   },
+  "nb_mos8_3d15x3d1x0d85_0d65___": {
+    "family": "PDFN 3x3",
+    "file": "nb_mos8_3d15x3d1x0d85_0d65___.json",
+    "fingerprint": {
+      "body_x": 2.084,
+      "body_y": 2.185,
+      "mount": "smd",
+      "pad_x": 0.4,
+      "pad_y": 0.598,
+      "pin_count": 9,
+      "pitch_x": null,
+      "pitch_y": null
+    },
+    "n_lessons": 5,
+    "name": "NB_MOS8_3d15x3d1x0d85_0d65",
+    "saved_at": "2026-10-27 09:08:54",
+    "source_pdf": "C:/Users/ds245/.dsh-multi-user/users/xiaolifang/dsh-home/attachments/v1/files/e4/e435af912ae28f22579f524831474d40470f2ebd5408cadc79d3b5314dfc59e3/PE6D2DX_REV1.0_20210915.pdf",
+    "tag": "散热盘与长焊盘交叠裁定",
+    "verdict": "pass_with_notes"
+  },
   "nb_rj45_15d95x9d8x3d6_1d02__warn_": {
     "family": "RJ45",
     "file": "nb_rj45_15d95x9d8x3d6_1d02__warn_.json",

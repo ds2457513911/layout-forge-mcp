@@ -67,6 +67,23 @@
     "saved_at": "2026-10-14 11:05:00",
     "source_pdf": "C:/Users/ds245/Documents/Work_Bmorn/Layout/Data/footprint/LYDPJ-H23CB1Y-053N/LYDPJ-H23CB1Y-053N.pdf"
   },
+  "nb_mos8_3d15x3d1x0d85_0d65": {
+    "family": "PDFN 3x3",
+    "file": "nb_mos8_3d15x3d1x0d85_0d65.json",
+    "fingerprint": {
+      "body_x": 2.084,
+      "body_y": 2.185,
+      "mount": "smd",
+      "pad_x": 0.4,
+      "pad_y": 0.598,
+      "pin_count": 9,
+      "pitch_x": null,
+      "pitch_y": null
+    },
+    "name": "NB_MOS8_3d15x3d1x0d85_0d65",
+    "saved_at": "2026-10-27 09:08:29",
+    "source_pdf": "C:/Users/ds245/.dsh-multi-user/users/xiaolifang/dsh-home/attachments/v1/files/e4/e435af912ae28f22579f524831474d40470f2ebd5408cadc79d3b5314dfc59e3/PE6D2DX_REV1.0_20210915.pdf"
+  },
   "nb_typec24p_p2g": {
     "family": "TYPE-C",
     "file": "nb_typec24p_p2g.json",

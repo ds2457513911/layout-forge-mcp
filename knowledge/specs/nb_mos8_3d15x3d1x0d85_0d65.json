@@ -1,0 +1,127 @@
+{
+  "schema": "layout-forge-spec/1",
+  "name": "NB_MOS8_3d15x3d1x0d85_0d65",
+  "saved_at": "2026-10-27 09:08:29",
+  "family": "PDFN 3x3",
+  "source_pdf": "C:/Users/ds245/.dsh-multi-user/users/xiaolifang/dsh-home/attachments/v1/files/e4/e435af912ae28f22579f524831474d40470f2ebd5408cadc79d3b5314dfc59e3/PE6D2DX_REV1.0_20210915.pdf",
+  "notes": "scale=23.75pt/mm（0.4mm pad 宽反推）。模型无图像输入，全靠 fitz 矢量解析。pin1=左下 S1，下排 1-4 左→右（S1 G1 S2 G2），上排 5-8 右→左（D2 D2 D1 D1）。pin2/3 长焊盘 0.413×2.640 贯穿散热盘区（规格书原图如此，pad-thermal 交叠是原厂画法，非错误）。散热盘中心偏左 -0.324mm。本体（TOP VIEW inner rect）2.084×2.185mm，本体中心比焊盘阵列右偏 0.25mm（成品坐标 x=-0.254）。Place_Bound 外扩 0.80/1.13mm（罩住长焊盘外伸），非标准 0.35。命名前缀用户自定义小写 nb_（规则表期望 NB_，warn 不阻断）。axlSaveDesign 关键字是 ?noConfirm（大写 C），?noconfirm 报 unrecognized keyword。eval_skill 只接受单行 SKILL。",
+  "fingerprint": {
+    "mount": "smd",
+    "pin_count": 9,
+    "pitch_x": null,
+    "pitch_y": null,
+    "body_x": 2.084,
+    "body_y": 2.185,
+    "pad_x": 0.4,
+    "pad_y": 0.598
+  },
+  "spec": {
+    "mount": "smd",
+    "symbol_base": "MOS",
+    "symbol_name": "nb_mos8_3d15x3d1x0d85_0d65",
+    "pin_count": 9,
+    "pitch": 0.65,
+    "package_height": 0.85,
+    "pad": {
+      "shape": "rect",
+      "size": [
+        0.4,
+        0.598
+      ],
+      "padstack": "R0D4X0D6"
+    },
+    "long_pad": {
+      "size": [
+        0.413,
+        2.64
+      ],
+      "padstack": "R0D41X2D64"
+    },
+    "thermal_pad": {
+      "size": [
+        1.827,
+        2.042
+      ],
+      "padstack": "R1D83X2D04",
+      "offset": [
+        -0.3242,
+        -0.2505
+      ]
+    },
+    "pins": [
+      {
+        "number": "1",
+        "x": -0.9116,
+        "y": -1.5705,
+        "padstack": "R0D4X0D6"
+      },
+      {
+        "number": "2",
+        "x": -0.2569,
+        "y": -0.5494,
+        "padstack": "R0D41X2D64"
+      },
+      {
+        "number": "3",
+        "x": 0.3832,
+        "y": -0.5494,
+        "padstack": "R0D41X2D64"
+      },
+      {
+        "number": "4",
+        "x": 1.0379,
+        "y": -1.5705,
+        "padstack": "R0D4X0D6"
+      },
+      {
+        "number": "5",
+        "x": 1.0379,
+        "y": 1.5705,
+        "padstack": "R0D4X0D6"
+      },
+      {
+        "number": "6",
+        "x": 0.3895,
+        "y": 1.5705,
+        "padstack": "R0D4X0D6"
+      },
+      {
+        "number": "7",
+        "x": -0.2632,
+        "y": 1.5705,
+        "padstack": "R0D4X0D6"
+      },
+      {
+        "number": "8",
+        "x": -0.9116,
+        "y": 1.5705,
+        "padstack": "R0D4X0D6"
+      },
+      {
+        "number": "9",
+        "x": -0.3242,
+        "y": -0.2505,
+        "padstack": "R1D83X2D04"
+      }
+    ],
+    "body": {
+      "x": 2.084,
+      "y": 2.185,
+      "center": [
+        -0.254,
+        0
+      ]
+    },
+    "place_bound": {
+      "x1": -2.111,
+      "y1": -2.219,
+      "x2": 1.693,
+      "y2": 2.219,
+      "expand": "0.80/1.13mm 罩住长焊盘外伸"
+    },
+    "silk": "两条短横线 (y=1.232/1.382, x -1.357..-0.4) + pin1 竖线 (x=1.0379, y -1.87..-2.3)",
+    "assembly": "本体框 (-1.357,-1.103)..(0.849,1.082) + pin1 三角标",
+    "units": "mm",
+    "accuracy": 4
+  }
+}

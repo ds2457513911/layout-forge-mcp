@@ -1,0 +1,54 @@
+{
+  "schema": "layout-forge-case/1",
+  "name": "NB_MOS8_3d15x3d1x0d85_0d65",
+  "tag": "散热盘与长焊盘交叠裁定",
+  "saved_at": "2026-10-27 09:08:54",
+  "family": "PDFN 3x3",
+  "source_pdf": "C:/Users/ds245/.dsh-multi-user/users/xiaolifang/dsh-home/attachments/v1/files/e4/e435af912ae28f22579f524831474d40470f2ebd5408cadc79d3b5314dfc59e3/PE6D2DX_REV1.0_20210915.pdf",
+  "fingerprint": {
+    "mount": "smd",
+    "pin_count": 9,
+    "pitch_x": null,
+    "pitch_y": null,
+    "body_x": 2.084,
+    "body_y": 2.185,
+    "pad_x": 0.4,
+    "pad_y": 0.598
+  },
+  "check_summary": {
+    "total": 17,
+    "pass": 13,
+    "fail": 1,
+    "warn": 2,
+    "na": 1
+  },
+  "report_path": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\Tools\\test\\check_log\\checklist_report_nb_mos8_3d15x3d1x0d85_0d65_20261026_174936.json",
+  "findings": [
+    {
+      "issue": "pin2/3 长焊盘(0.413x2.64)与 pin9 散热盘(1.827x2.042)大面积交叠",
+      "reason": "规格书第7页 LP 矢量原图：长焊盘 y 623.6-686.3pt 贯穿散热盘 y 623.6-672.1pt 区，原厂推荐焊盘即如此画（Gate 与 Drain 沟道隔离由 PCB 布线切开 copper 实现，封装层不挖）。用户裁定照抄规格书。",
+      "rule_id": "3-pad_overlap",
+      "verdict": "false_positive"
+    },
+    {
+      "issue": "封装名前缀小写 nb_，规则表期望 NB_",
+      "reason": "用户自定义命名（2026-10-26 确认），非笔误。",
+      "rule_id": "1-name_prefix",
+      "verdict": "false_positive"
+    },
+    {
+      "issue": "Place_Bound 单边外扩 x0.80/y1.13mm，超出 ic 标准 0.35±0.05",
+      "reason": "pin2/3 长焊盘向下外伸至 y=-1.87mm，0.35 外扩罩不住；按'盖住全部铜皮'原则取罩住焊盘外缘+0.35。",
+      "rule_id": "5-place_bound_expand",
+      "verdict": "false_positive"
+    }
+  ],
+  "lessons": [
+    "PDFN 3x3 类 MOS：长焊盘(G/S 沟道脚)贯穿散热盘是原厂 LP 原图画法，'焊盘不重叠'规则对这类件天然误报，pitch 判据也必须剔除散热盘再算",
+    "specs/footprint PDF 无图像可读时（模型无视觉），可用 fitz get_drawings+get_text 矢量解析：先由已知尺寸(如 0.4mm pad 宽)反推 pt/mm scale，再交叉验证",
+    "axlSaveDesign 关键字拼写 ?noConfirm（大写 C）；eval_skill 只接受单行 SKILL 代码",
+    "build_footprint_from_params 失败重跑前必须先清空图纸（axlDeleteObject 逐删 pins/texts + axlDeleteByLayer 清几何），否则叠加重复 pin 触发 SPMHA1-298",
+    "通道复读 count 有 15 帧滞后假象——删 pin 后是否成功只能靠磁盘证据(read_full_footprint/extracta)确认"
+  ],
+  "verdict": "pass_with_notes"
+}
