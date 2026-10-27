@@ -1,15 +1,15 @@
 {
-  "frozen_at": "2026-10-23T23:44:31",
+  "frozen_at": "2026-10-27T11:44:57",
   "schema_version": 2,
-  "interpreter": "C:/Users/ds245/WorkBuddy/Layout/.workbuddy/cache/scratch/il_probe/pylite/python/python.exe",
+  "interpreter": "C:\\Users\\ds245\\WorkBuddy\\Layout\\.workbuddy\\cache\\tools\\venv-unconfined\\Scripts\\python.exe",
   "inventory": {
     "golden_dra": 253,
     "golden_dir": "Data/PCB_Footprint",
-    "template_dirs": 14,
+    "template_dirs": 15,
     "template_pdf": 14,
-    "template_dra": 14,
-    "specs": 6,
-    "cases": 10,
+    "template_dra": 15,
+    "specs": 7,
+    "cases": 11,
     "noise_files": []
   },
   "runs": {
@@ -24,7 +24,7 @@
     },
     "skill_syntax": {
       "rc": 0,
-      "seconds": 0.1,
+      "seconds": 0.2,
       "timeout": false,
       "passed": 222,
       "total": 222,
@@ -43,10 +43,10 @@
     "extracta": {
       "ok": true,
       "sample": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\3S48000163\\nb_xtal4_3d2x2d5x0d7.dra",
-      "cwd": "C:\\Users\\ds245\\AppData\\Local\\Temp\\extracta_probe_f7np9u45",
+      "cwd": "C:\\Users\\ds245\\AppData\\Local\\Temp\\extracta_probe_21c9bomn",
       "cdsroot": "C:\\Software\\Cadence\\Cadence_SPB_17.2-2016",
       "extracta": "C:\\Software\\Cadence\\Cadence_SPB_17.2-2016\\tools\\bin\\extracta.exe",
-      "seconds": 0.1,
+      "seconds": 0.2,
       "rc": 0,
       "views": [
         {
@@ -80,12 +80,12 @@
     },
     "benchmark": {
       "rc": 2,
-      "seconds": 40.9,
+      "seconds": 49.2,
       "timeout": false,
       "passed": null,
       "total": null,
       "failed": null,
-      "tail": "  [250/253] tvs_1x0d6x0d53_esd54231n.dra                 REVIEW_REQUIRED  P12/F0/W1/NA3  none\n  [251/253] tvs_1x0d6x0d5_esd5411n.dra                   FAIL  P11/F1/W1/NA3  none\n  [252/253] xtal2_3d2x1d5x0d9.dra                        REVIEW_REQUIRED  P14/F0/W1/NA2  none\n  [253/253] y_4p_smd3225.dra                             REVIEW_REQUIRED  P15/F0/W1/NA1  none\n\n================================================================\n  完成：253 件，用时 41s\n  PASS 7 ｜ WARN 0 ｜ FAIL 81 ｜ 其他/提取失败 183\n  例外件（有 FAIL/WARN 项）：230 件 → exceptions/（第 2 层 AI 复核输入）\n  指纹 exact 命中：0/253\n  报告：C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\Tools\\log\\golden_benchmark\\benchmark_summary.csv\n================================================================",
+      "tail": "  [250/253] tvs_1x0d6x0d53_esd54231n.dra                 REVIEW_REQUIRED  P12/F0/W1/NA3  none\n  [251/253] tvs_1x0d6x0d5_esd5411n.dra                   FAIL  P11/F1/W1/NA3  none\n  [252/253] xtal2_3d2x1d5x0d9.dra                        REVIEW_REQUIRED  P14/F0/W1/NA2  none\n  [253/253] y_4p_smd3225.dra                             REVIEW_REQUIRED  P15/F0/W1/NA1  none\n\n================================================================\n  完成：253 件，用时 49s\n  PASS 7 ｜ WARN 0 ｜ FAIL 81 ｜ 其他/提取失败 183\n  例外件（有 FAIL/WARN 项）：230 件 → exceptions/（第 2 层 AI 复核输入）\n  指纹 exact 命中：0/253\n  报告：C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\Tools\\log\\golden_benchmark\\benchmark_summary.csv\n================================================================",
       "pieces": 253,
       "pass": 7,
       "warn": 0,

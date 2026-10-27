@@ -143,7 +143,7 @@ goto usage
 
 echo.
 echo ============================================================
-echo  layout-forge-mcp deployer  v7.5
+echo  layout-forge-mcp deployer  v7.6
 echo ============================================================
 echo   Script dir  : %SCRIPT_DIR%
 echo   Install dir : %INSTALL_DIR%
@@ -370,11 +370,29 @@ if "%DRY_RUN%"=="1" (
     goto :step5_done
 )
 
-REM ---- version check below may rmdir .venv - must stay after DRY_RUN gate
+REM ---- version check below may quarantine .venv - must stay after DRY_RUN gate
 REM ---- (dry run once deleted a real .venv here, 2026-10-14 incident)
+REM
+REM ---- 2026-10-27 root cause of the "venv got destroyed" incident ----
+REM The old probe was:
+REM   for /f ... in ('"%VENV_PYTHON%" -c "import sys; print(...)"')
+REM i.e. a double-quoted exe path AND double-quoted -c payload inside one
+REM for /f command. cmd strips the outer quotes when handing the line to
+REM the child shell, so the probe ALWAYS failed and VENV_VER was never set
+REM -> every single run printed "Could not detect .venv Python version"
+REM -> every run tried to rmdir .venv.
+REM The rmdir then failed silently too (2>nul): pywin32 DLLs are held open by
+REM any running MCP server, so the delete stopped halfway. Since python.exe
+REM itself survived, the "if not exist create venv" step was skipped and pip
+REM ran against a stripped venv -> "No module named pip".
+REM
+REM Two fixes, both narrow:
+REM   1. probe with "python -V" (no nested quotes at all: tokens=2 -> 3.12.10)
+REM   2. never rmdir - quarantine instead, and ABORT if the move fails, so a
+REM      half-deleted environment can never be walked over again.
 if exist "%VENV_PYTHON%" (
     set "VENV_VER="
-    for /f "delims=" %%v in ('"%VENV_PYTHON%" -c "import sys; print(str(sys.version_info[0]) + '.' + str(sys.version_info[1]))" 2^>nul') do set "VENV_VER=%%v"
+    for /f "tokens=2" %%v in ('"%VENV_PYTHON%" -V 2^>^&1') do set "VENV_VER=%%v"
     if defined VENV_VER (
         echo       existing .venv Python: !VENV_VER!
         set "RECREATE=0"
@@ -385,12 +403,15 @@ if exist "%VENV_PYTHON%" (
         )
         if "!RECREATE!"=="1" (
             echo   [!] Python !VENV_VER! is outside the supported 3.10-3.13 range
-            echo       recreating .venv ...
-            rmdir /S /Q "%PROJECT_ROOT%\.venv" 2>nul
+            echo       quarantining .venv - it is moved to .trash, never deleted ...
+            call :QuarantineVenv
+            if errorlevel 1 goto :fail
         )
     ) else (
-        echo   [!] Could not detect .venv Python version - recreating to be safe
-        rmdir /S /Q "%PROJECT_ROOT%\.venv" 2>nul
+        echo   [!] .venv Python did not answer "-V" - treating it as unusable
+        echo       quarantining .venv - it is moved to .trash, never deleted ...
+        call :QuarantineVenv
+        if errorlevel 1 goto :fail
     )
 )
 
@@ -632,6 +653,37 @@ winget source reset --force >nul 2>&1
 echo       waiting 5s before retry...
 timeout /t 5 /nobreak >nul
 goto :WingetTryLoop
+
+REM ============================================================
+REM :QuarantineVenv - move %PROJECT_ROOT%\.venv into .trash, never delete
+REM
+REM Why a move and not rmdir: a running MCP server holds pywin32 DLLs inside
+REM .venv open. rmdir /Q fails partway, leaves a half-venv behind, and the
+REM old code carried on regardless (that is the 2026-10-27 incident).
+REM A rename either works completely or fails completely, and the directory
+REM survives in .trash so nothing is ever lost.
+REM exit /b 0 = .venv moved away, caller may build a fresh one.
+REM exit /b 1 = move failed (still in use) -> caller must ABORT.
+REM ============================================================
+:QuarantineVenv
+REM Stamp from %RANDOM% only, to stay locale-proof
+REM (%DATE% is "2026/10/27 <weekday>" here and "10/27/2026" elsewhere; parsing
+REM  it reliably across locales is not worth the risk for a one-shot backup name).
+set "QDIR=%PROJECT_ROOT%\.trash\venv-quarantined-%RANDOM%%RANDOM%"
+if not exist "%PROJECT_ROOT%\.trash" mkdir "%PROJECT_ROOT%\.trash" >nul 2>&1
+move "%PROJECT_ROOT%\.venv" "%QDIR%" >nul 2>&1
+if errorlevel 1 (
+    echo   [X] could not move .venv to .trash - a process is still using it.
+    echo.
+    echo       Close Allegro and every editor/terminal that has this project
+    echo       open, and stop the running MCP servers, then run deploy again.
+    echo       Hint: tasklist ^| findstr pythonw
+    echo.
+    echo       .venv has NOT been modified. Nothing was deleted.
+    exit /b 1
+)
+echo       moved old .venv to: !QDIR!
+exit /b 0
 
 :fail
 echo.
