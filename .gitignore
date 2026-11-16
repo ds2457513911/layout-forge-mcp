@@ -94,3 +94,9 @@ Thumbs.db
 !Tools/deploy/
 Tools/deploy/.deploy_manifest.json
 Tools/deploy/__pycache__/
+
+# ---- 缓存与索引（workspace-hygiene）----
+.agent-cache/
+.AIREADME
+__pycache__/
+*.pyc
