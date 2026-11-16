@@ -1,0 +1,103 @@
+{
+  "schema": "layout-forge-spec/1",
+  "name": "NB_SOT23-6_3D02X1D7X1D5_1D05",
+  "saved_at": "2026-10-28 16:24:50",
+  "family": "SOT23-6",
+  "source_pdf": "C:\\Users\\ds245\\Documents\\deepseek-harness\\default-workspace\\.agent-cache\\NB_SOT23-6_TMI3113_check\\TMI3113_datasheet.pdf",
+  "notes": "TMI3113 规格书 p8（PACKAGE INFORMATION / SOT23-6）为唯一尺寸页。无 recommended land pattern → 全部按表取 MAX：E1 MAX=1.05 决定列距 pitch_x=1.05（注意 E1 MIN=0.85 不要误用）；行距 spacing_y=2.65≈L1 MAX 3.00 与本体半长的和凑整推导，实际按用户确认值。TOP VIEW：底排 1/2/3 左→右，顶排 6/5/4，pin1 左下，Pin1 Dot By Marking。 Place_Bound 口径经用户裁定：盖住焊盘阵列再外扩（3.72×3.90），不是本体+0.35 标准（3.72×2.4）。踩坑：同一 .dra 名曾因 Allegro CWD 落在 MRU 金标准目录（3S48000163）导致产物错位，编译/存盘后必须核对落点并归位。",
+  "fingerprint": {
+    "mount": "smd",
+    "pin_count": 6,
+    "pitch_x": 1.05,
+    "pitch_y": 2.65,
+    "body_x": 3.02,
+    "body_y": 1.7,
+    "pad_x": 0.5,
+    "pad_y": 0.95
+  },
+  "spec": {
+    "array": {
+      "cols": 3,
+      "pitch_x": 1.05,
+      "pitch_y": 2.65,
+      "rows": 2
+    },
+    "body": {
+      "x": 3.02,
+      "y": 1.7
+    },
+    "dim_source": "table",
+    "dim_tables": {
+      "body.x": {
+        "max": 3.02,
+        "min": 2.82
+      },
+      "body.y": {
+        "max": 1.7,
+        "min": 1.5
+      },
+      "pad.x": {
+        "max": 0.5,
+        "min": 0.35
+      },
+      "pad.y": {
+        "max": 0.95,
+        "min": 0.35
+      },
+      "spacing_x": {
+        "max": 1.05,
+        "min": 0.85
+      },
+      "spacing_y": {
+        "max": 2.65
+      }
+    },
+    "mount": "smd",
+    "pad": {
+      "shape": "rect",
+      "size": [
+        0.5,
+        0.95
+      ]
+    },
+    "padstack": {
+      "layers": [
+        {
+          "figure": "RECTANGLE",
+          "layer": "TOP",
+          "size": [
+            0.5,
+            0.95
+          ]
+        },
+        {
+          "figure": "RECTANGLE",
+          "layer": "SOLDERMASK_TOP",
+          "size": [
+            0.6,
+            1.05
+          ]
+        },
+        {
+          "figure": "RECTANGLE",
+          "layer": "PASTEMASK_TOP",
+          "size": [
+            0.5,
+            0.95
+          ]
+        }
+      ],
+      "name": "R0D5X0D95"
+    },
+    "pin1_corner": "bottom-left",
+    "pin_count": 6,
+    "place_bound": [
+      3.72,
+      3.9
+    ],
+    "place_bound_expand_mm": 0.35,
+    "place_bound_basis": "pad_array",
+    "symbol_base": "SOT23-6",
+    "symbol_name": "NB_SOT23-6_3D02X1D7X1D5_1D05"
+  }
+}

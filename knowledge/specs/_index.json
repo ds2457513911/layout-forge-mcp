@@ -84,6 +84,23 @@
     "saved_at": "2026-10-27 09:08:29",
     "source_pdf": "C:/Users/ds245/.dsh-multi-user/users/xiaolifang/dsh-home/attachments/v1/files/e4/e435af912ae28f22579f524831474d40470f2ebd5408cadc79d3b5314dfc59e3/PE6D2DX_REV1.0_20210915.pdf"
   },
+  "nb_sot23-6_3d02x1d7x1d5_1d05": {
+    "family": "SOT23-6",
+    "file": "nb_sot23-6_3d02x1d7x1d5_1d05.json",
+    "fingerprint": {
+      "body_x": 3.02,
+      "body_y": 1.7,
+      "mount": "smd",
+      "pad_x": 0.5,
+      "pad_y": 0.95,
+      "pin_count": 6,
+      "pitch_x": 1.05,
+      "pitch_y": 2.65
+    },
+    "name": "NB_SOT23-6_3D02X1D7X1D5_1D05",
+    "saved_at": "2026-10-28 16:24:50",
+    "source_pdf": "C:\\Users\\ds245\\Documents\\deepseek-harness\\default-workspace\\.agent-cache\\NB_SOT23-6_TMI3113_check\\TMI3113_datasheet.pdf"
+  },
   "nb_typec24p_p2g": {
     "family": "TYPE-C",
     "file": "nb_typec24p_p2g.json",
