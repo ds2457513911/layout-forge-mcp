@@ -11,6 +11,7 @@ setup_agent.py —— layout-forge-mcp 的「Agent 侧」一键配置
 
 做六件事：
     A. 注册 MCP        —— 写客户端的 mcp.json（venv python + -c 注入 sys.path）
+                          + A2：把 DSH 连接器行写进每个 profile 的 cordis.patch.yml
     B. 安装 Skill      —— deploy\skills\* 复制到 landings.json 声明的每个**在场**落点
     C. 配 SkillBridge  —— 调 Tools/install_skillbridge.py --non-interactive
     D. 冒烟验收        —— import 依赖 + 读 MCP 工具总数
@@ -223,6 +224,147 @@ def write_mcp_config(project_root: Path, venv_python: Path, dry_run: bool) -> tu
     if existed_servers:
         log(f"保留的其他 server：{', '.join(existed_servers)}")
     return True, target, name
+
+
+# ---- A2. 注册 DSH 连接器（写 profile 的 cordis.patch.yml）----
+#: DSH 的 MCP 没有设置面板、没有管理 API：一个服务器就是 profile 组合 patch 里的
+#: 一条 `dsh-mcp-client` 行，**条目判定键是 config.serverName**。schema 以插件
+#: dsh-config-manager 的 src/adapters/mcp.ts 为准（MCP_BUNDLE_NAME、
+#: buildMcpPatchLine、config 键 serverName/transport/command/args）。
+#:
+#: ★ 只能**文本追加**，不能解析后 yaml.dump 写回：宿主在这些文件里写了几百行注释与
+#:   `!!js` 说明（2026-11-19 实查 web profile 2185 行），dump 一次全丢。
+#:   写完必须把整份文本重新解析一遍、确认仍是序列且含新条目，才落盘。
+DSH_MCP_BUNDLE = "@deepseek-ai/dsh-mcp-client"
+
+
+def dsh_connector_block(project_root: Path, venv_python: Path) -> list[str]:
+    """要追加进 profile patch 的那几行（YAML 序列项，从第 0 列起）。"""
+    root_posix = str(project_root).replace("\\", "/")
+    py_posix = str(venv_python).replace("\\", "/")
+    inject = (f"import sys; sys.path.insert(0, r'{root_posix}'); "
+              f"from mcp_server.server import main; main()")
+    return [
+        f"- id: mcp-{SERVER_NAME}",
+        f"  name: '{DSH_MCP_BUNDLE}'",   # @ 开头不能作裸标量（YAML 保留符）
+        "  config:",
+        f"    serverName: {SERVER_NAME}",
+        "    transport: stdio",
+        f"    command: {json.dumps(py_posix)}",
+        "    args:",
+        "      - -c",
+        f"      - {json.dumps(inject)}",
+    ]
+
+
+def _dsh_has_server(text: str) -> bool:
+    """文本里已经有这个 server 的连接器行吗（按 config.serverName 判，不看行 id）。"""
+    for line in text.splitlines():
+        key, _, value = line.strip().partition(":")
+        if key == "serverName":
+            if value.split("#")[0].strip().strip("'\"") == SERVER_NAME:
+                return True
+    return False
+
+
+def _yaml_list_ok(text: str) -> bool:
+    """整份文本是合法 YAML 序列吗（缺 PyYAML 或带自定义 tag 都返回 False）。"""
+    return _yaml_list_state(text)[0]
+
+
+def _yaml_list_state(text: str) -> tuple[bool, bool]:
+    """(能解析成序列, 失败原因只是「未知自定义 tag」)。
+
+    区分这两种失败很重要：DSH 的 patch 允许 `!tag` / `!!js` 这类表达，PyYAML 不认，
+    但文件本身是合法的；而**语法错误**是另一回事 —— 那种文件继续追加只会写坏。
+    """
+    try:
+        import yaml
+    except ImportError:
+        return False, False
+    try:
+        return isinstance(yaml.safe_load(text), list), False
+    except Exception as exc:  # noqa: BLE001
+        return False, type(exc).__name__ == "ConstructorError"
+
+
+def _append_yaml_item(text: str, block: list[str]) -> str:
+    """把 block 追加成序列最后一项；文件只有一个独占的 `[]` 时替换它。"""
+    lines = text.splitlines()
+    last_code = -1
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            last_code = i
+    if last_code >= 0:
+        stripped = lines[last_code].strip()
+        if stripped.startswith("[]") and (len(stripped) == 2 or stripped[2] in " \t#"):
+            rest = stripped[2:].strip()
+            new_block = list(block)
+            if rest:
+                new_block[0] = new_block[0] + "  " + rest
+            return "\n".join(lines[:last_code] + new_block + lines[last_code + 1:]) + "\n"
+    if text and not text.endswith("\n"):
+        text += "\n"
+    return text + "\n".join(block) + "\n"
+
+
+def ensure_dsh_connectors(project_root: Path, venv_python: Path, dry_run: bool) -> bool:
+    """把本 MCP 注册进每个 DSH profile 的 cordis.patch.yml（幂等）。
+
+    ★ 幂等键是 config.serverName：已有同名行 = 已注册，不覆盖（手改过的行也留着）。
+    ★ 只追加、不重排、不 dump：宿主写的注释与说明必须原样保留。
+    ★ 缺 PyYAML 时 WARN 跳过、不判失败：别的客户端仍可用；用项目 .venv 跑本脚本
+      就有 PyYAML（dsh 栈的传递依赖，不在 pyproject.toml 里）。
+    """
+    profile = real_profile()
+    patches = dsh_config_candidates(profile)
+    existing = [p for p in patches if p.is_file()]
+    if not existing:
+        log(f"没找到 DSH profile patch（{patches[0].parent}\\*\\cordis.patch.yml），"
+            f"跳过 DSH 连接器注册。", "WARN")
+        return True
+
+    try:
+        import yaml  # noqa: F401
+    except ImportError:
+        log("没装 PyYAML，跳过 DSH 连接器写入（改用项目 .venv 跑本脚本即可自动写）。", "WARN")
+        return True
+
+    block = dsh_connector_block(project_root, venv_python)
+    block_ok = _yaml_list_ok("\n".join(block))
+    ok = True
+    for path in existing:
+        label = f"{path.parent.name}/{path.name}"   # profiles/<name>/cordis.patch.yml
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            log(f"{label}：读不了（{exc}），跳过。", "ERR")
+            ok = False
+            continue
+        if _dsh_has_server(text):
+            log(f"{label}：已注册 {SERVER_NAME}，跳过", "OK")
+            continue
+        new_text = _append_yaml_item(text, block)
+        if not _yaml_list_ok(new_text):
+            orig_ok, orig_only_tags = _yaml_list_state(text)
+            if block_ok and orig_only_tags and text.strip():
+                log(f"{label}：原文件带自定义 tag 无法整体解析；已单独校验追加块，照写。", "WARN")
+            else:
+                log(f"{label}：追加后不是合法 YAML 序列（原文解析：{'ok' if orig_ok else 'bad'}），未写入。", "ERR")
+                ok = False
+                continue
+        if dry_run:
+            log(f"[DRY-RUN] 将往 {label} 追加：", "WARN")
+            print("\n".join("    " + line for line in block))
+            continue
+        backup = path.with_name(f"{path.name}.bak_{ts()}")
+        shutil.copy2(path, backup)
+        tmp = path.with_name(path.name + ".tmp_setup")
+        tmp.write_text(new_text, encoding="utf-8")
+        os.replace(tmp, path)
+        log(f"{label}：已写入 {SERVER_NAME}（备份 {backup.name}）", "OK")
+    return ok
 
 
 # ============================================================
@@ -1195,6 +1337,9 @@ def main() -> int:
         )
         results["mcp"] = ok
         log(f"配置目标：{cfg_path}（{client}）")
+
+        hr("A2. 注册 DSH 连接器（profile 的 cordis.patch.yml）")
+        results["dsh_mcp"] = ensure_dsh_connectors(project_root, venv_python, args.dry_run)
 
     if not args.no_skills:
         hr("B. 安装 Skill（清单里的在场落点）")

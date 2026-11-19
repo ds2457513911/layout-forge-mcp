@@ -192,7 +192,7 @@ SkillBridge 自动加载由 `Tools\deploy\setup_agent.py` 的 C 步负责，
 |---|---|---|---|---|
 | 1 | WorkBuddy MCP 注册 | `C:\Users\ds245\.workbuddy\mcp.json` | `Tools\deploy\setup_agent.py`（A 步，合并写入 + 先备份） | 客户端里整个 server 不见 |
 | 2 | SkillBridge 自动加载 | `D:\Dev_tools\Cadence_17.2\Cadence\SPB_Data\pcbenv\allegro.ilinit` | 同上（C 步，调 `Tools\install_skillbridge.py`） | 建封装报「连不上 Allegro」 |
-| 3 | DSH 侧连接器 | `C:\Users\ds245\.dsh\profiles\tauri\cordis.patch.yml`（`insert: - id: mcp-layout-forge-mcp`） | **手工**，非本仓库 | DSH 工具列表里没有本项目的工具 |
+| 3 | DSH 侧连接器 | `C:\Users\ds245\.dsh\profiles\*\cordis.patch.yml`（每份 profile 一条 `- id: mcp-layout-forge-mcp`，`config.serverName` 是条目判定键） | 同上（A2 步：文本追加、先备份、按 serverName 幂等；2026-11-19 起不再手工） | DSH 工具列表里没有本项目的工具 |
 
 ★ **另有一类「重建后必须对上」的东西：SKILL 副本。** 它不由上面三处配置驱动，而由本机清单
 `Tools\deploy\landings.json` 声明（2026-11-19 重做）：逐条写清哪个客户端真的在读技能、技能放哪，
@@ -217,7 +217,7 @@ findstr /C:"Python:" /C:"SKILL:" "D:\Dev_tools\Cadence_17.2\Cadence\SPB_Data\pcb
 .venv\Scripts\python.exe -c "import sys,asyncio;sys.path.insert(0,'.');from mcp_server.server import mcp;print(len(asyncio.run(mcp.list_tools())))"
 ```
 
-★ **改 DSH 配置（第 3 处）后必须重启宿主 / 刷新页面才生效**；MCP 注册（第 1 处）改完要重连客户端（§4.3）。
+★ **改 DSH 配置（第 3 处）后必须重启宿主 / 刷新页面才生效**（A2 只写文件、不替你重启宿主）；MCP 注册（第 1 处）改完要重连客户端（§4.3）。
 
 ### 3.6 ★ 沙箱里跑部署脚本：必须带 `--venv-python`
 

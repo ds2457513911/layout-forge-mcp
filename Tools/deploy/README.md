@@ -105,12 +105,18 @@ python Tools\deploy\setup_agent.py --verify-contract   # 工具数同源 + 名�
 | 5 | `[5/6] Create .venv and install dependencies` | `.venv` 已可用（四个关键包都能 import）→ **跳过安装**；否则 `uv sync`，或 `python -m venv` + `pip install -e .` |
 | 6 | `[6/6] Register MCP, install Skills, config SkillBridge` | 调 `setup_agent.py`，见下；**它非零退出 = 部署失败（直接 `:fail`，不再「打一行提示继续」）** |
 
-`setup_agent.py` 的六段：
+`setup_agent.py` 的六段（A 里含单独一步 A2）：
 
 - **A 注册 MCP** —— 自动找客户端配置并**合并写入**（优先级：已存在的
   `~/.workbuddy/mcp.json` → Claude Desktop → Cursor → Trae；
   ★ 全都不存在（客户端还没装过）→ 直接在 `~/.workbuddy/mcp.json` **新建**，
   目录自动创建，客户端装好后启动即生效，**没有任何手工环节**）
+- **A2 注册 DSH 连接器** —— 往 `~/.dsh/profiles/*/cordis.patch.yml` 每份 profile 追加一条
+  `- id: mcp-layout-forge-mcp`（`name: '@deepseek-ai/dsh-mcp-client'`，schema 以插件
+  `dsh-config-manager` 的 `src/adapters/mcp.ts` 为准）。★ 只做**文本追加**（宿主写的注释与
+  `!!js` 说明不能 dump 掉）、先备份 `<原名>.bak_<ts>`、按 `config.serverName` 幂等；
+  写完 `yaml.safe_load` 复核仍是列表才落盘，坏的原文一律拒写。缺 PyYAML 时 WARN 跳过、不判失败。
+  自检：`Tools\deploy\selfcheck_dsh_patch.py`（15 项）。改完必须重启宿主才加载
 - **B 装 Skill** —— `deploy\skills\*` → **`landings.json` 里声明且确实在场的客户端落点**
   （默认 `~/.workbuddy/skills`、`~/.dsh/skills`；按 `realpath` 去重后写在真身上，逐文件覆盖、
   保留 `_user_meta.json`）→ 然后写 `deploy\.deploy_manifest.json`
@@ -132,6 +138,7 @@ python Tools\deploy\setup_agent.py --verify-contract   # 工具数同源 + 名�
 |--|--|--|
 | `deploy.bat` | 一键部署入口：自举环境（winget/uv/git/venv/依赖） | 会装软件、建 `.venv` |
 | `setup_agent.py` | Agent 侧配置：MCP / Skill（清单落点）/ SkillBridge / 验收 / **落点校验** | **会写用户级配置和 Allegro 的 `allegro.ilinit`** |
+| `selfcheck_dsh_patch.py` | A2 步的离线自检：纯追加 / 注释保留 / 按 `serverName` 幂等 / `[]` 替换 / 坏文件拒写 / dry-run，全部在临时目录跑 | 不碰任何真实 profile |
 | `landings.json` | ★ **落点声明（本机状态，被 .gitignore 忽略）**：逐条 `{id, client, skills_dir, require}`，`require` 写明「凭什么算这个客户端在场」 | **不是真源**；缺失时首次运行按内置默认生成 |
 | `.deploy_manifest.json` | ★ **部署记录（本机状态，被 .gitignore 忽略；schema `...-manifest/2`）**：真源 hash + 每个在场落点的 files/junction/real + `deployed_at` | **不是真源**；`--verify-skills` 用它区分 STALE 与 DIVERGED（`/1` 已作废） |
 | `skills_backup/` | ★ mirror 前把「真源没有、落点里却有」的文件备份到这里（`<name>.bak_<ts>/`） | 只在本机出现；确认无用后可删 |
