@@ -194,6 +194,16 @@ SkillBridge 自动加载由 `Tools\deploy\setup_agent.py` 的 C 步负责，
 | 2 | SkillBridge 自动加载 | `D:\Dev_tools\Cadence_17.2\Cadence\SPB_Data\pcbenv\allegro.ilinit` | 同上（C 步，调 `Tools\install_skillbridge.py`） | 建封装报「连不上 Allegro」 |
 | 3 | DSH 侧连接器 | `C:\Users\ds245\.dsh\profiles\tauri\cordis.patch.yml`（`insert: - id: mcp-layout-forge-mcp`） | **手工**，非本仓库 | DSH 工具列表里没有本项目的工具 |
 
+★ **另有一类「重建后必须对上」的东西：SKILL 副本。** 它不由上面三处配置驱动，而由本机清单
+`Tools\deploy\landings.json` 声明（2026-11-19 重做）：逐条写清哪个客户端真的在读技能、技能放哪，
+以及「凭什么算这个客户端在场」的证据（如 `~/.workbuddy/mcp.json` 里注册了 `layout-forge-mcp`）。
+`python Tools\deploy\setup_agent.py --verify-skills` 按**六态**判定（MATCH / STALE / DIVERGED /
+MISSING / NOT_INSTALLED / UNVERIFIABLE）：**至少一个 MATCH、且没有 MISSING / STALE / DIVERGED /
+UNVERIFIABLE 才 exit 0；零落点同样失败**（判定表与证据句式见 `Tools\deploy\README.md` 坑 15）。
+★ 用户目录用 `SHGetFolderPathW(CSIDL_PROFILE)` 取，不用 `Path.home()` —— 本机 `HOME` 被 Cadence
+改成了 `C:\Software\Cadence\SPB_Data`，后者会把落点指到那里。中央库 `~/.skills-manager/skills`
+是落点目录的 junction 目标，**不算客户端落点**。
+
 三处都指向**同一个**路径（`layout-forge-mcp\.venv\Scripts\python.exe`），重建后逐个对照：
 
 ```bash
@@ -521,7 +531,7 @@ GBK 控制台下汇总行打印 `[✓]`（U+2713）抛 `UnicodeEncodeError`，�
 | `LAYERS.md` | 五层 ↔ 目录 ↔ 防线 ↔ 责任人对照表（改配置结构先读它） |
 
 | `data`-**side** `Data/` | 数据源（在工作区根，不在本项目内）：`Data/footprint/`（有规格书的封装，每料号一目录）、`Data/PCB_Footprint/`（无法规书的大封装库）、`Data/footprint_test/`、`Data/checklist/` |
-| `.deploy_manifest.json` | 部署指纹：两个 Skill × 三落点的 sha 记录（写在 `%USERPROFILE%\.workbuddy\`），`setup_agent.py --verify-skills` 据此判 MATCH / STALE / DIVERGED |
+| `.deploy_manifest.json` | 部署指纹（在 `Tools/deploy/` 下，不进 git，schema `...-manifest/2`）：两份 Skill 的源文件 sha + 每个**在场**落点的 files/junction；`setup_agent.py --verify-skills` 据此区分 MATCH / STALE / DIVERGED。**落点本身由 `landings.json` 声明**，不由这份记录枚举 |
 
 ### 9.3 关键环境变量
 

@@ -43,12 +43,15 @@ deploy.bat /dry                     只打印要做什么，一个文件都不�
 ★ **只同步 / 只校验 SKILL（改完 `deploy/skills/**` 后最常用，2026-10-15 新增）**：
 
 ```
-python Tools\deploy\setup_agent.py --sync-skills      # 写真源 → 三落点 + 更新 .deploy_manifest.json
-python Tools\deploy\setup_agent.py --verify-skills    # 只读校验：全部 MATCH 才 exit 0
+python Tools\deploy\setup_agent.py --sync-skills      # 写真源 → 清单里的在场落点 + 更新 .deploy_manifest.json
+python Tools\deploy\setup_agent.py --verify-skills    # 只读校验：有 MATCH 且无坏态才 exit 0
+python Tools\deploy\setup_agent.py --verify-skills --landing workbuddy=D:\x\skills  # 临时追加一个落点
 ```
 
-这两个开关在 A–D 之前**提前返回**（只干这一件事）。`--verify-skills` 的四种判定
-（MATCH / STALE / DIVERGED / MISSING）与「为什么需要它」见下面坑 15 ——
+这两个开关在 A–D 之前**提前返回**（只干这一件事）。落点不再由脚本猜，而是来自
+`deploy\landings.json`（本机清单，见坑 15）：谁装了本 MCP、技能该放哪，都由它声明。
+`--verify-skills` 判六种（MATCH / STALE / DIVERGED / MISSING / NOT_INSTALLED / UNVERIFIABLE），
+**只有「至少一个 MATCH、且没有 MISSING / STALE / DIVERGED / UNVERIFIABLE」才 exit 0** ——
 **改了 SKILL 却不 `--sync-skills`，模型读到的可能还是旧版，而且你不会收到任何报错。**
 
 ★ **只校验工具契约（改完 `mcp_server/tools.py` 后可单跑）**：
@@ -108,14 +111,17 @@ python Tools\deploy\setup_agent.py --verify-contract   # 工具数同源 + 名�
   `~/.workbuddy/mcp.json` → Claude Desktop → Cursor → Trae；
   ★ 全都不存在（客户端还没装过）→ 直接在 `~/.workbuddy/mcp.json` **新建**，
   目录自动创建，客户端装好后启动即生效，**没有任何手工环节**）
-- **B 装 Skill** —— `deploy\skills\*` → **三个落点**（按 `realpath` 去重后写在真身上：
-  `~/.workbuddy/skills`、`~/.skills-manager/skills`、`~/.dsh/skills`；逐文件覆盖、保留
-  `_user_meta.json`）→ 然后写 `deploy\.deploy_manifest.json`
+- **B 装 Skill** —— `deploy\skills\*` → **`landings.json` 里声明且确实在场的客户端落点**
+  （默认 `~/.workbuddy/skills`、`~/.dsh/skills`；按 `realpath` 去重后写在真身上，逐文件覆盖、
+  保留 `_user_meta.json`）→ 然后写 `deploy\.deploy_manifest.json`
+  ★ `~/.skills-manager/skills` 是**中央库**，不再是落点：它在本机是另外两个落点的 junction 目标，
+  本身不被任何客户端直接读，算进去只会制造「看起来已部署」
 - **C 配 SkillBridge** —— 调 `Tools\install_skillbridge.py --non-interactive`，
   往 `allegro.ilinit` 写自动加载块，起 7777 端口
 - **D 冒烟验收** —— import 四个依赖、读 MCP 工具总数并与本机源码的 `@mcp.tool` 定义数比较、
   跑两个离线自检（239/239、222/222）
-- **E 落点校验** —— `verify_skills()`：真源 vs 三落点，**不一致就整体 exit 1**
+- **E 落点校验** —— `verify_skills()`：真源 vs 清单落点，**六态判定；只要有一个
+  MISSING / STALE / DIVERGED / UNVERIFIABLE、或一个 MATCH 都没有，就整体 exit 1**
   （外加 `check_skill_declarations()` 的软 WARN：SKILL 头部三声明）
 - **F 工具契约断言** —— `verify_contract()`：运行期工具表 vs 源码 AST 数 / 冻结基线，
   **任一不符就整体 exit 1**（`--verify-contract` 可单跑；口径见上一节）
@@ -125,8 +131,9 @@ python Tools\deploy\setup_agent.py --verify-contract   # 工具数同源 + 名�
 | 文件 | 功能 | 影响 |
 |--|--|--|
 | `deploy.bat` | 一键部署入口：自举环境（winget/uv/git/venv/依赖） | 会装软件、建 `.venv` |
-| `setup_agent.py` | Agent 侧配置：MCP / Skill（三落点）/ SkillBridge / 验收 / **落点校验** | **会写用户级配置和 Allegro 的 `allegro.ilinit`** |
-| `.deploy_manifest.json` | ★ **部署记录（本机状态，被 .gitignore 忽略）**：真源 hash + 三落点的 files/junction/real + `deployed_at` | **不是真源**；`--verify-skills` 用它区分 STALE 与 DIVERGED |
+| `setup_agent.py` | Agent 侧配置：MCP / Skill（清单落点）/ SkillBridge / 验收 / **落点校验** | **会写用户级配置和 Allegro 的 `allegro.ilinit`** |
+| `landings.json` | ★ **落点声明（本机状态，被 .gitignore 忽略）**：逐条 `{id, client, skills_dir, require}`，`require` 写明「凭什么算这个客户端在场」 | **不是真源**；缺失时首次运行按内置默认生成 |
+| `.deploy_manifest.json` | ★ **部署记录（本机状态，被 .gitignore 忽略；schema `...-manifest/2`）**：真源 hash + 每个在场落点的 files/junction/real + `deployed_at` | **不是真源**；`--verify-skills` 用它区分 STALE 与 DIVERGED（`/1` 已作废） |
 | `skills_backup/` | ★ mirror 前把「真源没有、落点里却有」的文件备份到这里（`<name>.bak_<ts>/`） | 只在本机出现；确认无用后可删 |
 | `skills/` | 两个 Skill 的**发布副本 = 唯一真源**（`allegro-skillbridge-ops`、`allegro-footprint-check`） | 被镜像到三个落点；**只改落点会被静默回退** |
 | `_legacy/deploy_skillbridge.bat` | 旧版（layout-check-mcp v5）遗留，功能已被 C 步覆盖 | 别再跑 |
@@ -177,7 +184,7 @@ python Tools\deploy\setup_agent.py --verify-contract   # 工具数同源 + 名�
     只是同步 SKILL 时不要跑整个 deploy.bat，直接复制文件即可。
     （2026-10-13 实测过一次双向陈旧：`mcp-tools.md` / `spec-library.md` 里
     `Data\specs` 与 `knowledge\specs` **两侧各对一半**，已统一。）
-13. ★★ **目标 skills 目录在本机是 Junction，SKILL 有三个落点（2026-10-14 实测；2026-10-15 已修复）**：
+13. ★★ **目标 skills 目录在本机是 Junction，SKILL 的落点由 `landings.json` 声明（2026-10-14 实测，2026-10-15 修复，2026-11-19 改为清单驱动）**：
     `%USERPROFILE%\.workbuddy\skills\<skill>` 与 `%USERPROFILE%\.dsh\skills\<skill>`
     都是 **junction**，指向 `C:\Users\ds245\.skills-manager\skills\<skill>`
     （客户端 skills-manager 管理，同一个目标）。
@@ -193,7 +200,8 @@ python Tools\deploy\setup_agent.py --verify-contract   # 工具数同源 + 名�
       **移出** skills 目录即可（移动链接本身，目标内容不受影响）。
       历史遗留已移到 `C:\Users\ds245\WorkBuddy\Layout\.workbuddy\cache\scratch\skill_junction_backups\`。
     - 现在不必手工打三处：`setup_agent.py --sync-skills` 会按 `realpath` 去重后一次写完
-      （`.dsh` 与 `.skills-manager` 常是同一真身）。
+      （`.workbuddy` 与 `.dsh` 常是同一真身）。★ 但落点**只算客户端真正在读的目录**
+      （本机 `workbuddy` + `dsh` 两条，见 `landings.json`），中央库 `.skills-manager` 不再计入。
 14. ★ **本机（DSH 会话）跑部署要用「不受沙箱限制的解释器」，且必须带 `--venv-python`**：
     - **症状**：用工作区内的解释器（`layout-forge-mcp\.venv\Scripts\python.exe` 或
       `layout-check-mcp\.venv\Scripts\python.exe`）跑 `setup_agent.py`，写 `%USERPROFILE%\.workbuddy`
@@ -218,15 +226,41 @@ python Tools\deploy\setup_agent.py --verify-contract   # 工具数同源 + 名�
       被 `setup_agent.py` 以管道调用时（无控制台）在 cp936 下抛
       `UnicodeEncodeError: 'gbk' codec can't encode character '\u2705'` → 一键部署断在 C 步。
       现已在入口 `reconfigure(encoding="utf-8", errors="replace")`。
-15. ★ **防静默回退：`.deploy_manifest.json` + `--verify-skills` / `--sync-skills`（2026-10-15 新增）**：
-    - 每次部署会写 `deploy/.deploy_manifest.json`（schema `layout-forge-deploy-manifest/1`）：
-      记录真源 `source_hashes`（每份 skill 的 `{相对路径: sha256}`，**跳过 `_user_meta.json`**）、
-      每个落点的 `{path, real, junction, files}` 与 `deployed_at`。
-      ★ **这份记录不是真源**，真源永远是 `deploy/skills/**`；它放在 `Tools/`（被 .gitignore 忽略）= 本机状态。
-    - `--verify-skills` 判定四种：**MATCH**（落点 == 仓库现状）/ **STALE**（落点 == 上次部署记录、
-      但仓库已前进 → 重跑部署）/ **DIVERGED**（既非仓库现状也非上次记录 → **有人手改过**，最危险）/
-      **MISSING**（落点根在、这份 skill 不在）；落点根整个不存在记 N/A 不算失败。**只有全 MATCH/N/A 才 exit 0。**
-    - 实测价值（同日）：`--verify-skills` 当场抓到 `allegro-skillbridge-ops` 三落点
+15. ★ **防静默回退：`landings.json` + `.deploy_manifest.json` + `--verify-skills` / `--sync-skills`（2026-10-15 起，2026-11-19 重做）**：
+    - **落点不再靠猜**：`deploy\landings.json`（被 .gitignore 忽略 = 本机状态）逐条声明
+      `{id, client, skills_dir, require}`。`require` 是「这个客户端凭什么算在场」的证据规格：
+      `kind: "mcp_config"` 要它在某份配置里注册了 `layout-forge-mcp`（`.json` 看 `mcpServers` 键，
+      `.yml` 看整文本）；`"dir"` 看目录是否存在；`"always"` 无条件在场。
+      文件缺失时首次运行按内置默认生成（`workbuddy` → `~/.workbuddy/skills`；`dsh` → `~/.dsh/skills`）；
+      `--landing id=PATH` 可临时追加（等同于你替这个落点作证它在场）。
+      ★ 用户目录用 **`SHGetFolderPathW(CSIDL_PROFILE)`** 取，不用 `Path.home()` —— 本机 `HOME` /
+      `USERPROFILE` 被 Cadence 改成了 `C:\Software\Cadence\SPB_Data`，`Path.home()` 会把落点指到那里。
+    - **`.deploy_manifest.json`（schema `layout-forge-deploy-manifest/2`）只做哈希基线**：
+      `source_hashes`（每份 skill 的 `{相对路径: sha256}`，跳过 `_user_meta.json`）+ 每个**在场**落点的
+      `{path, real, junction, files}` 与 `deployed_at`。**它不是真源**，真源永远是 `deploy/skills/**`。
+      旧 `/1` 记录整体作废（键对不上），会提示重跑 `--sync-skills`。
+    - `--verify-skills` 判**六种**：
+
+      | 判定 | 含义 | 退出码 |
+      |--|--|--|
+      | `MATCH` | 落点 == 真源 | 0 |
+      | `STALE` | 落点 == 上次部署记录，但真源已前进 | **1**（重跑 `--sync-skills`） |
+      | `DIVERGED` | 既非真源也非上次记录 → **有人手改过** | **1**（最危险） |
+      | `MISSING` | 客户端在场，但这份 skill 不在落点 | **1** |
+      | `NOT_INSTALLED` | 客户端不在场（必须附逐条证据） | 0 |
+      | `UNVERIFIABLE` | 没有可比对的基线（旧 schema / 缺记录） | **1**（不许假装通过） |
+
+      **exit 0 的条件：至少一个 `MATCH`，且没有 MISSING / STALE / DIVERGED / UNVERIFIABLE。**
+      零落点（全 `NOT_INSTALLED`）也 exit 1 —— **闸门没在守东西就不能叫通过**。
+    - **旧的 N/A 已取消**：「落点目录不存在」不再是能蒙混过关的 N/A（那正是本闸门失效的根因）——
+      要么证明客户端不在场（`NOT_INSTALLED`，打前 3 条证据，如「`~/.workbuddy/mcp.json` 里注册了
+      `layout-forge-mcp`」/「`<profile>\cordis.patch.yml` 存在但没有注册」），要么就是 `MISSING`。
+    - 实测（2026-11-19）：本机 workbuddy 在场、dsh 不在场（6 个 profile 配置都没注册）；
+      首次校验因别的会话未提交的 SKILL 改动判 `UNVERIFIABLE` → `--sync-skills`
+      → 「2 个在场落点与真源一致（NOT_INSTALLED 2 个已按证据排除）」exit 0。
+    - 不需要客户端的回归自检：`.venv\Scripts\python.exe Tools\deploy\selfcheck_landings.py`
+      （29 项：六态矩阵、`--landing` 解析、`real_profile` 在 `HOME` 被改后仍取对）。
+    - 实测价值（2026-10-15）：`--verify-skills` 当场抓到 `allegro-skillbridge-ops` 三落点
       **`references/mcp-tools.md` 陈旧**（客户端 14857 B / 仓库 16108 B）→ `--sync-skills` 复绿。
       没有这道闸门，那次陈旧会一直「看起来正常」。
     - ★ **部署后的 E 段**（`install_skills` 之后自动跑 `verify_skills()`）会把不一致算进

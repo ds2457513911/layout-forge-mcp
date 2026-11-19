@@ -93,6 +93,8 @@ Thumbs.db
 # 代价是 `Tools/deploy` 内部默认不再被 `Tools/*` 覆盖，因此下面显式补回两条不该进库的：
 !Tools/deploy/
 Tools/deploy/.deploy_manifest.json
+# 落点声明也是「这台机器的事实」（票 #8）：换机应重新生成，不进版本库。
+Tools/deploy/landings.json
 Tools/deploy/__pycache__/
 
 # ---- 缓存与索引（workspace-hygiene）----

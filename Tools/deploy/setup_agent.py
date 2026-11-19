@@ -11,10 +11,10 @@ setup_agent.py —— layout-forge-mcp 的「Agent 侧」一键配置
 
 做六件事：
     A. 注册 MCP        —— 写客户端的 mcp.json（venv python + -c 注入 sys.path）
-    B. 安装 Skill      —— deploy\skills\* 复制到 %USERPROFILE%\.workbuddy\skills\
+    B. 安装 Skill      —— deploy\skills\* 复制到 landings.json 声明的每个**在场**落点
     C. 配 SkillBridge  —— 调 Tools/install_skillbridge.py --non-interactive
     D. 冒烟验收        —— import 依赖 + 读 MCP 工具总数
-    E. 落点校验        —— verify_skills()：真源 vs 三个落点，不一致即失败
+    E. 落点校验        —— verify_skills()：真源 vs 每个在场落点，不一致即失败
     F. 契约断言        —— verify_contract()：运行期工具表 vs 源码 AST 数 / 冻结基线
 
 设计约束（★ 都是踩过的坑，改之前先读）：
@@ -25,6 +25,10 @@ setup_agent.py —— layout-forge-mcp 的「Agent 侧」一键配置
     3. 写 mcp.json 是「合并」不是「覆盖」——用户可能已经配了别的 server。
        写之前先备份成 <原名>.bak_<时间戳>。
     4. 全程非交互：部署脚本会被双击运行，任何 input() 都会把窗口卡死。
+    5. 落点不靠猜（票 #4 / #8）：落点写在机器本地的 deploy\landings.json，客户端
+       在不在场要看证据（配置文件里注册了 layout-forge-mcp），零落点直接失败。
+       默认用户目录走 SHGetFolderPathW(CSIDL_PROFILE)，**不用** Path.home()——
+       本机 HOME / USERPROFILE 被 Cadence 改成了 SPB_Data。
 
 退出码：0 = 成功（允许 SkillBridge 未配，那是 WARN）；1 = 失败。
 """
@@ -53,7 +57,10 @@ DEFAULT_PROJECT_ROOT = DEPLOY_DIR.parent.parent
 #:   放 `Tools\deploy\` 而不是 tools 之外：`Tools/` 在 .gitignore 里，本文件是
 #:   「本机的部署状态」，不该进版本库（换台机器应当重新生成）。
 MANIFEST_PATH = DEPLOY_DIR / ".deploy_manifest.json"
-MANIFEST_SCHEMA = "layout-forge-deploy-manifest/1"
+#: ★ /2（2026-11-19，票 #8）：landings 的键从「落点 label」换成 landings.json 里的 id。
+#:   读到 /1 记录就整体作废（键对不上，宁可判 UNVERIFIABLE 也不误判 STALE），
+#:   跑一次 --sync-skills 重建。
+MANIFEST_SCHEMA = "layout-forge-deploy-manifest/2"
 
 #: 客户端给 skill 写的元数据：**仓库副本故意不带**，比对/覆盖时必须忽略或保留。
 USER_META_NAME = "_user_meta.json"
@@ -93,11 +100,36 @@ def ts() -> str:
 
 
 # ============================================================
+# 本机事实：真实用户目录（**不读环境变量**）
+# ============================================================
+def real_profile() -> Path:
+    """真实用户目录 —— Windows 走 SHGetFolderPathW(CSIDL_PROFILE)。
+
+    ★ 不能用 `Path.home()`：本机 HOME / USERPROFILE 被 Cadence 覆盖成
+      C:/Software/Cadence/SPB_Data，跟着它走会把 mcp.json 和技能落点全拼到
+      那里去（2026-11-19 实测；票 #4 定案 D2）。
+      SHGetFolderPathW 读的是 shell 的「用户配置」目录，与进程环境变量无关。
+    """
+    if sys.platform != "win32":
+        return Path.home()
+    import ctypes
+
+    buf = ctypes.create_unicode_buffer(260)          # MAX_PATH
+    # CSIDL_PROFILE = 0x0028, SHGFP_TYPE_CURRENT = 0
+    hresult = ctypes.windll.shell32.SHGetFolderPathW(None, 0x0028, None, 0, buf)
+    if hresult == 0 and buf.value:
+        return Path(buf.value)
+    log(f"SHGetFolderPathW(CSIDL_PROFILE) 失败（HRESULT={hresult}）；"
+        f"不退回 Path.home()——那会拿到被 Cadence 覆盖的目录。", "ERR")
+    raise SystemExit(1)
+
+
+# ============================================================
 # A. 注册 MCP
 # ============================================================
 def candidate_config_files() -> list[tuple[str, Path]]:
     """按优先级列出「已知客户端」的配置文件。"""
-    home = Path.home()
+    home = real_profile()
     return [
         ("WorkBuddy", home / ".workbuddy" / "mcp.json"),
         ("Claude Desktop", home / "AppData" / "Roaming" / "Claude" / "claude_desktop_config.json"),
@@ -117,7 +149,7 @@ def pick_config_target() -> tuple[str, Path, bool]:
       （旧行为：退化成生成 deploy\\mcp-config.json 让用户手工合并，
        违背"空电脑一键部署"目标，2026-10-14 删除。）
     """
-    home = Path.home()
+    home = real_profile()
     for name, path in candidate_config_files():
         if path.exists():
             return name, path, True
@@ -196,18 +228,177 @@ def write_mcp_config(project_root: Path, venv_python: Path, dry_run: bool) -> tu
 # ============================================================
 # B. 安装 Skill（+ 部署记录 / 静默回退校验，2026-10-15 Phase 3）
 # ============================================================
-def skill_landings() -> list[tuple[str, Path]]:
-    """SKILL 的**三个落点**（2026-10-14 实测：后两个常是 junction）。
+#: ★ 落点 = 「模型真的会读 SKILL 的客户端目录」。不猜、不枚举。
+#:   清单不存在时按本机已知客户端生成一次，之后以清单为准（改清单 = 改这台机器
+#:   的部署契约）。为什么改成声明式（票 #4 D1/D2、票 #8）：旧版用 Path.home() 拼
+#:   三个落点，在本机全拼错；而「拼错」恰好落进 N/A 分支静默通过 —— 闸门是绿的，
+#:   模型读的却是一份没人更新过的旧 SKILL。清单随 .deploy_manifest.json 一起 gitignore。
+LANDINGS_PATH = DEPLOY_DIR / "landings.json"
+LANDINGS_SCHEMA = "layout-forge-landings/1"
 
-    详见 `README.md` 坑 13 —— 只部署 `.workbuddy` 不会刷新 `.dsh` 视图，
-    而模型实际读的可能是 `.dsh` 那份。
+
+def dsh_config_candidates(profile: Path) -> list[Path]:
+    """DSH 每条 profile 一份连接器补丁；注册 MCP 就落在那里。"""
+    root = profile / ".dsh" / "profiles"
+    found = sorted(root.glob("*/cordis.patch.yml")) if root.is_dir() else []
+    return found or [root / "web" / "cordis.patch.yml"]
+
+
+def default_landings(profile: Path) -> list[dict]:
+    """本机首次生成清单：只写**已知会读 SKILL 的客户端**。
+
+    中央技能库（.skills-manager）不在此列：它是库、不是读侧 —— 往那里写不进
+    任何一个模型的上下文，旧版把它算作落点只会制造「看起来已部署」的假象。
     """
-    home = Path.home()
     return [
-        ("workbuddy", home / ".workbuddy" / "skills"),
-        ("skills-manager", home / ".skills-manager" / "skills"),
-        ("dsh", home / ".dsh" / "skills"),
+        {
+            "id": "workbuddy",
+            "client": "WorkBuddy",
+            "skills_dir": str(profile / ".workbuddy" / "skills"),
+            "require": {
+                "kind": "mcp_config",
+                "path": str(profile / ".workbuddy" / "mcp.json"),
+                "server": SERVER_NAME,
+            },
+        },
+        {
+            "id": "dsh",
+            "client": "DeepSeek Harness",
+            "skills_dir": str(profile / ".dsh" / "skills"),
+            "require": {
+                "kind": "mcp_config",
+                "paths": [str(p) for p in dsh_config_candidates(profile)],
+                "server": SERVER_NAME,
+            },
+        },
     ]
+
+
+def _mcp_registered(path: Path, server: str) -> bool | None:
+    """配置文件里注册了这个 MCP 吗？None = 配置文件不存在。"""
+    if not path.is_file():
+        return None
+    if path.suffix.lower() == ".json":
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        servers = data.get("mcpServers") if isinstance(data, dict) else None
+        return isinstance(servers, dict) and server in servers
+    try:
+        return server in path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+
+
+def evaluate_requirement(req: dict | None) -> tuple[bool, list[str]]:
+    """客户端在不在场 —— 返回 (是否在场, 逐条证据)。
+
+    ★ 「不在场」必须带着证据说，而不是「目录不存在 → N/A」了事（票 #4 D3）：
+      证据是给人看的，判错了才能一眼看出错在哪一条。
+    """
+    req = req or {}
+    kind = req.get("kind", "always")
+    if kind == "always":
+        return True, ["清单/参数里显式声明（always）"]
+    if kind == "dir":
+        p = Path(req["path"])
+        ok = p.is_dir()
+        return ok, [f"{'有' if ok else '没有'}目录 {p}"]
+    if kind == "mcp_config":
+        raw = req.get("paths")
+        paths = [Path(x) for x in raw] if raw else [Path(req["path"])]
+        server = req.get("server", SERVER_NAME)
+        evidence: list[str] = []
+        present = False
+        for p in paths:
+            hit = _mcp_registered(p, server)
+            if hit is None:
+                evidence.append(f"没有配置文件 {p}")
+            elif hit:
+                present = True
+                evidence.append(f"{p} 里注册了 {server}")
+            else:
+                evidence.append(f"{p} 存在但没有注册 {server}")
+        return present, evidence
+    raise ValueError(f"未知的 require.kind：{kind!r}（支持 always / dir / mcp_config）")
+
+
+def load_landings(*, write_if_missing: bool = True) -> list[dict]:
+    """读机器本地落点清单；不存在时按本机已知客户端生成一份。
+
+    :raises SystemExit: 清单坏了（宁可停，也不要拿半份清单去判）
+    """
+    if LANDINGS_PATH.is_file():
+        try:
+            data = json.loads(LANDINGS_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            log(f"落点清单读不了：{LANDINGS_PATH}（{exc}）", "ERR")
+            raise SystemExit(1)
+    else:
+        profile = real_profile()
+        data = {
+            "schema": LANDINGS_SCHEMA,
+            "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "profile": str(profile),
+            "landings": default_landings(profile),
+        }
+        if not write_if_missing:
+            log(f"[DRY-RUN] 将生成落点清单 {LANDINGS_PATH}", "WARN")
+        else:
+            LANDINGS_PATH.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            log(f"本机还没有落点清单，已按已知客户端生成：{LANDINGS_PATH}", "OK")
+            log("  ★ 这是**这台机器**的部署契约；换机 / 换客户端要改它。", "WARN")
+
+    if not isinstance(data, dict) or data.get("schema") != LANDINGS_SCHEMA:
+        bad = data.get("schema") if isinstance(data, dict) else data
+        log(f"落点清单 schema 不符：{bad!r}（要 {LANDINGS_SCHEMA!r}）", "ERR")
+        raise SystemExit(1)
+    landings = data.get("landings")
+    if not isinstance(landings, list) or not landings:
+        log(f"落点清单里没有落点：{LANDINGS_PATH}", "ERR")
+        raise SystemExit(1)
+
+    seen: set[str] = set()
+    for item in landings:
+        if not isinstance(item, dict) or not item.get("id") or not item.get("skills_dir"):
+            log(f"落点条目缺 id / skills_dir：{item!r}", "ERR")
+            raise SystemExit(1)
+        if item["id"] in seen:
+            log(f"落点 id 重复：{item['id']}", "ERR")
+            raise SystemExit(1)
+        seen.add(item["id"])
+        if not os.path.isabs(item["skills_dir"]):
+            log(f"落点 {item['id']} 的 skills_dir 必须是绝对路径：{item['skills_dir']}", "ERR")
+            raise SystemExit(1)
+    return landings
+
+
+def merge_landings(base: list[dict], extra: list[dict] | None) -> list[dict]:
+    """清单 + 显式落点（同 id 覆盖，保持清单顺序）。"""
+    merged = {item["id"]: item for item in base}
+    for item in extra or []:
+        merged[item["id"]] = item
+    return list(merged.values())
+
+
+def judge_landing(truth: dict, obs: dict | None, recorded: dict | None) -> str:
+    """单个落点的六态判定（纯函数 —— selfcheck_landings.py 直接测它）。
+
+    MATCH         落点内容 == 真源
+    STALE         落点 == 上次部署记录，真源已前进（重跑 --sync-skills）
+    DIVERGED      落点既不是真源也不是上次部署记录（有人手改过）
+    UNVERIFIABLE  没有可用记录、又没对上真源（判不了，按失败处理）
+    MISSING       落点目录里没有这份技能（obs 为 None）
+    """
+    if obs is None:
+        return "MISSING"
+    if obs == truth:
+        return "MATCH"
+    if recorded:
+        return "STALE" if obs == recorded else "DIVERGED"
+    return "UNVERIFIABLE"
 
 
 def _sha256_file(p: Path) -> str:
@@ -302,9 +493,11 @@ def mirror_skill(src: Path, dst: Path, dry_run: bool, backup_root: Path) -> dict
             "backup": str(backup) if backup else None}
 
 
-def install_skills(dry_run: bool) -> list[Path]:
-    """把 `deploy\\skills\\*` 同步到**每个落点的真身**（去重，junction 只写一次）。
+def install_skills(dry_run: bool, extra_landings: list[dict] | None = None) -> list[Path]:
+    """把 `deploy\\skills\\*` 同步到**每个在场落点**的真身（junction 只写一次）。
 
+    ★ 落点来自 landings.json（+ --landing）；客户端不在场（没注册这个 MCP）的
+      不写 —— 把技能塞进没装的客户端目录只会制造「已部署」的假象。
     :return: 实际写入过的真身目录列表（供部署记录使用）
     """
     src_root = DEPLOY_DIR / "skills"
@@ -312,7 +505,8 @@ def install_skills(dry_run: bool) -> list[Path]:
         log(f"未找到 {src_root}，跳过 Skill 安装。", "WARN")
         return []
 
-    landing_roots = skill_landings()
+    landings = merge_landings(load_landings(write_if_missing=not dry_run), extra_landings)
+    presence = {item["id"]: evaluate_requirement(item.get("require")) for item in landings}
     backup_root = DEPLOY_DIR / "skills_backup"
     touched: list[Path] = []
     touched_keys: set[str] = set()
@@ -320,16 +514,26 @@ def install_skills(dry_run: bool) -> list[Path]:
     for src in sorted(src_root.iterdir()):
         if not src.is_dir():
             continue
-        for label, root in landing_roots:
-            dst = root / src.name
-            # 落点不存在：只有 .workbuddy 是「必须新建」（空电脑也要能一键到底）
-            if not dst.exists() and label != "workbuddy":
+        for item in landings:
+            lid = item["id"]
+            required, evidence = presence[lid]
+            root = Path(item["skills_dir"])
+            if not required:
+                log(f"[{lid}] 客户端不在场，跳过：{'；'.join(evidence)}", "WARN")
                 continue
+            dst = root / src.name
+            if not root.is_dir():
+                # 客户端在场却还没有技能目录：建（旧版只给 .workbuddy 开这个口子）
+                if dry_run:
+                    log(f"[DRY-RUN] 将新建落点目录 {root}（{lid}）", "WARN")
+                else:
+                    root.mkdir(parents=True, exist_ok=True)
+                    log(f"落点目录不存在、客户端在场 → 新建 {root}（{lid}）", "OK")
             real = _link_target(dst)
             if real is not None:
                 # junction：写到它的真身（一次写入同时刷新所有指向它的落点）
                 dst_real = real
-                log(f"{label}: {dst.name} 是链接 → 真身 {dst_real}")
+                log(f"[{lid}] {dst.name} 是链接 → 真身 {dst_real}")
             else:
                 dst_real = dst
             key = os.path.normcase(str(dst_real))
@@ -337,12 +541,12 @@ def install_skills(dry_run: bool) -> list[Path]:
                 continue
             touched_keys.add(key)
             if dry_run:
-                log(f"[DRY-RUN] 将同步 {src.name} -> {dst_real}（{label}）", "WARN")
+                log(f"[DRY-RUN] 将同步 {src.name} -> {dst_real}（{lid}）", "WARN")
                 touched.append(dst_real)
                 continue
             info = mirror_skill(src, dst_real, dry_run, backup_root)
             touched.append(dst_real)
-            msg = f"Skill 已同步：{dst_real}（{label}，写 {info['written']} 个文件）"
+            msg = f"Skill 已同步：{dst_real}（{lid}，写 {info['written']} 个文件）"
             log(msg, "OK")
             if info["extra"]:
                 log(f"  ⚠ 目标里有真源没有的文件（可能是手改），已另存：{info['backup']}", "WARN")
@@ -365,10 +569,12 @@ def read_manifest() -> dict:
 
 
 def write_deploy_manifest(written_roots: list[Path], project_root: Path) -> Path:
-    """记录「本次部署的每个落点写入了什么内容」。
+    """记录「本次部署的每个在场落点写入了什么内容」。
 
     ★ 只记 `deploy\\skills\\**` 的 hash（真源快照）+ 每个落点写入后的实况，
       这样下次就能把「仓库前进」与「客户端被手改」区分开。
+    ★ 键 = landings.json 的 id（schema /2）；manifest 只做哈希基线，**不枚举落点**
+      （票 #4 D2：落点来源只有一个 —— 声明）。
     """
     src_root = DEPLOY_DIR / "skills"
     skills: dict[str, dict] = {}
@@ -377,14 +583,18 @@ def write_deploy_manifest(written_roots: list[Path], project_root: Path) -> Path
             skills[src.name] = hash_tree(src)
 
     landings: dict[str, dict] = {}
-    for label, root in skill_landings():
+    for item in load_landings():
+        lid = item["id"]
+        if not evaluate_requirement(item.get("require"))[0]:
+            continue
+        root = Path(item["skills_dir"])
         for name in skills:
             dst = root / name
             if not dst.exists():
                 continue
             real = _link_target(dst)
             obs_root = real if real is not None else dst
-            landings[f"{label}:{name}"] = {
+            landings[f"{lid}:{name}"] = {
                 "path": str(dst),
                 "real": str(obs_root),
                 "junction": real is not None,
@@ -432,77 +642,139 @@ def check_skill_declarations(src_root: Path) -> list[str]:
     return problems
 
 
-def verify_skills() -> int:
-    """★ 防静默回退：比对 `deploy\\skills\\**`（真源）与三个落点（读侧副本）。
+def verify_skills(extra_landings: list[dict] | None = None, *,
+                  src_root: Path | None = None,
+                  landings: list[dict] | None = None,
+                  manifest: dict | None = None) -> int:
+    """★ 覆盖校验（2026-10-15 Phase 3；2026-11-19 按票 #8 重做）。
 
-    判定：
-      MATCH    一致 —— 模型读到的就是仓库里的规则
-      STALE    落点内容 == 上次部署记录，但仓库已前进 → **重跑部署**即可
-      DIVERGED 落点内容既不是仓库现状、也不是上次部署的记录 → **有人手改过**
-               （最危险：仓库与客户端各说各话，看的是哪份取决于客户端）
-      MISSING  落点根存在、但里面没有这份 skill
-      N/A      落点根整个不存在（该客户端没装）—— 不计入失败
-    :return: 0 = 全部 MATCH / N/A；1 = 存在 STALE / DIVERGED / MISSING
+    比对 `deploy/skills/**`（真源）与 landings.json 里**每个在场落点**（读侧副本）：
+
+      MATCH         一致 —— 模型读到的就是仓库里的规则
+      STALE         落点 == 上次部署记录，但仓库已前进 → 重跑 --sync-skills
+      DIVERGED      落点既不是仓库现状、也不是上次部署记录 → 有人手改过
+      MISSING       客户端在场，但没有这份技能（或整个技能目录缺失）
+      UNVERIFIABLE  没有可用记录、又没对上真源 → 判不了，按失败处理
+      NOT_INSTALLED 客户端没接入这个 MCP（带证据）—— 不算失败
+
+    ★ 退出码 0 要两条同时成立：没有任何 MISSING / STALE / DIVERGED /
+      UNVERIFIABLE，且**至少一个 MATCH**。零落点 = 闸门没在守任何东西，必失败
+      （票 #4 D1）。STALE 也判失败：#4 要求「已接入的客户端必须 MATCH」，落后于
+      仓库同样意味着模型读的是旧规则。
+
+    :return: 0 = 真绿；1 = 有落点不合格，或零落点
     """
-    src_root = DEPLOY_DIR / "skills"
-    manifest = read_manifest()
-    man_landings = manifest.get("landings") or {}
+    src_root = src_root or (DEPLOY_DIR / "skills")
+    if landings is None:
+        landings = load_landings()
+    landings = merge_landings(landings, extra_landings)
+    if manifest is None:
+        manifest = read_manifest()
+    schema = manifest.get("schema") if manifest else None
+    if manifest and schema != MANIFEST_SCHEMA:
+        log(f"部署记录是旧版 schema（{schema!r}），键对不上 —— 本次不作基线；"
+            f"跑一次 --sync-skills 重建。", "WARN")
+        manifest = {}
+    manifest_landings = manifest.get("landings") or {}
 
-    hr("E. 防静默回退校验（SKILL 三落点 vs 真源）")
+    hr("E. 防静默回退校验（SKILL 落点 vs 真源）")
     log(f"真源：{src_root}")
+    log(f"落点声明：{LANDINGS_PATH}（{len(landings)} 个）")
     if manifest:
         log(f"部署记录：{manifest.get('deployed_at')}（{MANIFEST_PATH.name}）")
     else:
-        log("没有部署记录 —— 只能判「一致 / 不一致」，无法区分 STALE 与 DIVERGED。", "WARN")
+        log("没有可用部署记录 —— 未对上的落点只能判 UNVERIFIABLE。", "WARN")
 
+    presence: dict[str, tuple[bool, list[str]]] = {}
+    for item in landings:
+        lid = item["id"]
+        present, evidence = evaluate_requirement(item.get("require"))
+        presence[lid] = (present, evidence)
+        log(f"  [{lid}] {item.get('client', lid)}：{'在场' if present else '不在场'}"
+            f"（{len(evidence)} 处证据）")
+
+    skills = sorted(x for x in src_root.iterdir() if x.is_dir()) if src_root.is_dir() else []
+    if not skills:
+        log(f"真源里没有 SKILL：{src_root}", "ERR")
+        return 1
+
+    counts = {k: 0 for k in ("MATCH", "STALE", "DIVERGED", "MISSING",
+                             "UNVERIFIABLE", "NOT_INSTALLED")}
     bad = 0
-    for skill in sorted(src_root.iterdir()) if src_root.is_dir() else []:
-        if not skill.is_dir():
-            continue
+    for skill in skills:
         truth = hash_tree(skill)
         log(f"· {skill.name}（{len(truth)} 个文件）")
-        for label, root in skill_landings():
-            if not root.is_dir():
-                log(f"    [{label}] N/A（落点不存在：{root}）")
+        for item in landings:
+            lid = item["id"]
+            root = Path(item["skills_dir"])
+            required, evidence = presence[lid]
+            if not required:
+                counts["NOT_INSTALLED"] += 1
+                log(f"    [{lid}] NOT_INSTALLED（客户端没接入 {SERVER_NAME}）", "WARN")
+                for line in evidence[:3]:
+                    log(f"        证据：{line}")
+                if len(evidence) > 3:
+                    log(f"        … 另有 {len(evidence) - 3} 处配置同样没有注册")
                 continue
+
             dst = root / skill.name
-            rec = man_landings.get(f"{label}:{skill.name}") or {}
+            recorded = (manifest_landings.get(f"{lid}:{skill.name}") or {}).get("files")
+            note = ""
+            obs: dict | None = None
             if not dst.exists():
-                log(f"    [{label}] 缺失 → {dst}", "WARN")
-                bad += 1
-                continue
-            real = _link_target(dst)
-            obs_root = real if real is not None else dst
-            obs = hash_tree(obs_root)
-            note = f"（链接 → {obs_root}）" if real is not None else ""
-            if obs == truth:
-                log(f"    [{label}] MATCH{note}", "OK")
-                continue
-            diff = _diff_hashes(truth, obs)
-            if rec.get("files") and obs == rec.get("files"):
-                verdict = "STALE（落后于仓库，重跑部署）"
+                state = "MISSING"
             else:
-                verdict = "DIVERGED（客户端那份与仓库/上次部署都不同 → 先查是谁改的）"
+                real = _link_target(dst)
+                obs_root = real if real is not None else dst
+                note = f"（链接 → {obs_root}）" if real is not None else ""
+                obs = hash_tree(obs_root)
+                state = judge_landing(truth, obs, recorded)
+            counts[state] += 1
+
+            if state == "MATCH":
+                log(f"    [{lid}] MATCH{note}", "OK")
+                continue
             bad += 1
-            log(f"    [{label}] {verdict}{note}  差异 {len(diff)} 个文件", "ERR")
-            for rel in diff[:5]:
-                log(f"        · {rel}")
-            if len(diff) > 5:
-                log(f"        … 另有 {len(diff) - 5} 个")
+            if state == "MISSING":
+                log(f"    [{lid}] 缺失 → {dst}{note}", "ERR")
+                for line in evidence[:3]:
+                    log(f"        客户端在场证据：{line}")
+                continue
+            if state == "STALE":
+                log(f"    [{lid}] STALE（落后于仓库，重跑 --sync-skills）{note}", "ERR")
+            elif state == "DIVERGED":
+                log(f"    [{lid}] DIVERGED（与仓库/上次部署都不同 → 先查是谁改的）{note}", "ERR")
+            else:
+                log(f"    [{lid}] UNVERIFIABLE（没有部署记录可对照，重跑 --sync-skills 建基线）{note}", "ERR")
+            if obs is not None:
+                diff = _diff_hashes(truth, obs)
+                log(f"        差异 {len(diff)} 个文件")
+                for rel in diff[:5]:
+                    log(f"        · {rel}")
+                if len(diff) > 5:
+                    log(f"        … 另有 {len(diff) - 5} 个")
 
     for problem in check_skill_declarations(src_root):
         log(f"声明缺失（WARN）：{problem}", "WARN")
 
+    summary = "、".join(f"{k} {v}" for k, v in counts.items() if v) or "无"
+    log(f"判定汇总：{summary}")
+
     if bad:
         log(f"不通过：{bad} 处落点与真源不一致 —— **模型读的规则可能不是仓库里的规则**。", "ERR")
-        log("处理：`setup_agent.py --sync-skills`（把真源同步到三个落点）后重跑本校验。", "WARN")
+        log("处理：`setup_agent.py --sync-skills`（按清单同步到每个在场落点）后重跑本校验。", "WARN")
         return 1
-    log("通过：已安装的落点都与真源一致。", "OK")
+    if counts["MATCH"] == 0:
+        log(f"不通过：零落点 —— 没有任何客户端落点与真源一致（MATCH=0，闸门没在守东西）。", "ERR")
+        log(f"处理：确认客户端已注册 {SERVER_NAME}（见清单里的 require 证据），或用 --landing 显式指定。", "WARN")
+        return 1
+    log(f"通过：{counts['MATCH']} 个在场落点与真源一致"
+        f"（NOT_INSTALLED {counts['NOT_INSTALLED']} 个已按证据排除）。", "OK")
     return 0
 
-
-def sync_skills(project_root: Path, dry_run: bool = False) -> int:
-    """把真源同步到三个落点（junction 写一次真身），随后复核。
+def sync_skills(project_root: Path, dry_run: bool = False,
+                extra_landings: list[dict] | None = None) -> int:
+    """把真源同步到清单里的每个在场落点（junction 写一次真身），随后复核。
 
     ★ 2026-10-23 修复（--dry-run 空转缺陷）：旧版这里硬编码 dry_run=False，
       且 main 的 --sync-skills 分支不传参，导致 `--sync-skills --dry-run`
@@ -510,17 +782,17 @@ def sync_skills(project_root: Path, dry_run: bool = False) -> int:
       现在：dry_run=True 时只走 install_skills() 的预览分支，不写部署记录，
       也不做复核（复核比对的正是没被改动的旧文件，没有信息量）。
     """
-    hr("E. 同步 SKILL 到三个落点")
+    hr("E. 同步 SKILL 到落点")
     if dry_run:
         log("[DRY-RUN] 只预览差异，不写任何文件", "WARN")
-        install_skills(dry_run=True)
+        install_skills(dry_run=True, extra_landings=extra_landings)
         log("[DRY-RUN] 跳过部署记录与复核", "WARN")
         return 0
-    written = install_skills(dry_run=False)
+    written = install_skills(dry_run=False, extra_landings=extra_landings)
     if not written:
-        log("没有可写的落点。", "WARN")
+        log("没有可写的落点 —— 清单里没有在场客户端？", "WARN")
     write_deploy_manifest(written, project_root)
-    return verify_skills()
+    return verify_skills(extra_landings)
 
 
 # ============================================================
@@ -838,6 +1110,22 @@ def verify_contract(project_root: Path) -> int:
 # ============================================================
 # main
 # ============================================================
+def parse_landing_arg(raw: str) -> dict:
+    """解析 `--landing ID=PATH`。
+
+    ★ 显式指定 = 你替「这个客户端在场」作证，所以 require 记 always：不再去查
+      配置文件（客户端可能把这台机器当远端、或配置放在别处）。
+    """
+    lid, sep, path = raw.partition("=")
+    lid, path = lid.strip(), path.strip()
+    if not sep or not lid or not path:
+        raise SystemExit(f"--landing 要写成 ID=PATH，收到：{raw!r}")
+    if not os.path.isabs(path):
+        path = os.path.abspath(path)
+    return {"id": lid, "client": f"{lid}（--landing 显式指定）",
+            "skills_dir": path, "require": {"kind": "always"}}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="layout-forge-mcp Agent 侧一键配置")
     ap.add_argument("--project-root", default=str(DEFAULT_PROJECT_ROOT),
@@ -853,12 +1141,15 @@ def main() -> int:
     ap.add_argument("--no-skills", action="store_true", help="跳过 Skill 安装")
     ap.add_argument("--no-skillbridge", action="store_true", help="跳过 SkillBridge 配置")
     ap.add_argument("--no-smoke", action="store_true", help="跳过冒烟验收")
+    ap.add_argument("--landing", action="append", default=[], metavar="ID=PATH",
+                    help="显式追加一个落点（可多次，同 id 覆盖 landings.json 里的条目）。"
+                         "指定即视为该客户端在场（不查配置文件证据）")
     ap.add_argument("--verify-skills", action="store_true",
-                    help="只做防静默回退校验：比对 deploy\\skills 与三个落点，然后退出")
+                    help="只做覆盖校验：比对 deploy\\skills 与 landings.json 里的每个在场落点，然后退出")
     ap.add_argument("--verify-contract", action="store_true",
                     help="只做工具契约断言：运行期工具表 vs 源码 AST 数 / 冻结基线，然后退出")
     ap.add_argument("--sync-skills", action="store_true",
-                    help="只把 deploy\\skills 同步到三个落点，然后校验")
+                    help="只把 deploy\\skills 同步到清单里的在场落点，然后校验")
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve()
@@ -873,13 +1164,15 @@ def main() -> int:
         log(f"没找到解释器 {venv_python}；请先用部署脚本建好 .venv。", "ERR")
         return 1
 
-    # ★ 两个「只干这一件事」的入口：不重复跑 MCP/冒烟，装完就能单独复核。
+    extra_landings = [parse_landing_arg(raw) for raw in args.landing]
+
+    # ★ 三个「只干这一件事」的入口：不重复跑 MCP/冒烟，装完就能单独复核。
     if args.verify_skills:
-        return verify_skills()
+        return verify_skills(extra_landings)
     if args.verify_contract:
         return verify_contract(project_root)
     if args.sync_skills:
-        return sync_skills(project_root, dry_run=args.dry_run)
+        return sync_skills(project_root, dry_run=args.dry_run, extra_landings=extra_landings)
 
     print("=" * 62)
     print(" layout-forge-mcp  一键配置")
@@ -904,8 +1197,8 @@ def main() -> int:
         log(f"配置目标：{cfg_path}（{client}）")
 
     if not args.no_skills:
-        hr("B. 安装 Skill（三个落点）")
-        written = install_skills(args.dry_run)
+        hr("B. 安装 Skill（清单里的在场落点）")
+        written = install_skills(args.dry_run, extra_landings)
         if args.dry_run:
             log("[DRY-RUN] 跳过部署记录", "WARN")
         else:
@@ -922,10 +1215,11 @@ def main() -> int:
         else:
             results["smoke"] = smoke_test(project_root)
 
-    # ★ E：装完必须自证「三个落点都读得到同一份规则」——这是防静默回退的
-    #   最后一道闸；不一致就让一键部署**失败**，而不是留下一个说不清的现场。
+    # ★ E：装完必须自证「每个在场落点都读得到同一份规则、且至少有一个落点」——
+    #   这是防静默回退的最后一道闸；不一致（或零落点）就让一键部署**失败**，
+    #   而不是留下一个说不清的现场。
     if not args.no_skills and not args.dry_run:
-        results["skills_sync"] = verify_skills() == 0
+        results["skills_sync"] = verify_skills(extra_landings) == 0
 
     # ★ F：契约也是「装对了吗」的一部分 —— 运行期注册的必须就是这份源码里定义
     #   的那份、且没偏离冻结基线（票 #9 / 决策 #4 D5）。任一不符 → results 记
