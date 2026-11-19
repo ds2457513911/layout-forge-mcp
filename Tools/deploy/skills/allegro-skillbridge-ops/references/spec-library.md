@@ -2,6 +2,10 @@
 
 > 建立：2026-10-09 ｜ 真源在 MCP 项目 `layout-forge-mcp\knowledge\specs\`（本文件只讲怎么用）
 > 配套 MCP 工具：`save_spec` / `load_spec` / `find_spec` / `list_specs`
+>
+> ★ **范围：本文只约束建封装流程（`allegro-skillbridge-ops`）。检查流程（`allegro-footprint-check`）不查库、也不写库。**
+> 检查的全部价值是独立第二意见 —— 从库取值会把验证变成自证；两侧只共享上游（规格书原件），不共享下游（库）。
+> 归属与理由见 `docs/边界契约.md`「spec 库的读写边界」。
 
 ## 1. 为什么有这个库
 
