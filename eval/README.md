@@ -24,7 +24,7 @@
 | `suites/spec_reading/` | **读规格书准确率** | canonical **8 字段**（= `knowledge/specs` 的 `fingerprint` 键，不另造 schema）+ **S1–S8**：每字段四分类 correct / wrong / missing / spurious，容差 body·pad ±0.05 mm、pitch ±0.02 mm；★ **S2 真值必须人工签字**（AI 自签 = 循环论证）、S3 真值绑 PDF 哈希、S5 非 null 真值必须带页码、**S8 定位器不撒谎**（`--with-locate`）；基线 `baselines/spec_reading.json` | **✅ 2026-10-15：10 例真值已签字、正式 92.5%、基线已冻结**（80 字段：correct 74 / wrong 3 / spurious 3） |
 | `suites/behavior/` | L3 规则真的可执行 | **B1–B6 行为夹具**（把 SKILL 的 S 系硬规则 + L3 状态机造成可控临时目录，逼工具层表态）：B1 目录多份 `.dra`/PDF → 必须 `ambiguous` + `confirm` + 候选列全；B2 只有历史 `checklist_report_*.json` → 不算证据、判缺料 `stop`；B3 `AUTOSAVE.dra` → 剔除且不算候选；B4 **先探通道** → `connected=False` 时 `error` 必须非空（禁把没通道说成「没工具」）；**B5 L3 状态机 + `playbook.json` 硬约定** → 每条规则都带检测方式与后果类别、`pipeline.run()` 放行/拦停正确（歧义必须 `confirm` 且**停在 preflight 不许继续取数**、通道不可用必须 `stop` + `CHANNEL_NOT_READY`）、`stale_rule_ids`（已删除的 `6.5`）必须被单独点名。**无基线**（是断言套件，像 architecture） | **Phase 2-c ✅ 4 条 / Phase 3 ✅ B5 / Phase 4 ✅ B6 D4 通道锁（6/6 通过）** |
 | `suites/tool_contract/` | L2 工具契约不破 | **C1–C8 静态断言**：工具数量 / 名字集合（改名=破坏）= 基线、每个工具有 docstring、每个参数名写进 docstring、遥测字段口径、`server.py` 是否挂了 `TelemetryMiddleware`、**C7 每个工具都在 `knowledge/tool_groups.json` 里有分组**、**C8 生成的 `docs/tools-catalog.md` 与代码一致（不陈旧）**；基线 `baselines/tool_contract.json` | **Phase 1 ✅ 已就位** |
-| `suites/architecture/` | 层方向 + 文档覆盖 | `check_architecture.py`：**A1–A9**（层方向 / 登记 / README 覆盖 / **A7 解析失败必须可见** / A8 docs 索引 / A9 契约权威路径）+ W1–W4 | **Phase 0 ✅ 已就位** |
+| `suites/architecture/` | 层方向 + 文档覆盖 | `check_architecture.py`：**A1–A10**（层方向 / 登记 / README 覆盖 / **A7 解析失败必须可见** / A8 docs 索引 / A9 契约权威路径 / A10 契约指针义务）+ W1–W3 | **Phase 0 ✅ 已就位** |
 
 ## 一条命令跑完（Phase 2-d）
 
@@ -37,7 +37,7 @@ python eval/check_eval.py --list     # 只列套件
 python eval/check_eval.py --show-fail  # 红了就附打该套件输出尾部
 ```
 
-`eval/check_eval.py` **不是又一个真源**：判据仍写在各自套件里（A1–A9 / C1–C6 / B1–B6 / S1–S8 / G1–G6 + R1–R4），
+`eval/check_eval.py` **不是又一个真源**：判据仍写在各自套件里（A1–A10 / C1–C6 / B1–B6 / S1–S8 / G1–G6 + R1–R4），
 它只负责**跑全 + 计数 + 汇总**，不复制任何阈值。自己的元判据：
 
 | 号 | 判据 |
@@ -68,7 +68,7 @@ python eval/check_eval.py --fast      # 冒烟；去掉 --fast 则含 253 件对
 ```bash
 # 架构断言（Phase 0 已可用，纯 stdlib，任何 Python 3.10+ 都能跑）
 python eval/suites/architecture/check_architecture.py
-#   A1–A9：层方向 / 登记 / README 覆盖 / 可解析。ERROR 必须为 0（W3 是已声明偏差）
+#   A1–A10：层方向 / 登记 / README 覆盖 / 可解析 / 契约指针。ERROR 必须为 0（W3 是已声明偏差）
 
 # 工具契约断言（Phase 1 已可用，同样纯 stdlib）
 python eval/suites/tool_contract/check_tool_contract.py

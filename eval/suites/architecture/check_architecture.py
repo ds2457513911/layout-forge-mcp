@@ -20,6 +20,7 @@ eval/suites/architecture/check_architecture.py —— 架构与文档断言（�
 | A7 | 代码根下的 `.py` 必须能解析（无 BOM、无语法错） | 解析失败会被静默跳过 = 该文件的 import 断言其实没跑 |
 | A8 | `docs/` 顶层每个 `.md` 必须出现在 `docs/README.md` 文件清单 | 没登记的文件 = 没人会读到它（A4/A5 只管 `.py`，文档过去无人管） |
 | A9 | `docs/边界契约.md`「权威落点」列里每个路径必须存在 | 权威路径腐烂 = 契约指空，读的人被送去不存在的文件 |
+| A10 | 契约「指针义务」表里每个投影文件必须还能搜到那句指针 | 投影文件悄悄改掉指向 = 读者读的是过期正文（票 #12 把 W4 升格） |
 
 ## 警告（WARN → 不影响退出码）
 
@@ -28,7 +29,6 @@ eval/suites/architecture/check_architecture.py —— 架构与文档断言（�
 | W1 | `services/` import `observability`（暂允许，需在 `LAYERS.md` 记录理由） |
 | W2 | 登记目录的 README 缺「最后更新 / 最近更新」行 |
 | W3 | 已声明的历史偏差（`DECLARED_EXCEPTIONS`）—— **仍然打印**，只是不计 ERROR |
-| W4 | 契约「指针义务」表里的投影文件已搜不到那句指针（**待升 A10**：四条指针由「机械修正」票落地后改成 ERROR） |
 
 ★ **Phase 0 基线：现状允许非空。** 先如实记录，再在 Phase 1/3 逐条清偿；
 不要为了让脚本变绿而改判据 —— 那等于把尺子锯短。
@@ -131,7 +131,7 @@ DECLARED_EXCEPTIONS = [
     },
 ]
 
-#: A8/A9/W4：边界契约与 docs 索引
+#: A8/A9/A10：边界契约与 docs 索引
 CONTRACT_DOC = "docs/边界契约.md"
 DOCS_INDEX = "docs/README.md"
 
@@ -373,7 +373,7 @@ def check():
             if md.name not in index_text:
                 add("A8", "error", f"docs/{md.name} 未登记进 {DOCS_INDEX} 的文件清单", f"docs/{md.name}")
 
-    # A9 / W4：边界契约 —— 权威落点必须存在；指针义务里的那句话必须还在
+    # A9 / A10：边界契约 —— 权威落点必须存在；指针义务里的那句话必须还在
     contract_path = ROOT / CONTRACT_DOC
     if not contract_path.is_file():
         add("A9", "error", f"{CONTRACT_DOC} 不存在 —— 它是「哪类事实归哪一层」的唯一权威", CONTRACT_DOC)
@@ -388,9 +388,9 @@ def check():
         for path, needle in _contract_pointers(contract_text):
             p = ROOT / path
             if not p.is_file():
-                add("W4", "warn", f"指针义务的文件不存在：{path}", CONTRACT_DOC)
+                add("A10", "error", f"指针义务的文件不存在：{path}", CONTRACT_DOC)
             elif needle not in p.read_text(encoding="utf-8"):
-                add("W4", "warn", f"{path} 已搜不到指针「{needle}」—— 待「机械修正」票落地后升 A10", path)
+                add("A10", "error", f"{path} 已搜不到指针「{needle}」—— 投影文件必须指回权威，否则读者读的是过期正文", path)
 
     return findings
 

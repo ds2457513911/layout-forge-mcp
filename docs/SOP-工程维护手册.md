@@ -3,7 +3,7 @@
 > 最后更新：**2026-10-16**（★ 重建环境实测：`uv sync --frozen` 本身只要 **9.5 秒**，但「建好」≠「能用」——
 > 同轮补齐 §3.5 **三处外部引用清单**（`~/.workbuddy/mcp.json` / `allegro.ilinit` / `cordis.patch.yml`）、
 > `--venv-python` 参数、沙箱解释器**写不了** `%USERPROFILE%\.workbuddy\*\*` 的坑（§3.6）、
-> 以及「收尾没关 Allegro → 它锁着 `allegro.jrl` 挡隔离」（§6）；顺手把 §1.1/§4.3/§9.1 里过期的 **31/28 工具数**对齐到 **36**。
+> 以及「收尾没关 Allegro → 它锁着 `allegro.jrl` 挡隔离」（§6）；顺手把 §1.1/§4.3/§9.1 里过期的工具数快照对齐到当日实际值（此后工具数只认 `docs/tools-catalog.md`）。
 > 此前：★ 新增排障铁律：**先看退出码** —— GBK 控制台下 `print("✓")` 会让「五套全绿」反而 exit 1
 > （红分支打 ASCII 所以正常），六个入口已加 `_force_utf8_stdout()`；此前：Phase 3：`orchestration/playbook.json`（规则装配表）+ `pipeline.py`（状态机）落地，`behavior` 加 **B5** 守这两份东西（夹具 5/5），§7.2 补「改 playbook / pipeline 必须复跑 behavior」；此前：Phase 2-d：发布检查收成**一条命令** `python eval\check_eval.py`（五套断言 + 元判据 E1–E4）；此前：七项检查 + `behavior` 行为夹具（S1/S2/S4 可执行化）+ `preflight` 噪声规则扩到「运行痕迹 + 历史报告」→ G4 现形 145 个噪声文件（属真发现），**当日全部隔离进 `.trash/` 后复绿、判据未放宽**；再此前：六项检查 + `spec_reading` 读图准确率 92.5% + SKILL 三处落点 + `.venv`/解释器坑 + 沙箱解释器会让回归评分假红）
 >
@@ -213,7 +213,7 @@ python -c "import json,os;d=json.load(open(os.path.expanduser('~/.workbuddy/mcp.
 # ② ilinit 是否正确（应看到 .venv\Scripts\pythonw.exe 与 python_server.il）
 findstr /C:"Python:" /C:"SKILL:" "D:\Dev_tools\Cadence_17.2\Cadence\SPB_Data\pcbenv\allegro.ilinit"
 
-# ③ 工具数（离线，正确应为 36）
+# ③ 工具数（离线；与 docs/tools-catalog.md 的条数对齐 —— 别在文档里记数字）
 .venv\Scripts\python.exe -c "import sys,asyncio;sys.path.insert(0,'.');from mcp_server.server import mcp;print(len(asyncio.run(mcp.list_tools())))"
 ```
 
@@ -367,6 +367,9 @@ Tools\test\<符号名>\
 
 ### 7.1 改哪里 → 影响什么
 
+> 哪类事实归哪一层（工具 / 读数规则 / 通道 / 部署 / 文档指针）见 [`边界契约.md`](边界契约.md) 的「事实归属」表。
+> 本节只列本项目的「改完必须跑」，不维护「哪份文档该同步」的清单。
+
 | 改这个文件 | 影响 | 改完必须跑 |
 |---|---|---|
 | `services/geometry_solver.py` | 所有器件的几何（焊盘/本体/丝印/外扩/原点） | `selfcheck_geometry.py`（239 项，含 3 份内置 spec 基线） |
@@ -375,8 +378,10 @@ Tools\test\<符号名>\
 | `services/footprint_builder.py` | 建封装执行流程 | 实机 e2e（如 `Tools\e2e_cstj421.py`） |
 | `services/extracta_views/*.txt` | 回读视图（增删视图会改变输出文件对应关系） | 回读一颗已知 `.dra` 对拍 |
 | `services/spec_library.py` | spec 库读写 / 指纹匹配 | 冒烟：`save` → `load` → `find` round-trip |
-| `mcp_server/tools.py` | MCP 工具签名与参数透传 | 离线注册检查（工具总数）+ 改完**重连 MCP** |
 | `knowledge/specs/*.json` | 已存档器件的解析成果 | 对应器件的 `solve` 结果不应变化 |
+
+改 `mcp_server/` 或两份 SKILL 不在这张表里：工具与参数的权威落点、以及改完该跑哪些闸门，
+以契约「事实归属」表为准；SKILL 的三处落点刷新与 `--verify-skills` 见 §7.2 与 `Tools/deploy/README.md`。
 
 ### 7.2 发布流程
 
@@ -405,7 +410,7 @@ python eval\suites\behavior\check_behavior.py              # S1/S2/S4 硬规则 
 python eval\suites\geometry_regression\check_geometry_regression.py
 ```
 
-★ `eval/check_eval.py` 只做**跑全 + 计数 + 汇总**，判据仍在各自套件里（A1–A9 / C1–C6 / B1–B5 / S1–S8 / G1–G6 + R1–R4）；
+★ `eval/check_eval.py` 只做**跑全 + 计数 + 汇总**，判据仍在各自套件里（A1–A10 / C1–C6 / B1–B5 / S1–S8 / G1–G6 + R1–R4）；
 它自己的元判据是 E1（五套都要跑到，缺依赖记 ERROR）、E2（看退出码，不解析人话）、E3（`--json` 解析失败也算 ERROR）、
 E4（实跑行数必须等于计划行数）。**汇总漏一行却不报错，就是把闸门拆了一角。**
 
@@ -437,8 +442,9 @@ GBK 控制台下汇总行打印 `[✓]`（U+2713）抛 `UnicodeEncodeError`，�
 （工作区里的 `.venv`）会让 extracta 在第 2 路崩掉 → 253 件里 PASS 0 / FAIL 236，全是**环境分数**；
 工作区外的解释器得到 PASS 7 / FAIL 81。套件的 **G6** 会先把这件事红出来，别去调 R4 阈值。
 
-★ **改了 MCP 工具或参数**：同轮改 `Tools/deploy/setup_agent.py::EXPECTED_TOOLS`、
-两份 SKILL 的清单（含 `references/mcp-tools.md`），再 `check_tool_contract.py --update` 冻结基线。
+★ **改了 MCP 工具或参数**：工具名 / 数量 / 参数只认 `mcp_server/tools.py` 的 `@mcp.tool`；
+改哪层、改完跑什么见 `docs/边界契约.md` 的「事实归属」表与「三条改动手续」第 1 条。
+本文件不再维护跨文件的同步清单。
 ★ **发了 SKILL 就得打齐三处落点**（2026-10-14 实测；详见 `Tools/deploy/README.md` 坑 13）：
 真源 `Tools/deploy/skills/*` → `%USERPROFILE%\.workbuddy\skills\*`（跑 `setup_agent.py`）→
 `C:\Users\ds245\.skills-manager\skills\*`（`Copy-Item -Recurse -Force`，`.dsh\skills` 经 junction 随即变新）。
@@ -466,7 +472,7 @@ GBK 控制台下汇总行打印 `[✓]`（U+2713）抛 `UnicodeEncodeError`，�
 - `mcp_server/config.py` **无 `MCP_VERSION`**（旧版项目有）。别照抄旧版 SOP 里"更新版本号"那一步。
 - `config.py` 里 PDF 渲染输出目录变量叫 `RENDER_OUTPUT_ROOT`，落盘目录为 `Tools/log/render/`（历史名 `marker_out`，2026-10-12 迁入 Tools/log）。
 - `Tools/debug/` 下脚本定位项目根要用**上三级**（`parent.parent.parent`），迁入时修过。
-- 历史快照文档里的工具数（如 `docs/规格书读取方案.md` 的「31 / 34 个工具」）是该文写作时的快照，不是现状声明；
+- 历史快照文档里的工具数（如 `docs/规格书读取方案.md` 写作时记下的工具数）是该文写作时的快照，不是现状声明；
   **现状工具数只认 `docs/tools-catalog.md`（生成物）与 `eval/suites/tool_contract` 基线**。改工具集时**不必**回改这些正文，
   但新写的文档别再写数量、也别抄清单。★ 2026-11-19：15 份文档里 29 处声明数字已清空，改由 C7（分组漏补）/C8（目录过期）守门。
 

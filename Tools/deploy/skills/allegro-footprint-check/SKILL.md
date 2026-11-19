@@ -598,10 +598,9 @@ pin 编号方向必须看 datasheet TOP VIEW（凭直觉会把反了的封装判
    看是否报"未知工具"
 3. 改动较大时跑两套离线自检：`Tools/selfcheck_geometry.py`（239 项）+
    `Tools/selfcheck_skill_syntax.py`（222 项），**只能用项目 `.venv`**
-4. ★ **加了 / 删了 / 改了 MCP 工具或参数**：同轮改本 SKILL 的工具数、
-   `allegro-skillbridge-ops/references/mcp-tools.md`、`Tools/deploy/setup_agent.py::EXPECTED_TOOLS`，
-   再跑 `python eval/suites/tool_contract/check_tool_contract.py --update` 冻结基线 ——
-   漏任一步，工具契约断言或部署冒烟会红（这就是防"改了没人知道"的闸门）
+4. ★ **加了 / 删了 / 改了 MCP 工具或参数**：工具名 / 数量 / 参数只认 `mcp_server/tools.py` 的
+   `@mcp.tool`（本 SKILL 不抄清单、不写数量）；改哪层、改完跑什么见仓内
+   `docs/边界契约.md` 的「事实归属」表与「三条改动手续」第 1 条
 5. ★ **动了目录结构 / 新增目录**：跑 `python eval/suites/architecture/check_architecture.py`（ERROR 必须为 0）
 6. ★ **改本 SKILL 后必须打齐三处落点，否则模型读到的还是旧版**（静默回退）：
    `Tools/deploy/skills/` 是**唯一真源**，但本机有**三个** junction 落点

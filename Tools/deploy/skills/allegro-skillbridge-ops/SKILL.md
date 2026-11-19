@@ -159,6 +159,9 @@ save_footprint_drawing() → export_psm() → read_full_footprint() 回读核验
 save_spec(name, spec_json, family, notes)  → ★ 建完存档（notes 写踩过的坑）
 ```
 
+★ **读数规则与顺序只有一份**：`allegro-footprint-check/SKILL.md` 第 3 步。
+本节只是建件主流程，别在这里另立一套读法；整页图只定位、不读数。
+
 ★ **为什么第一步是 `folder_preflight`**：S1 铁律要求「目录里多份 PDF/`.dra` 必须先确认」，
 但 `list_folder_files` 的返回里只有**单个** `pdf` 字段 —— 歧义在返回值里不可见（会被静默吞掉）。
 `folder_preflight` 把它变成显式字段，并**顺手剔除噪声**（`AUTOSAVE.dra` 按名排序会排在
