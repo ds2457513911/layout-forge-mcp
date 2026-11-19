@@ -358,6 +358,23 @@ def probe_pdf(pdf_path: Path) -> dict:
 # 与"整页缩小拼版"的区别：缩的是**视野**，不是**像素密度**。
 # 拼版把 N 页塞一张图、单页稀释到 72 dpi；区域裁剪保住 600–1200 dpi。
 # 输出命名空间刻意与 get_or_render_image 的 <stem>/pymupdf_pages/ 分开，避免缓存互相覆盖。
+#
+# ★ 接口单边硬上限（实测 2026-11-18，deepseek-flash）：8192×2000 / 7000×3000 / 6000×4000
+#   都能过；8300×2000、9000×1500、9322×3175（仅 446 KB）一律 400 `unsupported image`。
+#   卡的是**单边长度**，不是总像素、也不是文件字节数；超限不会自动缩。
+#   所以 dpi 必须按矩形反解，不能写死 1200——1200 dpi 下 500 pt 宽就是 8300+ 像素。
+MAX_SIDE_PX = 8192
+
+
+def dpi_for_max_side(width_pt: float, height_pt: float,
+                     max_side: int = MAX_SIDE_PX) -> int:
+    """反解：让该区域渲染后长边不超过 max_side 像素时，dpi 最多取多少。"""
+    longest = max(abs(float(width_pt)), abs(float(height_pt)))
+    if longest <= 0:
+        return 1200
+    return max(72, min(1200, int(max_side * 72.0 / longest)))
+
+
 def render_region(
     pdf_path: Path,
     page: int,
@@ -385,7 +402,8 @@ def render_region(
     except Exception:                                      # noqa: BLE001
         return {"ok": False, "error": f"rect 需为 4 个数: {rect!r}"}
 
-    dpi = max(72, min(int(dpi), 1200))                     # ★ 上限保护，防超大图
+    dpi = max(72, min(int(dpi), 1200))                     # 先按调用方意图夹一次
+    requested_dpi = dpi
 
     try:
         with pymupdf.open(str(pdf_path)) as doc:
@@ -396,6 +414,9 @@ def render_region(
             if clip.is_empty:
                 return {"ok": False,
                         "error": f"rect 与页面无交集: {rect} vs {pg.rect}"}
+            # ★ 再按实际裁剪后的物理尺寸压一次：区域越大，能用的 dpi 越低。
+            #   夹到页面内之后 clip 可能比传入 rect 小，所以必须用 clip 算。
+            dpi = min(requested_dpi, dpi_for_max_side(clip.width, clip.height))
             pm = pg.get_pixmap(dpi=dpi, clip=clip)
             out_dir = Path(out_root) / _safe_stem(Path(pdf_path).stem) / "regions"
             out_dir.mkdir(parents=True, exist_ok=True)
