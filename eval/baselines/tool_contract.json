@@ -1,7 +1,7 @@
 {
-  "frozen_at": "2026-10-14T16:41:35",
-  "tool_count": 36,
-  "decorator_count": 36,
+  "frozen_at": "2026-11-19T11:10:58",
+  "tool_count": 39,
+  "decorator_count": 39,
   "tools": [
     {
       "name": "add_footprint_outline",
@@ -80,7 +80,7 @@
     },
     {
       "name": "check_footprint_by_rules",
-      "doc_len": 1257,
+      "doc_len": 1413,
       "params": [
         "dra_file_path",
         "theoretical_payload",
@@ -88,7 +88,8 @@
         "custom_rules",
         "semantic_result",
         "save_report",
-        "compact"
+        "compact",
+        "output_dir"
       ],
       "undocumented": []
     },
@@ -124,6 +125,16 @@
       "undocumented": []
     },
     {
+      "name": "extract_page_numbers",
+      "doc_len": 500,
+      "params": [
+        "pdf_file_path",
+        "page",
+        "max_numbers"
+      ],
+      "undocumented": []
+    },
+    {
       "name": "find_case",
       "doc_len": 470,
       "params": [
@@ -153,7 +164,7 @@
     },
     {
       "name": "folder_preflight",
-      "doc_len": 947,
+      "doc_len": 1516,
       "params": [
         "folder_path",
         "recursive"
@@ -246,7 +257,7 @@
     },
     {
       "name": "locate_land_pattern_page",
-      "doc_len": 327,
+      "doc_len": 1185,
       "params": [
         "pdf_file_path"
       ],
@@ -298,6 +309,25 @@
       "params": [
         "dra_file_path",
         "pad_file_paths"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "reconstruct_pad_array",
+      "doc_len": 640,
+      "params": [
+        "pdf_file_path",
+        "page"
+      ],
+      "undocumented": []
+    },
+    {
+      "name": "render_focus_regions",
+      "doc_len": 651,
+      "params": [
+        "pdf_file_path",
+        "page",
+        "dpi"
       ],
       "undocumented": []
     },

@@ -10,11 +10,12 @@ mcp_server/tools.py —— MCP 工具定义
 
   严禁在 tool 里写业务逻辑（循环、文件扫描、JSON 清洗）。
 
-工具列表（v4.2，共 36 个）：
+工具列表（v4.3，共 39 个）：
   - list_subfolders / list_folder_files         批量侦察
   - folder_preflight                             ★ 动手前预检：目录里的 PDF/.dra 有没有歧义（2026-10-14 加）
   - locate_land_pattern_page / render_pdf_page  定位 & 渲染
   - pdf_probe / render_pdf_region / measure_region  ★ 读规格书三件套（2026-10-13 加）
+  - extract_page_numbers / render_focus_regions / reconstruct_pad_array  ★ 读数配额三件套（2026-11-19 加）
   - read_full_footprint                         拿 pins/layers 供 AI 语义检查
   - check_footprint_by_rules                    主用：检查 + 存档 + 渲染 markdown
   - validate_land_pattern_json                  校验 AI 输出的 JSON
@@ -40,7 +41,7 @@ from pathlib import Path
 from fastmcp import FastMCP
 
 from mcp_server import config
-from services import allegro_service, pdf_service
+from services import allegro_service, pdf_service, pdf_reading, pdf_geometry
 from services import footprint_extractor, rule_checker, report_renderer
 from services import footprint_builder, geometry_solver, library_install
 from services import case_library, spec_library
@@ -1814,3 +1815,89 @@ def register(mcp: FastMCP) -> None:
         except (TypeError, ValueError):
             return {"ok": False, "error_code": "BAD_INPUT", "error": f"days 必须是整数：{days!r}"}
         return {"ok": True, "days": days, "stats": stats_mod.summarize(max(days, 1))}
+
+    # ============================================================
+    # Tool 37: extract_page_numbers —— ★ 候选数字带坐标（文本层，零模型成本）
+    # ============================================================
+    @mcp.tool()
+    def extract_page_numbers(pdf_file_path: str, page: int = 1, max_numbers: int = 400) -> dict:
+        """
+        ★ 抽该页文本层里「像尺寸」的数字，**带 PDF 坐标** —— 读数前的线索表。
+
+        **为什么带坐标**：同一个 `0.5` 可能是焊盘宽、也可能是公差；只给数字列表
+          没法判断归属。带上 bbox，才能让模型说「这个数标在焊盘图上还是表格里」。
+          本工具**只收不筛**（除年份），归属判断留给看图那一步。
+
+        ★ 顺序有意义：先拿这张表定位「数字密集区」，再去渲染那块区域
+          （见 `render_focus_regions`）。反过来先渲染整页，分辨率必然不够。
+
+        :param pdf_file_path: 规格书 PDF 路径（完整路径或 stem 均可）
+        :param page: 人眼 1-based 页码
+        :param max_numbers: 候选上限（默认 400，超出截断并写 warning）
+        :return: {"ok", "page", "numbers": [{"text","value","bbox","src"}], "count", "warnings"}
+                 ★ 扫描件返回空表 + warning，这是**正常形态**，直接改看裁剪图。
+        """
+        pdf = pdf_service.resolve_pdf(pdf_file_path, config.PDF_SEARCH_ROOTS)
+        if pdf is None:
+            return {"ok": False, "error": f"找不到 PDF: {pdf_file_path}"}
+        return pdf_reading.extract_numbers(pdf, int(page), max_numbers=int(max_numbers))
+
+    # ============================================================
+    # Tool 38: render_focus_regions —— ★ 概览 + 数字密集焦点区（配额渲染）
+    # ============================================================
+    @mcp.tool()
+    def render_focus_regions(pdf_file_path: str, page: int = 1, dpi: int = 900) -> dict:
+        """
+        ★ 「该看哪几块、各自多清」一次给全：概览图 + 数字密集区（必要时 2x2 切块）。
+
+        **为什么不是整页高 dpi**：900 dpi 的 A4 是 6100 万像素，视觉模型内部会压到
+          长边 ~1600 px，等效只剩 ~190 dpi —— 正好是「200 dpi 把 0.5 读成 0.7」的区间。
+          正确做法是**分辨率配额**：概览压到 1600 px 看布局，焦点区把范围缩到
+          能保住 600 dpi 以上，做不到就切块（不降 dpi）。
+
+        :param pdf_file_path: 规格书 PDF 路径（完整路径或 stem 均可）
+        :param page: 人眼 1-based 页码
+        :param dpi: 区域 dpi 上限（默认 900，上限 1200；实际值由像素配额反解）
+        :return: {"ok", "page", "rect", "numbers", "regions": [
+                     {"id","page","rect","dpi","image_path","size"}],
+                  "measure": {...}, "warnings"}
+                 regions[0] 恒为 overview；id 以 focus 开头的是焦点块。
+                 拿到的 image_path 直接交多模态读数字；读数必须写清「哪张图、哪个数」。
+        ★ 失败返回 `ok:false`，调用方回退旧的整页渲染流程。
+        """
+        pdf = pdf_service.resolve_pdf(pdf_file_path, config.PDF_SEARCH_ROOTS)
+        if pdf is None:
+            return {"ok": False, "error": f"找不到 PDF: {pdf_file_path}"}
+        return pdf_reading.render_focus_regions(
+            pdf, int(page), config.RENDER_OUTPUT_ROOT, dpi=int(dpi))
+
+    # ============================================================
+    # Tool 39: reconstruct_pad_array —— ★ 矢量阵列重建（零模型成本）
+    # ============================================================
+    @mcp.tool()
+    def reconstruct_pad_array(pdf_file_path: str, page: int = 1) -> dict:
+        """
+        ★ 从 PDF **矢量图元**还原焊盘阵列：尺寸、节距、行列数、本体外廓（不调模型）。
+
+        **为什么值得单独做**：文本层候选只覆盖约 27%–42% 的真值，而 pad_x /
+          pad_y / pitch 类失分占了一半。矢量图里焊盘矩形是现成的：线段 → 矩形 →
+          同尺寸族 → 行/列 → 节距，再用文本层数字反标定 pt/mm，全程可复现、零模型成本。
+          与读图结果交叉校验时，比「再问一次模型」可靠。
+
+        ★ 输出的是**候选**不是结论：每个量带 pt 值与来源（geom.*），pt→mm 需要标定
+          （图上数字对不上时会如实告警，只给 pt 与比值）。
+        ★ 纯扫描件没有矢量图元 → 返回 ok:false 或空 pads，此时只能靠读图。
+
+        :param pdf_file_path: 规格书 PDF 路径（完整路径或 stem 均可）
+        :param page: 人眼 1-based 页码
+        :return: {"ok", "page", "scale": {pt_per_mm, ...}, "pads": {...},
+                  "candidates": [{"field","value","pt","unit","method","note"}],
+                  "ratios": [...], "warnings": [...]}
+                  典型用法：拿 candidates 与读图结果对拍，吻合则读数可信。
+        """
+        pdf = pdf_service.resolve_pdf(pdf_file_path, config.PDF_SEARCH_ROOTS)
+        if pdf is None:
+            return {"ok": False, "error": f"找不到 PDF: {pdf_file_path}"}
+        nums = pdf_reading.extract_numbers(pdf, int(page))
+        values = [n["value"] for n in (nums.get("numbers") or []) if n.get("value") is not None]
+        return pdf_geometry.analyze_page(pdf, int(page), values)

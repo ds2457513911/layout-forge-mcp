@@ -1,6 +1,6 @@
 # services/ —— 生成侧核心（编译器 + 执行器 + 读取层）
 
-> 最后更新：2026-10-14（`pdf_locate.py` 重写为「文本 + 结构」双证据定位；`pdf_renderer.safe_stem()` 修尾空格坑；实测更正与 `layout-check-mcp` 的共享文件清单（只剩 4 件相同）。此前：Phase 0 登记 L3/L4/L5 目录常量、补齐漏登记的 4 个模块）
+> 最后更新：2026-11-19（新增 `pdf_reading.py` / `pdf_geometry.py` 与读数配额三件套 MCP 工具；`pdf_service.render_region` 的 dpi 改按单边 8192 反解。此前：2026-10-14 `pdf_locate.py` 重写为「文本 + 结构」双证据定位；`pdf_renderer.safe_stem()` 修尾空格坑；实测更正与 `layout-check-mcp` 的共享文件清单（只剩 4 件相同）。此前：Phase 0 登记 L3/L4/L5 目录常量、补齐漏登记的 4 个模块）
 
 ## 这个目录是干什么的
 
@@ -36,6 +36,7 @@
 | `cdsroot_locator.py` | 定位 Cadence `CDSROOT` / `extracta.exe` | extracta 与 Allegro 都要它 |
 | `allegro_service.py` | Allegro 进程/环境相关小服务 | — |
 | `pdf_locate.py` / `pdf_renderer.py` / `pdf_service.py` | 规格书 PDF 定位 / 渲染 / 解析入口。★ `pdf_locate.py` **2026-10-14 重写为「文本 + 结构」双证据定位**（`analyze_pdf` 逐页统计 text_chars/drawings/dim_signals → 纯函数 `_decide()` 出结论；① 强关键词唯一领先 → `primary`；② 无文本层矢量图纸页 → `drawing_only`；③ 稀薄文本图纸页 → `thin_drawing`；④ 并列即 `ambiguous` + `candidates`，**宁可不给页码也不瞎猜**），新增 `confidence`/`needs_visual`/`candidates`/`page_stats`/`reason`。`pdf_renderer.py` 的 `safe_stem()` 防「PDF 名的 stem 以空格结尾 → Windows 吃尾空格 → `mkdir` 抛 `FileNotFoundError`」。★ `pdf_service.py` 另有**读规格书三件套**（2026-10-13）：`probe_pdf`（判形态）/ `render_region`（区域高 dpi 重渲染）/ `measure_region`（矢量量距交叉校验） | 给"读图纸"阶段用；三件套均为**纯读**、try/except 返回 `ok:false`、绝不 raise；`needs_visual=True` 时读数值前必须渲染确认（判据 S8 会查这件事） |
+| `pdf_reading.py` / `pdf_geometry.py` | ★ **读数配额两模块**（2026-11-19 从 layout-web 吸收）：`pdf_reading.extract_numbers`（文本层 span 抽「像尺寸」数字 + bbox，上限 400）/ `cluster_rect`（12×16 网格取最密 3×3，标注区定位）/ `render_focus_regions`（概览压到 1600px + 焦点区强制 ≥600dpi，达不到按 2×2 切块**不降 dpi**，符合单边 8192 上限）；`pdf_geometry.analyze_page`（从矢量矩形重建焊盘阵列：rows/cols/pitch/pad 尺寸 + mm 标定，零模型成本） | 纯读、try/except 返回 `ok:false`；对应 MCP 工具 `extract_page_numbers` / `render_focus_regions` / `reconstruct_pad_array`；dpi 太高会被模型压成 ~190dpi 等效反而不准，所以配额优先于分辨率 |
 | `convention_engine.py` | ★ **构造约定引擎**（2026-10-13 第 0 层落地）：`check_*` 与 `create` 共用同一份「封装应该长什么样」的知识 —— `load_conventions` / `apply_conventions` / `derive_th_name` / `derive_th_oblong_padstack` / `check_pin_conventions` / `check_padstack_naming` / `verify_built_footprint` | 约定数据在 `knowledge/conventions.json`；`Tools/mine_conventions.py` 收割、`Tools/selfcheck_conventions.py` 守「学到 → 消费」链路 |
 | `spec_library.py` | ★ **spec 库**（每颗料解析成果的沉淀处）：`fingerprint` 指纹复用 / `save_spec` / `load_spec` / `list_specs` / `find_spec` / `rebuild_index` | 落 `knowledge/specs/`；**同封装零读图复用 = 读图成本的主要节省点** |
 | `validation.py` | Land pattern JSON schema 校验：`validate_land_pattern` → `(is_valid, errors, normalized)` | 输入是 AI 读图提取的 dict（下游兜底）；★ 文件头 docstring 仍写 `shared/validation.py` —— 2026-10-12 `shared/` 并入 `services/` 前的痕迹 |

@@ -30,7 +30,7 @@ requires-mcp-servers:
     package: "local"
     description: >
       Local MCP server exposing footprint build and check tools
-      (36 tools). Same server used by the allegro-skillbridge-ops skill.
+      (39 tools). Same server used by the allegro-skillbridge-ops skill.
     command: python
     args:
       - "-c"
@@ -554,7 +554,7 @@ pin 编号方向必须看 datasheet TOP VIEW（凭直觉会把反了的封装判
 
 ## 客户端配置示例
 
-本技能与 `allegro-skillbridge-ops` 共用同一个 MCP 服务 `layout-forge-mcp`（36 个工具）。
+本技能与 `allegro-skillbridge-ops` 共用同一个 MCP 服务 `layout-forge-mcp`（39 个工具）。
 已经注册过就不用再配。**换机器 / 给同事**时的 JSON 写法、`command` 必须指向 `.venv` 的理由、
 `.venv` 不存在时怎么重建，见 `references/client-config.md`。
 
@@ -565,7 +565,7 @@ pin 编号方向必须看 datasheet TOP VIEW（凭直觉会把反了的封装判
    （本项目 `mcp_server/config.py` **没有** `MCP_VERSION` 字段，无法靠版本号判断）
    ★ **只有改 `services/`、`mcp_server/` 才需要重连**；改 `knowledge/`
    （rules/checker_rules.json、specs、cases）是**每次调用现读盘**，立即生效
-2. 判据：重连后工具总数应为 **36**（照 `setup_agent.py::EXPECTED_TOOLS`）；或直接调一个新加的工具（如 `find_case` / `get_run_stats`）
+2. 判据：重连后工具总数应为 **39**（照 `setup_agent.py::EXPECTED_TOOLS`）；或直接调一个新加的工具（如 `find_case` / `get_run_stats`）
    看是否报"未知工具"
 3. 改动较大时跑两套离线自检：`Tools/selfcheck_geometry.py`（239 项）+
    `Tools/selfcheck_skill_syntax.py`（222 项），**只能用项目 `.venv`**

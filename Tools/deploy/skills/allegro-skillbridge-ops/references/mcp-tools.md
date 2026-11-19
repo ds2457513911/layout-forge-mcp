@@ -26,6 +26,9 @@ render_pdf_region(pdf, page, rect, dpi)→ ★ 读尺寸数字主力：区域裁
 render_pdf_page(pdf, page)             → 整页渲染（固定 150 dpi），仅客户端不支持 resource 时用
   …（AI 读图，产出参数 JSON）
 measure_region(pdf, page, rect)        → ★ 交叉校验：量区域内图元包围盒，与读数对拍（非主读数）
+extract_page_numbers(pdf, page)        → ★ 候选数字带坐标（文本层，零成本）；数字最密的一块 = 该重点看的地方
+render_focus_regions(pdf, page, dpi)   → ★ 概览 + 焦点区一次给全：dpi 按像素配额反解，读不准就切块、不降 dpi
+reconstruct_pad_array(pdf, page)       → ★ 矢量阵列重建：pad / pitch / 行列数（零模型成本），与读图结果对拍
 validate_land_pattern_json(raw_json)   → 守门员，防格式漂移  ※参数是 str 不是 dict
 solve_footprint_geometry(...)          → 算几何（焊盘/本体/丝印/位号）
 new_symbol_drawing(target_name)        → 建图纸
@@ -132,6 +135,9 @@ lessons 写教训。**裁定一次、全族受益**。真源 `knowledge/cases/`�
 | `pdf_probe(pdf_file_path)` | 判 PDF 形态：`pages / bitmaps / text_chars / drawings` → `form` + `read_hint` | **每次读规格书的第一步**（零成本）。判错读法的代价不对称：对 CAD 图做文本提取、对扫描件提文本层都是纯白工 |
 | `render_pdf_region(pdf_file_path, page, rect, dpi=600)` | 按 PDF 坐标裁一块区域、高 dpi 重渲染 | **读尺寸数字的主力**。缩的是**视野**不是**像素密度**（拼版把单页稀释到 72 dpi，本工具保住 600–1200 dpi） |
 | `measure_region(pdf_file_path, page, rect)` | 量区域内矢量图元的包围盒（pt） | **交叉校验**：几何比值 vs 标注比值对拍。**非主读数**（焊盘与器件本体轮廓常粘连） |
+| `extract_page_numbers(pdf_file_path, page, max_numbers=400)` | 抽文本层里「像尺寸」的数字，**带 bbox** | 读数前的**线索表**：只收不筛（除年份），归属交给看图那一步。★ 扫描件返回空表是正常形态 |
+| `render_focus_regions(pdf_file_path, page, dpi=900)` | 概览图 + 数字密集焦点区（必要时 2×2 切块） | 不想手工算 rect / dpi 时用。**分辨率配额**：概览压到 1600 px，焦点区保住 ≥600 dpi，达不到就缩范围 |
+| `reconstruct_pad_array(pdf_file_path, page)` | 从矢量图元还原焊盘阵列（pad / pitch / 行列 / 本体） | **零模型成本的交叉校验**：输出是候选（带 pt 与来源），pt→mm 靠图上数字标定；扫描件无矢量图元会如实告警 |
 
 ### ★ 坐标系陷阱（2026-10-13 实测踩中）
 

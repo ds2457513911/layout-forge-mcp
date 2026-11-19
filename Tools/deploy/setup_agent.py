@@ -607,7 +607,7 @@ def smoke_test(project_root: Path) -> bool:
 
     # 当前版本的期望值（2026-10-13：31 → 34，新增读规格书三件套；
     #                2026-10-14：34 → 36，新增 folder_preflight / get_run_stats）
-    EXPECTED_TOOLS = 36
+    EXPECTED_TOOLS = 39
 
     if count:
         log(f"MCP 工具总数：{count}（当前版本期望 {EXPECTED_TOOLS}）", "OK")

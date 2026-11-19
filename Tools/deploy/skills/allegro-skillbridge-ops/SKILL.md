@@ -4,7 +4,7 @@ metadata:
   # ★ 三声明（Phase 3 §7）：放在 front-matter 最前，确保进入部署校验的读取窗口
   mcp_min_commit: "a5bd61f"
   verified_with: "layout-forge-mcp @ a5bd61f / 2026-10-15：eval/check_eval.py 五套全绿、behavior 5/5"
-  eval_baseline: "eval/baselines/tool_contract.json（36 工具）+ geometry_regression.json（239/222/35/253 件） + spec_reading.json（92.5%）"
+  eval_baseline: "eval/baselines/tool_contract.json（39 工具）+ geometry_regression.json（239/222/35/253 件） + spec_reading.json（92.5%）"
 description: |
   在 Cadence Allegro (SPB 17.2+) 上通过 SkillBridge 通道做自动化时的运维与排障技能。
   覆盖：AXL/SKILL 函数「文档里有但运行时有没有」、通道错位/卡死后的恢复、

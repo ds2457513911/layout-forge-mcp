@@ -7,7 +7,7 @@ Allegro 封装**生成** MCP —— 通过 SKILL 在 Allegro 里建 padstack / p
 > 最后更新：2026-10-16（★ 环境重建实测：`uv sync --frozen` 只要 9.5 s，但建好后必须核**三处外部引用**
 > `~/.workbuddy/mcp.json` / `pcbenv/allegro.ilinit` / `.dsh/profiles/tauri/cordis.patch.yml`；
 > `Tools/deploy/setup_agent.py` 新增 `--venv-python`（默认取项目 `.venv`，不再写调用者解释器）；
-> 文档里的工具数/自检项数全部对齐现状 **36 工具 / 239 + 222 项自检**；
+> 文档里的工具数/自检项数全部对齐现状 **39 工具 / 239 + 222 项自检**；
 > 此前：Phase 0：新增 L3/L4/L5 三层目录 `orchestration/` `observability/` `eval/` + 分层权威 `LAYERS.md`；
 > Phase 1：**工具 34 → 36**（`folder_preflight` / `get_run_stats`）+ 每次调用落遥测 `eval/runs/` + 工具契约断言 `eval/suites/tool_contract/`）
 
