@@ -216,7 +216,10 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
 4. 校验通过 → 保留为 `theoretical_payload`（第 6 步要用）
 5. 校验失败 → 根据 errors 修正后重试，最多 2 次
 
-**如果客户端不支持读 MCP resource**：调用 `render_pdf_page(pdf_file_path=<pdf>, page=<page>)` 拿到图片路径，再读图。
+**如果客户端不支持读 MCP resource**：调用 `render_pdf_page(pdf_file_path=<pdf>, page=<page>)` 拿到整页图片。
+**整页图只用来定位（找 land pattern 在哪、判断哪块要细看），不得用它读数字**——它固定 150 dpi，
+模型还会把长边压到 1600 px（A4 等效约 190 dpi），正好落在「0.5 读成 0.7」的误差带里。
+读数一律走 `render_focus_regions`（概览 + 焦点区 ≥600 dpi，不够就切块）或 `render_pdf_region`（指定 rect）。
 
 #### 提取规则
 
@@ -429,7 +432,8 @@ pin 编号方向必须看 datasheet TOP VIEW（凭直觉会把反了的封装判
 5. **禁止用 Python 直接解析 PDF 内部结构**（如 `pg.get_images()`、
    `get_image_info()`、`page.get_drawings()`）。
    PDF 图纸必须通过 MCP resource `datasheet://<pdf_stem>/page/<page>` 读图，
-   或通过 `render_pdf_page` / `render_pdf_region` tool 渲染后读图。
+   或通过 `render_pdf_page` / `render_pdf_region` / `render_focus_regions` tool 渲染后读图，
+   数字候选与矢量阵列只能来自 `extract_page_numbers` / `reconstruct_pad_array`。
    **判文件形态**用 MCP 工具 `pdf_probe`（内部复用同一套判据，是合规出口），
    不要为了"看看是不是扫描件/CAD 图"自己写 Python 解析 PDF 结构。
    `pdf_probe` 返回 `ok:false` 时**回退旧流程**，不要中断整个检查（见本条第 4 款的例外）。
