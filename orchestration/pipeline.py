@@ -42,8 +42,8 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 __all__ = [
     "STEP_PREFLIGHT", "STEP_ENV_CHECK", "STEP_EXTRACT", "STEP_CHECK", "STEP_REPORT",
     "STEP_NAMES", "STEPS", "Step", "GateResult", "StepOutcome", "PipelineResult",
-    "ERR_CHANNEL_NOT_READY", "ERR_AMBIGUOUS_INPUT", "ERR_NO_CANDIDATES",
-    "ERR_UNITS_UNKNOWN", "ERR_NO_DATA",
+    "ERR_CHANNEL_NOT_READY", "ERR_CHANNEL_BUSY", "ERR_AMBIGUOUS_INPUT",
+    "ERR_NO_CANDIDATES", "ERR_UNITS_UNKNOWN", "ERR_NO_DATA",
     "PLAYBOOK_PATH", "load_playbook", "validate_playbook", "evaluate_gate",
     "summarize_findings", "run",
 ]
@@ -58,6 +58,9 @@ STEP_NAMES = (STEP_PREFLIGHT, STEP_ENV_CHECK, STEP_EXTRACT, STEP_CHECK, STEP_REP
 
 # ── 失败码（SKILL 侧按码分支，不按人话分支） ─────────────────────────────
 ERR_CHANNEL_NOT_READY = "CHANNEL_NOT_READY"
+#: 通道被别的会话占着（**通道没坏**，等或稍后重试即可）—— 与 NOT_READY 的分工见
+#: services/channel_guard.py 的 ChannelBusyError。码值必须与那里一致，不许各写一份。
+ERR_CHANNEL_BUSY = "CHANNEL_BUSY"
 ERR_AMBIGUOUS_INPUT = "AMBIGUOUS_INPUT"
 ERR_NO_CANDIDATES = "NO_CANDIDATES"
 ERR_UNITS_UNKNOWN = "UNITS_UNKNOWN"

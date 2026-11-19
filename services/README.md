@@ -1,6 +1,6 @@
 # services/ —— 生成侧核心（编译器 + 执行器 + 读取层）
 
-> 最后更新：2026-11-19（新增 `pdf_reading.py` / `pdf_geometry.py` 与读数配额三件套 MCP 工具；`pdf_service.render_region` 的 dpi 改按单边 8192 反解。此前：2026-10-14 `pdf_locate.py` 重写为「文本 + 结构」双证据定位；`pdf_renderer.safe_stem()` 修尾空格坑；实测更正与 `layout-check-mcp` 的共享文件清单（只剩 4 件相同）。此前：Phase 0 登记 L3/L4/L5 目录常量、补齐漏登记的 4 个模块）
+> 最后更新：2026-11-19（新增 `channel_guard.py`：通道锁 + 建图租约，撞锁报 `CHANNEL_BUSY`；此前同一日新增 `pdf_reading.py` / `pdf_geometry.py` 与读数配额三件套 MCP 工具；`pdf_service.render_region` 的 dpi 改按单边 8192 反解。此前：2026-10-14 `pdf_locate.py` 重写为「文本 + 结构」双证据定位；`pdf_renderer.safe_stem()` 修尾空格坑；实测更正与 `layout-check-mcp` 的共享文件清单（只剩 4 件相同）。此前：Phase 0 登记 L3/L4/L5 目录常量、补齐漏登记的 4 个模块）
 
 ## 这个目录是干什么的
 
@@ -41,6 +41,7 @@
 | `spec_library.py` | ★ **spec 库**（每颗料解析成果的沉淀处）：`fingerprint` 指纹复用 / `save_spec` / `load_spec` / `list_specs` / `find_spec` / `rebuild_index` | 落 `knowledge/specs/`；**同封装零读图复用 = 读图成本的主要节省点** |
 | `validation.py` | Land pattern JSON schema 校验：`validate_land_pattern` → `(is_valid, errors, normalized)` | 输入是 AI 读图提取的 dict（下游兜底）；★ 文件头 docstring 仍写 `shared/validation.py` —— 2026-10-12 `shared/` 并入 `services/` 前的痕迹 |
 | `json_utils.py` | JSON 清洗与数值转换：`extract_json_body`（从 LLM/视觉模型的自由文本里抠出合法 JSON）、`coerce_numeric` | 读图链路的下游清洗；同样保留 `shared/json_utils.py` 的旧 docstring |
+| `channel_guard.py` | ★ **通道并发守卫**（2026-11-19，票 #10 / D4 定案）：`ChannelGuard`（进程内 `RLock` 可重入 + 跨进程 `msvcrt.locking` 文件锁，取不到 30s 后抛 `ChannelBusyError` 并附持有人 pid/任务/开始时间）、`TaskLease`（建图长任务租约，撞上**只报告不排队**）、`read_holder()` / `describe_holder()`、错误码 `CHANNEL_BUSY` / `CHANNEL_NOT_READY` | 纯标准库 + `services.paths`，**不依赖 Allegro 与 mcp_server**；`AllegroSession.open/close` 已内置这把锁；锁文件与租约落 `Tools/log/` |
 | `__init__.py` | 包标记 | — |
 
 ## 关键约定与坑

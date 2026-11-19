@@ -26,10 +26,13 @@ behavior 行为夹具 —— 「SKILL 的 S 系硬规则真的可执行吗」考
     |    |            | 步骤引用的 gate 都存在；一对 PDF/.dra + 通道正常 → 放行到 `extract`；
     |    |            | 歧义 → `confirm` 且**停在 preflight**；通道不通 → `stop` + `CHANNEL_NOT_READY`；
     |    |            | 已删除/未知的 `rule_id` 必须被点名（不许静默计入统计） |
+    | B6 | D4 通道锁 | 同进程第二线程**按超时**报 `CHANNEL_BUSY`（不无限排队）；跨进程撞锁报 BUSY 且带持有人 |
+    |    |            | 持锁进程 `taskkill /F` 后 1.5s 内可重取锁；建图租约撞上立刻返回持有人（不排队）；
+    |    |            | 会话 `open()` 持锁 / `close()` 放锁，嵌套 `with` 不漏锁 |
 
 ★ 三条纪律
     1. **不用真实库做夹具**：全部在系统 TEMP 里现场造临时目录（跑完即删），不碰 `Data/`。
-    2. **不静默跳过**：B4 需要装了 `skillbridge` 的解释器；找不到就报 ERROR（含修复提示），
+    2. **不静默跳过**：B4 / B6 需要装了 `skillbridge` 的解释器；找不到就报 ERROR（含修复提示），
        而不是「没依赖所以算通过」。
     3. **夹具只读生产代码**：本套件 import `orchestration.preflight` / `orchestration.pipeline` /
        `services.footprint_builder`，绝不修改它们；失败就是生产代码的失败。
@@ -79,6 +82,144 @@ try:
     print(json.dumps({"result": res}, ensure_ascii=False, default=str))
 except Exception as exc:
     print(json.dumps({"raised": f"{type(exc).__name__}: {exc}"}))
+"""
+
+
+#: B6 探针（票 #10 / D4 的通道锁与建图租约）。由外层夹具放进**带 skillbridge 的解释器**跑，
+#: 因为要 import services.skillbridge_writer 验证「锁跟着会话生命周期」。
+#: ★ 所有锁/租约文件都落在夹具自己的临时目录：不碰 Tools/log，也不和真正在跑的 MCP 服务抢锁。
+B6_SNIPPET = r"""
+import json, os, subprocess, sys, threading, time
+ROOT, TMP = sys.argv[1], sys.argv[2]
+sys.path.insert(0, ROOT)
+from services import channel_guard as G
+
+LOCK = os.path.join(TMP, "b6.lock")
+HOLDER = os.path.join(TMP, "b6.lock.holder")
+LEASE = os.path.join(TMP, "b6.lease")
+# 全部落到临时目录：不碰 Tools/log，也不和真正在跑的 MCP 服务抢同一把锁
+G.default_lock_path = lambda: LOCK
+G.default_holder_path = lambda: HOLDER
+G.default_lease_path = lambda: LEASE
+
+cases, errs = [], []
+
+def rec(name, ok, extra=""):
+    cases.append({"check": name, "ok": bool(ok), "extra": str(extra)[:240]})
+    if not ok:
+        errs.append("B6 " + name + ("：" + str(extra) if extra else ""))
+
+# ---- 1) 同进程跨线程：必须按超时报 BUSY，不许无限排队 ----
+g = G.ChannelGuard(task="b6-holder"); g.acquire()
+out = {}
+def _worker():
+    try:
+        G.ChannelGuard(task="b6-second", timeout_s=0.5).acquire()
+        out["err"] = None
+    except BaseException as exc:            # noqa: BLE001
+        out["err"] = exc
+t0 = time.time()
+_th = threading.Thread(target=_worker); _th.start(); _th.join(20)
+dt = time.time() - t0
+rec("同进程第二线程报 CHANNEL_BUSY", isinstance(out.get("err"), G.ChannelBusyError),
+    type(out.get("err")).__name__)
+rec("同进程第二线程按超时返回（<5s）", dt < 5, round(dt, 2))
+rec("BUSY 消息里带得出持有人", "b6-holder" in str(out.get("err")), str(out.get("err"))[:100])
+g.release()
+
+# ---- 2) 跨进程：子进程持锁 → 父进程 BUSY；taskkill 后 1.5s 内可重取 ----
+child_code = (
+    "import sys, time\n"
+    "sys.path.insert(0, r'%s')\n"
+    "from services import channel_guard as G\n"
+    "g = G.ChannelGuard(task='b6-child', lock_path=r'%s', holder_path=r'%s')\n"
+    "g.acquire()\n"
+    "print('READY', flush=True)\n"
+    "time.sleep(60)\n" % (ROOT, LOCK, HOLDER)
+)
+child = subprocess.Popen([sys.executable, "-c", child_code], stdout=subprocess.PIPE, text=True)
+rec("子进程持锁就绪", child.stdout.readline().strip() == "READY")
+t0 = time.time()
+try:
+    G.ChannelGuard(task="b6-parent", timeout_s=0.6).acquire()
+    rec("跨进程撞锁应报 BUSY", False, "没抛异常（等于让两个进程同时用通道）")
+except G.ChannelBusyError as exc:
+    rec("跨进程撞锁应报 BUSY", True)
+    rec("持有人指向子进程", (exc.holder or {}).get("pid") == child.pid, exc.holder)
+    rec("跨进程按超时返回（<5s）", time.time() - t0 < 5, round(time.time() - t0, 2))
+except BaseException as exc:                # noqa: BLE001
+    rec("跨进程撞锁应报 BUSY", False, type(exc).__name__)
+subprocess.run(["taskkill", "/F", "/PID", str(child.pid)], capture_output=True, text=True)
+child.wait(timeout=15)
+t0 = time.time()
+try:
+    g_after = G.ChannelGuard(task="b6-after-kill", timeout_s=3.0); g_after.acquire()
+    dt = time.time() - t0
+    rec("进程被 taskkill /F 后 1.5s 内可重取锁", dt < 1.5, round(dt, 2))
+    g_after.release()
+except BaseException as exc:                # noqa: BLE001
+    rec("进程被 taskkill /F 后 1.5s 内可重取锁", False, type(exc).__name__)
+
+# ---- 3) 建图租约：撞上只报告不排队 ----
+lease_child = subprocess.Popen([sys.executable, "-c", (
+    "import sys, time\n"
+    "sys.path.insert(0, r'%s')\n"
+    "from services import channel_guard as G\n"
+    "l = G.TaskLease(task='export_psm', drawing='NB_XTAL', lease_path=r'%s')\n"
+    "assert l.try_acquire() is None\n"
+    "print('READY', flush=True)\n"
+    "time.sleep(60)\n" % (ROOT, LEASE))], stdout=subprocess.PIPE, text=True)
+rec("子进程持建图租约就绪", lease_child.stdout.readline().strip() == "READY")
+t0 = time.time()
+holder = G.TaskLease(task="build_footprint", drawing="OTHER", lease_path=LEASE).try_acquire()
+dt = time.time() - t0
+rec("撞租约立刻返回持有人（不排队）", holder is not None and dt < 1.0,
+    "%s / %.3fs" % (holder, dt))
+rec("租约持有人带得出图纸名", bool(holder and holder.get("drawing") == "NB_XTAL"), holder)
+subprocess.run(["taskkill", "/F", "/PID", str(lease_child.pid)], capture_output=True, text=True)
+lease_child.wait(timeout=15)
+_after = G.TaskLease(task="after-kill", lease_path=LEASE)
+rec("建图进程被杀后租约可接管", _after.try_acquire() is None)
+_after.release()
+
+# ---- 4) 会话层接线：假 Workspace 下 open 持锁 / close 放锁 / 嵌套不泄漏 ----
+from services import skillbridge_writer as W
+class _Ch:
+    def send(self, code):
+        return code.strip().strip('"')
+class _WS:
+    def __init__(self):
+        self._channel = _Ch()
+    def close(self):
+        pass
+class _Mod:
+    @staticmethod
+    def open(workspace_id=None):
+        return _WS()
+_orig = W.Workspace
+W.Workspace = _Mod
+try:
+    sess = W.AllegroSession(task="b6-session", lock_timeout_s=0.5)
+    sess.open()
+    rec("会话 open 后持锁", G.ChannelGuard.is_held())
+    rec("会话持有人任务名正确", (G.read_holder(HOLDER) or {}).get("task") == "b6-session",
+        G.read_holder(HOLDER))
+    sess.close()
+    rec("会话 close 后放锁", not G.ChannelGuard.is_held())
+    with W.AllegroSession(task="b6-outer", lock_timeout_s=0.5):
+        with W.AllegroSession(task="b6-inner", lock_timeout_s=0.5):
+            rec("嵌套 with 内仍持锁", G.ChannelGuard.is_held())
+        rec("内层退出后外层仍持锁", G.ChannelGuard.is_held())
+    rec("全退出后锁已释放", not G.ChannelGuard.is_held())
+finally:
+    W.Workspace = _orig
+
+for path in (LOCK, HOLDER, LEASE):
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+print(json.dumps({"cases": cases, "errors": errs}, ensure_ascii=False))
 """
 
 
@@ -294,6 +435,49 @@ def b5_pipeline(tmp: Path) -> dict:
     return {"name": "B5", "rule": "L3 状态机 + playbook 硬约定", "cases": cases, "errors": errs}
 
 
+# ---------- 夹具 B6 ----------
+def b6_channel_guard(tmp: Path, explicit_py: str | None) -> dict:
+    """D4（票 #10）：通道锁 + 建图租约 —— 撞锁必须**报出来**，不许两边都往下跑。
+
+    守的四条不变量（D4 定案的落地判据）：
+      1. 同一时刻一个通道只有一个会话持有；同进程第二个线程**按超时**报 CHANNEL_BUSY，不无限排队
+         （fastmcp 把同步工具丢进 anyio 线程池，同进程并发是真的会发生的）；
+      2. 跨进程撞锁同样报 BUSY，并把持有人（pid / 任务 / 时间）带出来；
+      3. 持锁进程被 `taskkill /F` 后锁必须**自动回收**（1.5s 内可重取），否则一次崩溃要人手动删文件；
+      4. 建图租约撞上**只报告不排队**：立刻返回 `busy` + 持有人，不去排队等前一个跑完。
+
+    探针放进**带 skillbridge 的解释器**跑，因为第 4 段要 import services.skillbridge_writer；
+    锁/租约文件全部落在夹具临时目录，不碰 Tools/log，也不和真正在跑的 MCP 服务抢同一把锁。
+    """
+    errs, cases = [], []
+    py, tried = _pick_interpreter(explicit_py)
+    if py is None:
+        return {"name": "B6", "rule": "D4 通道锁 + 建图租约", "cases": cases,
+                "errors": ["B6 找不到带 skillbridge 的解释器 → 无法验证通道锁（**不静默跳过**）。"
+                           "修复：重跑那条 robocopy 重建缓存区 venv-unconfined，或用 --python 指定。"
+                           f" 试过：{'；'.join(tried)}"]}
+    p = subprocess.run([py, "-c", B6_SNIPPET, str(ROOT), str(tmp)],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace",
+                       timeout=300, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    lines = (p.stdout or "").strip().splitlines()
+    payload = {}
+    if lines:
+        try:
+            payload = json.loads(lines[-1])
+        except Exception:                                   # noqa: BLE001
+            payload = {}
+    if not payload:
+        errs.append("B6 探针没给出 JSON 结论 "
+                    f"(rc={p.returncode})：{(p.stderr or '')[-600:]}")
+        return {"name": "B6", "rule": "D4 通道锁 + 建图租约", "cases": cases, "errors": errs}
+    cases.append({"python": py, "rc": p.returncode,
+                  "checks": len(payload.get("cases") or []),
+                  "failed": len(payload.get("errors") or [])})
+    cases += payload.get("cases") or []
+    errs += payload.get("errors") or []
+    return {"name": "B6", "rule": "D4 通道锁 + 建图租约", "cases": cases, "errors": errs}
+
+
 # ---------- 主流程 ----------
 def run(explicit_py: str | None = None) -> dict:
     results, errors = [], []
@@ -302,6 +486,10 @@ def run(explicit_py: str | None = None) -> dict:
         for fn in (b1_ambiguous(tmp), b2_stale_report(tmp), b3_autosave(tmp), b5_pipeline(tmp)):
             results.append(fn)
             errors += fn["errors"]
+        # B6 要在临时目录里造锁文件，故留在 with 块内（子进程探针 + 假 Workspace）
+        b6 = b6_channel_guard(tmp, explicit_py)
+        results.append(b6)
+        errors += b6["errors"]
     b4 = b4_channel(explicit_py)          # 子进程，自己管临时文件
     results.append(b4)
     errors += b4["errors"]
@@ -325,7 +513,8 @@ def _render(rep: dict) -> None:
     print("\n" + "-" * 74)
     print(f"夹具 {rep['passed']}/{rep['fixture_count']} 通过；ERROR {rep['error_count']} 项")
     if not rep["errors"]:
-        print("[✓] 全部通过（S1 歧义可见 / S2 旧报告不算证据 / S4 通道先探 / L3 状态机放行与拦停）")
+        print("[✓] 全部通过（S1 歧义可见 / S2 旧报告不算证据 / S4 通道先探 / L3 状态机放行与拦停 / "
+              "D4 撞锁报 CHANNEL_BUSY 且进程被杀后锁自动回收）")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -337,9 +526,9 @@ def main(argv: list[str] | None = None) -> int:
         except (AttributeError, ValueError):
             pass
 
-    ap = argparse.ArgumentParser(description="behavior 行为夹具（S1/S2/S4 硬规则可执行性）")
+    ap = argparse.ArgumentParser(description="behavior 行为夹具（S1/S2/S4 硬规则 + D4 通道锁可执行性）")
     ap.add_argument("--json", action="store_true", help="机器可读输出")
-    ap.add_argument("--python", default=None, help="带 skillbridge 的解释器（B4 用）")
+    ap.add_argument("--python", default=None, help="带 skillbridge 的解释器（B4/B6 用）")
     args = ap.parse_args(argv)
 
     rep = run(args.python)

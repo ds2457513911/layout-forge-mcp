@@ -70,6 +70,12 @@ Tools/online_calibrate.py
 Tools/verify_e2e.py
 Tools/collect_logs.py
 
+# 通道锁 / 建图租约（services/channel_guard.py 的运行时文件）：只在运行时出现，
+# 崩溃残留也不能提交 —— 里面是 pid 与任务名。
+Tools/log/*.lock
+Tools/log/*.lock.holder
+Tools/log/*.lease
+
 # ---------- IDE / 系统 ----------
 .idea/
 .vscode/

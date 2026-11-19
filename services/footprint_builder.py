@@ -20,6 +20,8 @@ services/footprint_builder.py —— 封装构建编排层
 """
 from __future__ import annotations
 
+import functools
+import inspect
 import logging
 import math
 import os
@@ -29,6 +31,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
+from services import channel_guard
 from services import paths as P
 from services import skill_snippets as S
 from services.skillbridge_writer import (
@@ -45,6 +48,64 @@ logger = logging.getLogger("layout-forge")
 # ============================================================
 def _result(ok: bool, **kw) -> Dict[str, Any]:
     return {"success": ok, **kw}
+
+
+def _channel_fields(exc: BaseException) -> Dict[str, Any]:
+    """把通道类异常的 error_code / 持有人信息带进返回值。
+
+    ★ 只有带 error_code 的异常（ChannelBusyError / ChannelNotReadyError）才加字段：
+      普通 ConnectionError（比如用户把 Allegro 关了）保持原样，不给调用方添噪音。
+    """
+    code = getattr(exc, "error_code", None)
+    if not code:
+        return {}
+    out: Dict[str, Any] = {"error_code": code}
+    holder = getattr(exc, "holder", None)
+    if holder:
+        out["holder"] = holder
+        out["holder_text"] = channel_guard.describe_holder(holder)
+    return out
+
+
+def _build_lease(task: str, drawing_arg: str = "symbol_name"):
+    """任务级通道租约（票 #10 / D4）：同一时刻只允许一个建图长任务。
+
+    ★ 与通道锁的分工 —— 锁**让路**，租约**只报告不排队**：
+      通道锁是秒级争用，等 30s 合理；建图是分钟级任务，把第二个调用排队着等
+      半小时再让它干同样的活，对调用方毫无价值。所以租约撞上就直接返回
+      busy + 持有人，让人（或 AI）自己决定是等还是换个时间。
+
+    撞租约的返回形如::
+        {success: False, busy: True, error_code: "CHANNEL_BUSY",
+         holder: {...}, holder_text: "pid=… / 任务=…", error: "…"}
+    """
+    def deco(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            drawing = kwargs.get(drawing_arg)
+            if drawing is None:
+                # 位置参数兜底：不动调用点，按签名把 drawing 取出来
+                try:
+                    bound = inspect.signature(fn).bind_partial(*args, **kwargs)
+                    drawing = bound.arguments.get(drawing_arg)
+                except (TypeError, ValueError):
+                    drawing = None
+            lease = channel_guard.TaskLease(task=task, drawing=drawing)
+            holder = lease.try_acquire()
+            if holder is not None:
+                return _result(False, busy=True,
+                               error_code=channel_guard.CHANNEL_BUSY,
+                               holder=holder,
+                               holder_text=channel_guard.describe_holder(holder),
+                               error=(f"已有建图任务在跑："
+                                      f"{channel_guard.describe_holder(holder)}。"
+                                      f"这是长任务，本调用不排队 —— 等它结束再试。"))
+            try:
+                return fn(*args, **kwargs)
+            finally:
+                lease.release()
+        return wrapper
+    return deco
 
 
 def _step_entry(
@@ -964,7 +1025,7 @@ def create_padstack(
             )
 
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps)
+        return _result(False, error=str(e), steps=steps, **_channel_fields(e))
     except Exception as e:
         logger.exception("create_padstack 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
@@ -1070,7 +1131,7 @@ def add_pin(
             return _result(True, pin_number=str(number), unit=unit, steps=steps, error=None)
 
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps)
+        return _result(False, error=str(e), steps=steps, **_channel_fields(e))
     except Exception as e:
         logger.exception("add_pin 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
@@ -1164,7 +1225,7 @@ def add_outline(
             )
 
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps)
+        return _result(False, error=str(e), steps=steps, **_channel_fields(e))
     except Exception as e:
         logger.exception("add_outline 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
@@ -1244,7 +1305,7 @@ def set_package_height(
                 error=None,
             )
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps)
+        return _result(False, error=str(e), steps=steps, **_channel_fields(e))
     except Exception as e:
         logger.exception("set_package_height 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
@@ -1315,7 +1376,7 @@ def add_line(
                            width=width, steps=steps, error=hint)
 
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps)
+        return _result(False, error=str(e), steps=steps, **_channel_fields(e))
     except Exception as e:
         logger.exception("add_line 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
@@ -1379,7 +1440,7 @@ def add_polyline(
                            width=width, steps=steps, error=hint)
 
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps)
+        return _result(False, error=str(e), steps=steps, **_channel_fields(e))
     except Exception as e:
         logger.exception("add_polyline 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
@@ -1478,7 +1539,7 @@ def add_text(
                            error=None if ok else "创建文字失败")
 
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps)
+        return _result(False, error=str(e), steps=steps, **_channel_fields(e))
     except Exception as e:
         logger.exception("add_text 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
@@ -1601,7 +1662,7 @@ def change_extents(
             )
 
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps)
+        return _result(False, error=str(e), steps=steps, **_channel_fields(e))
     except Exception as e:
         logger.exception("change_extents 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
@@ -1863,7 +1924,8 @@ def frame_drawing(
         )
 
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps, warnings=warnings)
+        return _result(False, error=str(e), steps=steps, warnings=warnings,
+                       **_channel_fields(e))
     except Exception as e:
         logger.exception("frame_drawing 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}",
@@ -2539,7 +2601,7 @@ def new_symbol_drawing(
                            error=None if is_sym
                            else f"图纸类型不是 SYMBOL 而是 {dtype}")
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps)
+        return _result(False, error=str(e), steps=steps, **_channel_fields(e))
     except Exception as e:
         logger.exception("new_symbol_drawing 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
@@ -2628,7 +2690,7 @@ def new_drawing(
 
             return _result(True, design=design, steps=steps, error=None)
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps)
+        return _result(False, error=str(e), steps=steps, **_channel_fields(e))
     except Exception as e:
         logger.exception("new_drawing 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
@@ -2681,7 +2743,7 @@ def clear_drawing(
                     steps.append(_step_entry(tag, e, False, error=str(ex)))
             return _result(True, deleted=deleted, steps=steps, error=None)
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps)
+        return _result(False, error=str(e), steps=steps, **_channel_fields(e))
     except Exception as e:
         logger.exception("clear_drawing 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
@@ -2717,7 +2779,7 @@ def save_drawing(
             return _result(ok, path=path, steps=steps,
                            error=None if ok else "保存失败")
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps)
+        return _result(False, error=str(e), steps=steps, **_channel_fields(e))
     except Exception as e:
         logger.exception("save_drawing 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
@@ -2726,6 +2788,7 @@ def save_drawing(
 # ============================================================
 # 出 .psm：编译封装符号
 # ============================================================
+@_build_lease("export_psm")
 def export_psm(
     symbol_name: Optional[str] = None,
     symbol_type: Optional[str] = None,
@@ -3166,7 +3229,7 @@ def export_psm(
                            evidence=evidence,
                            previous_psm_backup=quarantined[1] if quarantined else None)
     except ConnectionError as e:
-        return _result(False, error=str(e), steps=steps)
+        return _result(False, error=str(e), steps=steps, **_channel_fields(e))
     except Exception as e:
         logger.exception("export_psm 未预期异常")
         return _result(False, error=f"{type(e).__name__}: {e}", steps=steps)
@@ -3228,6 +3291,7 @@ def inspect_environment(workspace_id: Optional[str] = None) -> Dict[str, Any]:
             connected=False,
             error=str(e),
             steps=steps,
+            **_channel_fields(e),
         )
     except Exception as e:
         logger.exception("inspect_environment 未预期异常")
@@ -3404,6 +3468,7 @@ def _compute_auto_extents(
     )
 
 
+@_build_lease("build_footprint")
 def build_footprint(
     padstack: Dict[str, Any],
     pins: Sequence[Dict[str, Any]],

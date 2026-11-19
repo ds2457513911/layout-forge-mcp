@@ -26,3 +26,10 @@ PDF_SEARCH_ROOTS: list[Path] = [
 
 # SkillBridge workspace id（MCP tool 调用 Allegro 时使用）
 SKILLBRIDGE_WORKSPACE_ID = "7777"
+
+# 等通道锁的超时（秒）：同一时刻只允许一个会话持有 SkillBridge 通道，
+# 撞锁时最多等这么久，超时由工具返回 error_code=CHANNEL_BUSY + 持有人信息。
+# ★ 默认值与实现只有一处：services/channel_guard.py；环境变量 FORGE_CHANNEL_LOCK_TIMEOUT 可覆盖。
+from services import channel_guard as _channel_guard  # noqa: E402  (就近引入，避免顶部循环依赖)
+
+CHANNEL_LOCK_TIMEOUT_S = _channel_guard.CHANNEL_LOCK_TIMEOUT_S

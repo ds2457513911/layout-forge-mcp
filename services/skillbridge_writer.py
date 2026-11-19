@@ -25,6 +25,8 @@ import shutil
 import tempfile
 from typing import Any, Dict, List, Optional
 
+from services import channel_guard
+
 try:
     from skillbridge import Workspace
 except ImportError:  # pragma: no cover
@@ -191,11 +193,19 @@ class AllegroSession:
     """
 
     def __init__(self, workspace_id: Optional[str] = None,
-                 auto_noconfirm: Optional[bool] = None):
+                 auto_noconfirm: Optional[bool] = None,
+                 task: Optional[str] = None,
+                 lock_timeout_s: Optional[float] = None):
         from mcp_server import config
 
         self.workspace_id = workspace_id or config.SKILLBRIDGE_WORKSPACE_ID
         self._ws = None
+        #: 通道锁的持有人信息里显示的「本次任务名」（仅诊断用，可为 None）
+        self.task = task or ""
+        #: None = 用 channel_guard 的默认超时（30s，环境变量可覆盖）
+        self.lock_timeout_s = lock_timeout_s
+        #: 本会话持有的通道锁；open() 取、close() 放（生命周期与会话绑定）
+        self._guard: Optional[channel_guard.ChannelGuard] = None
         #: None = 用模块级默认（AUTO_NOCONFIRM）
         self.auto_noconfirm = AUTO_NOCONFIRM if auto_noconfirm is None \
             else bool(auto_noconfirm)
@@ -214,15 +224,28 @@ class AllegroSession:
         self.close()
 
     def open(self) -> None:
+        # ★ 先取通道锁，再连 SkillBridge —— D4 定案：同一时刻只允许一个会话持有通道。
+        #   撞锁抛 ChannelBusyError（带持有人 pid / 任务 / 开始时间），调用方据此报
+        #   CHANNEL_BUSY；**不要**把它当成通道坏了去 pyKillServer()。
+        #   进程内 RLock 可重入：footprint_builder 的嵌套 with 不会自锁。
+        self._acquire_guard()
         try:
             self._ws = Workspace.open(workspace_id=self.workspace_id)
         except Exception as e:
-            raise ConnectionError(
+            self._release_guard()
+            raise channel_guard.ChannelNotReadyError(
                 f"无法连接 Allegro SkillBridge (workspace_id={self.workspace_id})。\n"
                 f"请确认：1) Allegro 正在运行；2) SkillBridge 服务已启动；"
                 f"3) 端口 {self.workspace_id} 未被占用。\n"
                 f"原始错误: {e}"
             ) from e
+        try:
+            self._handshake()
+        except Exception:
+            # 握手失败也要连连接带锁一起放掉：__enter__ 里抛出的会话没有 __exit__
+            self._close_ws_only()
+            self._release_guard()
+            raise
 
         # ★ 连接后做一次"通道对齐"自检。
         # Allegro 侧 ipcWriteProcess 的回复走一条固定深度约 15 帧的管道，
@@ -274,6 +297,7 @@ class AllegroSession:
         #   若始终读不到，说明 Allegro 侧积压了陈旧回复，超过 lag 轮后放弃。
         rounds = 0
         limit = lag + 8
+        got_frame = False    # 是否收到过任何一帧回复（哪怕是陈旧帧）
         while rounds < limit and time.time() < deadline:
             rounds += 1
             token = f"__forge_sync_{base}_{rounds}__"
@@ -281,18 +305,33 @@ class AllegroSession:
                 raw = self._send_raw(f'"{token}"')
             except SkillCallError:
                 continue
+            got_frame = True
             if token in str(raw):
                 logger.debug("SkillBridge 通道对齐完成，消耗 %d 轮", rounds)
                 return rounds
 
-        raise ConnectionError(
+        # ---- 对不齐分两种情况，责任方不同，指引必须分开（D4 定案）----
+        if not got_frame:
+            # 一个帧都收不到：先看锁 —— 别人占着通道是「等/重试」，不是「重启服务」
+            holder = channel_guard.read_holder()
+            if holder and holder.get("pid") != os.getpid():
+                raise channel_guard.ChannelBusyError(holder, 0.0, task=self.task)
+            raise channel_guard.ChannelNotReadyError(
+                f"SkillBridge 通道连上了，但连续 {limit} 轮探针一个回复帧都没收到："
+                f"多半是 Allegro 侧的 SkillBridge 服务没在跑（被 pyKillServer 杀过，或根本没起来）。\n"
+                f"请在 Allegro CIW 里确认/启动服务：\n"
+                f'    pyStartServer ?id "{self.workspace_id}"\n'
+                f"（这一步**不要**再执行 pyKillServer()，它只会让状态更乱。）"
+            )
+        # 收得到帧、只是序号对不上 = 回复队列积压，这才是真正该重启的情况
+        raise channel_guard.ChannelNotReadyError(
             f"SkillBridge 通道无法对齐：连续 {limit} 轮发送的探针都读不回自己的结果，"
             f"说明 Allegro 侧 ipcWriteProcess 队列里积压了大量陈旧回复"
             f"（通常是之前的调试/异常调用留下的）。\n"
             f"请在 Allegro CIW 里执行：\n"
             f"    pyKillServer()\n"
             f"    load(\"<skillbridge>/server/python_server.il\")\n"
-            f"    pyStartServer ?id \"7777\"\n"
+            f'    pyStartServer ?id "{self.workspace_id}"\n'
             f"重启服务后队列即被清空。"
         )
 
@@ -309,12 +348,31 @@ class AllegroSession:
             raise SkillCallError("eval_skill", e) from e
 
     def close(self) -> None:
+        self._close_ws_only()
+        self._release_guard()
+
+    def _close_ws_only(self) -> None:
+        """只关连接、**不**放通道锁（restart_server 在重启窗口内要继续持锁）。"""
         if self._ws is not None:
             try:
                 self._ws.close()
             except Exception:
                 pass
             self._ws = None
+
+    def _acquire_guard(self) -> None:
+        """取通道锁（已在手则直接返回：嵌套 with 走 RLock 重入）。"""
+        if self._guard is not None:
+            return
+        guard = channel_guard.ChannelGuard(task=self.task,
+                                          timeout_s=self.lock_timeout_s)
+        guard.acquire()        # 撞锁 → ChannelBusyError（带持有人）
+        self._guard = guard
+
+    def _release_guard(self) -> None:
+        guard, self._guard = self._guard, None
+        if guard is not None:
+            guard.release()
 
     # ---------- NOCONFIRM 变量族（弹框总开关） ----------
     def _apply_noconfirm(self) -> None:
@@ -477,8 +535,9 @@ class AllegroSession:
             result["error"] = f"发送后未收到回执（预期内）: {type(e).__name__}"
             logger.debug("restart_server: 命令已发出但未收到回执: %s", e)
 
-        # 旧连接作废
-        self.close()
+        # 旧连接作废，但**锁不撒手**：整个重启窗口都算这次任务在占用通道，
+        # 否则别的工具会在服务半死的时候抢进来，把「重启」变成「互相打架」。
+        self._close_ws_only()
 
         # ---- 2) 轮询重连 ----
         deadline = t0 + reconnect_timeout_s
@@ -496,8 +555,11 @@ class AllegroSession:
                 last_err = e
                 self._ws = None
 
-        if not result["reconnected"] and last_err is not None:
-            result["error"] = f"重连失败: {type(last_err).__name__}: {last_err}"
+        if not result["reconnected"]:
+            # 没连上就别继续攥着锁：把通道让给「服务修好之后」的下一次调用
+            self._release_guard()
+            if last_err is not None:
+                result["error"] = f"重连失败: {type(last_err).__name__}: {last_err}"
 
         result["seconds"] = round(time.time() - t0, 2)
         return result

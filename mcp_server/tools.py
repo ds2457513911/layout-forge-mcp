@@ -505,8 +505,18 @@ def register(mcp: FastMCP) -> None:
             "units": "mm"|"mil"|"unknown",
             "design_name": str|None,
             "is_package_symbol": bool|None,
-            "warnings": [str], "steps": [...], "error": str|None
+            "warnings": [str], "steps": [...], "error": str|None,
+            # 只在「通道类」失败时出现：
+            "error_code": "CHANNEL_BUSY"|"CHANNEL_NOT_READY",
+            "holder": {"pid": int, "started_at": str, "task": str, "drawing": str|None},
+            "holder_text": str,   # 上面三个字段的一句话版本，给人看
         }
+
+        ★ 两个通道错误码的处置完全不同，别混：
+          - "CHANNEL_BUSY"：通道没坏，**别人正在用**。等一会再试即可，
+            千万别去 pyKillServer()（那是砸别人的活）；
+          - "CHANNEL_NOT_READY"：通道本身不可用（服务没起 / 回复队列积压），
+            按 error 里的指引处理。
         """
         return footprint_builder.inspect_environment()
 

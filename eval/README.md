@@ -2,7 +2,7 @@
 
 > 最后更新：2026-10-15（★ 补两条编码纪律：**非 ASCII 标记要自己 reconfigure UTF-8** —— GBK 控制台下
 > `print("✓")` 抛 `UnicodeEncodeError` 让「五套全绿」反而 exit 1，六个入口都加了 `_force_utf8_stdout()`；
-> **汇总入口与各套件必须能单独手跑**。此前：Phase 3：`suites/behavior/` 新增 **B5** —— 守 `orchestration/playbook.json` 的硬约定（25 条 `rule_id` + 13 条 `G-*` 门禁，每条都带「检测方式 + 后果类别」）与 `orchestration/pipeline.py` 状态机的放行/拦停；夹具 **5/5 通过**。此前：Phase 2-d：新增统一入口 **`check_eval.py`** —— 五套断言一条命令跑完，输出总表；缺依赖记 ERROR 而**不静默跳过**，每套以退出码为准、JSON 解析失败也记 ERROR（E1–E4）；同日接入 `docs/SOP-工程维护手册.md` 发布检查。此前：Phase 2-c：`suites/behavior/` 四个行为夹具落地 —— 把 SKILL 的 S1/S2/S4 硬规则变成可执行断言，B1–B4 全绿；同日把 `orchestration/preflight.py` 的噪声规则从「AUTOSAVE / 备份后缀」扩到「Allegro 运行痕迹 + 历史检查报告」并公开 `is_noise()` —— 扩展后 `geometry_regression` 的 **G4 先转红、当日清理后复绿**（原形 **145 个**噪声文件：110 个 `*.log` + 9 个 `checklist_report_*.json` + 26 个运行痕迹 `allegro.jrl` / `master.tag` / `padstack_editor.jrl`）；清理走 `.trash/`，噪声名单与判据一个字没放宽。此前：Phase 2-b `suites/spec_reading/` 落地 + 10 例真值签字 + S8「定位器不撒谎」）
+> **汇总入口与各套件必须能单独手跑**。Phase 4（票 #10 / D4）：`suites/behavior/` 新增 **B6** —— 守 `services/channel_guard.py` 的通道锁与建图租约（撞锁报 `CHANNEL_BUSY` + 持有人、同进程第二线程按超时返回、`taskkill /F` 后锁自动回收、租约撞上只报告不排队），夹具 **6/6 通过**。此前：Phase 3：`suites/behavior/` 新增 **B5** —— 守 `orchestration/playbook.json` 的硬约定（25 条 `rule_id` + 13 条 `G-*` 门禁，每条都带「检测方式 + 后果类别」）与 `orchestration/pipeline.py` 状态机的放行/拦停；夹具 **5/5 通过**。此前：Phase 2-d：新增统一入口 **`check_eval.py`** —— 五套断言一条命令跑完，输出总表；缺依赖记 ERROR 而**不静默跳过**，每套以退出码为准、JSON 解析失败也记 ERROR（E1–E4）；同日接入 `docs/SOP-工程维护手册.md` 发布检查。此前：Phase 2-c：`suites/behavior/` 四个行为夹具落地 —— 把 SKILL 的 S1/S2/S4 硬规则变成可执行断言，B1–B4 全绿；同日把 `orchestration/preflight.py` 的噪声规则从「AUTOSAVE / 备份后缀」扩到「Allegro 运行痕迹 + 历史检查报告」并公开 `is_noise()` —— 扩展后 `geometry_regression` 的 **G4 先转红、当日清理后复绿**（原形 **145 个**噪声文件：110 个 `*.log` + 9 个 `checklist_report_*.json` + 26 个运行痕迹 `allegro.jrl` / `master.tag` / `padstack_editor.jrl`）；清理走 `.trash/`，噪声名单与判据一个字没放宽。此前：Phase 2-b `suites/spec_reading/` 落地 + 10 例真值签字 + S8「定位器不撒谎」）
 
 ## 这个目录是干什么的
 
@@ -22,7 +22,7 @@
 |--|--|--|--|
 | `suites/geometry_regression/` | L1 确定性几何不退化 | **G1–G6 + R1–R4**：包住 **239** 项几何自检 + **222** 项 SKILL 语法自检 + **35** 项约定自检 + **253** 件金标准对拍，分数==基线；**G6 = 被调方探针**（extracta 四路取数健康，被沙箱掐住时会在这里红，而不是让 R4 悄悄假红）；基线 `baselines/geometry_regression.json` | **Phase 2-a ✅ 已就位** |
 | `suites/spec_reading/` | **读规格书准确率** | canonical **8 字段**（= `knowledge/specs` 的 `fingerprint` 键，不另造 schema）+ **S1–S8**：每字段四分类 correct / wrong / missing / spurious，容差 body·pad ±0.05 mm、pitch ±0.02 mm；★ **S2 真值必须人工签字**（AI 自签 = 循环论证）、S3 真值绑 PDF 哈希、S5 非 null 真值必须带页码、**S8 定位器不撒谎**（`--with-locate`）；基线 `baselines/spec_reading.json` | **✅ 2026-10-15：10 例真值已签字、正式 92.5%、基线已冻结**（80 字段：correct 74 / wrong 3 / spurious 3） |
-| `suites/behavior/` | L3 规则真的可执行 | **B1–B5 行为夹具**（把 SKILL 的 S 系硬规则 + L3 状态机造成可控临时目录，逼工具层表态）：B1 目录多份 `.dra`/PDF → 必须 `ambiguous` + `confirm` + 候选列全；B2 只有历史 `checklist_report_*.json` → 不算证据、判缺料 `stop`；B3 `AUTOSAVE.dra` → 剔除且不算候选；B4 **先探通道** → `connected=False` 时 `error` 必须非空（禁把没通道说成「没工具」）；**B5 L3 状态机 + `playbook.json` 硬约定** → 每条规则都带检测方式与后果类别、`pipeline.run()` 放行/拦停正确（歧义必须 `confirm` 且**停在 preflight 不许继续取数**、通道不可用必须 `stop` + `CHANNEL_NOT_READY`）、`stale_rule_ids`（已删除的 `6.5`）必须被单独点名。**无基线**（是断言套件，像 architecture） | **Phase 2-c ✅ 4 条 / Phase 3 ✅ B5（5/5 通过）** |
+| `suites/behavior/` | L3 规则真的可执行 | **B1–B6 行为夹具**（把 SKILL 的 S 系硬规则 + L3 状态机造成可控临时目录，逼工具层表态）：B1 目录多份 `.dra`/PDF → 必须 `ambiguous` + `confirm` + 候选列全；B2 只有历史 `checklist_report_*.json` → 不算证据、判缺料 `stop`；B3 `AUTOSAVE.dra` → 剔除且不算候选；B4 **先探通道** → `connected=False` 时 `error` 必须非空（禁把没通道说成「没工具」）；**B5 L3 状态机 + `playbook.json` 硬约定** → 每条规则都带检测方式与后果类别、`pipeline.run()` 放行/拦停正确（歧义必须 `confirm` 且**停在 preflight 不许继续取数**、通道不可用必须 `stop` + `CHANNEL_NOT_READY`）、`stale_rule_ids`（已删除的 `6.5`）必须被单独点名。**无基线**（是断言套件，像 architecture） | **Phase 2-c ✅ 4 条 / Phase 3 ✅ B5 / Phase 4 ✅ B6 D4 通道锁（6/6 通过）** |
 | `suites/tool_contract/` | L2 工具契约不破 | **C1–C8 静态断言**：工具数量 / 名字集合（改名=破坏）= 基线、每个工具有 docstring、每个参数名写进 docstring、遥测字段口径、`server.py` 是否挂了 `TelemetryMiddleware`、**C7 每个工具都在 `knowledge/tool_groups.json` 里有分组**、**C8 生成的 `docs/tools-catalog.md` 与代码一致（不陈旧）**；基线 `baselines/tool_contract.json` | **Phase 1 ✅ 已就位** |
 | `suites/architecture/` | 层方向 + 文档覆盖 | `check_architecture.py`：**A1–A7**（层方向 / 登记 / README 覆盖 / **A7 解析失败必须可见**）+ W1–W3 | **Phase 0 ✅ 已就位** |
 
@@ -37,7 +37,7 @@ python eval/check_eval.py --list     # 只列套件
 python eval/check_eval.py --show-fail  # 红了就附打该套件输出尾部
 ```
 
-`eval/check_eval.py` **不是又一个真源**：判据仍写在各自套件里（A1–A7 / C1–C6 / B1–B5 / S1–S8 / G1–G6 + R1–R4），
+`eval/check_eval.py` **不是又一个真源**：判据仍写在各自套件里（A1–A7 / C1–C6 / B1–B6 / S1–S8 / G1–G6 + R1–R4），
 它只负责**跑全 + 计数 + 汇总**，不复制任何阈值。自己的元判据：
 
 | 号 | 判据 |
@@ -96,11 +96,13 @@ python eval/suites/spec_reading/check_spec_reading.py --with-locate      # 加�
 #   S1 每例有真值 / S2 真值已签字 / S3 PDF 哈希符合 / S4 8 字段齐全 / S5 非 null 带页码 / S6 有候选读数 / S7 不低于基线 / S8 定位器不撒谎
 #   四分类 correct / wrong / missing / spurious；真值 = truth/<id>.json，候选 = candidates/<id>.json
 
-# 行为夹具（Phase 2-c 四条 + Phase 3 B5；纯 stdlib，断言套件、无基线）
+# 行为夹具（Phase 2-c 四条 + Phase 3 B5 + Phase 4 B6；纯 stdlib，断言套件、无基线）
 python eval/suites/behavior/check_behavior.py
-python eval/suites/behavior/check_behavior.py --python <带 skillbridge 的解释器>   # B4 探通道用
+python eval/suites/behavior/check_behavior.py --python <带 skillbridge 的解释器>   # B4 探通道 / B6 通道锁用
 #   B1 S1 歧义可见 / B2 S2 旧报告不算证据 / B3 S1 噪声剔除 / B4 S4 通道先探且不许沉默
 #   B5 L3 状态机：playbook 硬约定 + pipeline 放行/拦停（歧义 confirm 且停住 / 无通道 stop）
+#   B6 D4 通道锁：同进程第二线程按超时报 BUSY / 跨进程 BUSY 带持有人 / taskkill 后锁自动回收 /
+#      建图租约撞上立刻返回持有人（不排队）/ 会话 open 持锁、close 放锁、嵌套不漏锁
 ```
 
 ## 已验证基线（2026-10-15 · Phase 2-c 实测）
@@ -110,7 +112,7 @@ python eval/suites/behavior/check_behavior.py --python <带 skillbridge 的解�
 | `python eval/check_eval.py` | ★ **五套全绿 / 红 0 套，用时 99 s**（geometry 96 s）；解释器自动选中「工作区外 + 有依赖」的缓存区副本 | 0 |
 | `python eval/suites/architecture/check_architecture.py` | **ERROR 0 项 / WARN 1 项**（W3 是已声明偏差：`services/skillbridge_writer.py:195` 反向 import `mcp_server.config`） | 0 |
 | `python eval/suites/tool_contract/check_tool_contract.py` | **ERROR 0 项 / WARN 0 项，全绿**（数量与名字对照冻结基线 `baselines/tool_contract.json`；分组真源 `knowledge/tool_groups.json` 由 C7 守、人读目录 `docs/tools-catalog.md` 由 C8 守） | 0 |
-| `python eval/suites/behavior/check_behavior.py` | **夹具 5/5 通过；ERROR 0 项**（B4 实测 `connected=False` 且 `error` 非空 → 通道未连如实上报；B5 实测歧义 `confirm` 且停在 preflight、无通道 `stop` + `CHANNEL_NOT_READY`）；耗时约 1 s（B4 用工作区外解释器） | 0 |
+| `python eval/suites/behavior/check_behavior.py` | **夹具 5/5 通过；ERROR 0 项**（B4 实测 `connected=False` 且 `error` 非空 → 通道未连如实上报；B5 实测歧义 `confirm` 且停在 preflight、无通道 `stop` + `CHANNEL_NOT_READY`）；耗时约 1 s（B4 用工作区外解释器）。**2026-11-19 追加**：B6 接入后 **6/6 通过、ERROR 0 项**，B6 实测 18 项断言全过（同线程 0.51 s 报 BUSY、跨进程 0.61 s、`taskkill /F` 后 0.00 s 重取、撞租约 0.008 s 返回 `drawing=NB_XTAL`） | 0 |
 | `python eval/suites/spec_reading/check_spec_reading.py` | **总准确率 92.5%**（80 字段：correct 74 / wrong 3 / spurious 3），S1–S8 通过；基线 `baselines/spec_reading.json` | 0 |
 | `python eval/suites/geometry_regression/check_geometry_regression.py` | **ERROR 0 项 / WARN 0 项，全绿**（噪声 0 —— 2026-10-15 噪声名单扩展后曾现形 145 个、当日全部隔离清理；253 / 14 目录 / specs 5 / cases 10；239/239、222/222、35/35；extracta 四路由产出；对拍 253 件 PASS 7 / FAIL 81 / 例外 231 / 提取失败 17 / exact 0） | 0 |
 | `python Tools/selfcheck_geometry.py` | **239/239 全部通过 ✓** | 0 |

@@ -107,6 +107,8 @@ CLI: python -m orchestration.pipeline <目录> [--recursive] [--until X] [--no-e
 
 - **失败码**（SKILL 侧按码分支，不按人话分支）：`CHANNEL_NOT_READY` / `AMBIGUOUS_INPUT` /
   `NO_CANDIDATES` / `UNITS_UNKNOWN` / `NO_DATA`。
+  另有 `CHANNEL_BUSY`（与 `services/channel_guard.CHANNEL_BUSY` 同值，**码值只许有一处定义**）：
+  通道被别的会话/进程占着，不是通道坏了 —— 处置是等或重试，**不是** `pyKillServer()`。
 - ★ **动作由后果类别决定，但歧义是例外**：`deny → stop`、`silent → confirm`（可以继续，报告必须写明）、
   `recoverable → proceed`（只记提示）；而 `G-ambiguous-src` 在 playbook 里显式写了
   `on_fail_action: "confirm"` —— 「拿不准」的正确动作是**问用户**，不是拒绝执行（约定第 2 条）。

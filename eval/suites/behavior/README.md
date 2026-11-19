@@ -1,7 +1,9 @@
 # eval/suites/behavior —— 行为夹具：S 系硬规则 + L3 状态机真的可执行吗（L3 编排与控制层）
 
-> 最后更新：2026-10-15（Phase 3：新增 **B5** —— 守 `orchestration/playbook.json` 的硬约定与
-> `orchestration/pipeline.py` 状态机的放行/拦停，夹具 **5/5 通过**；此前 Phase 2-c：B1–B4 四夹具落地，
+> 最后更新：2026-11-19（Phase 4 / 票 #10 / D4：新增 **B6** —— 守 `services/channel_guard.py` 的通道锁与
+> 建图租约：撞锁必须报 `CHANNEL_BUSY` 且带持有人、同进程第二线程按超时返回、进程 `taskkill /F` 后锁自动回收、
+> 租约撞上只报告不排队，夹具 **6/6 通过**；此前 Phase 3：新增 **B5** —— 守 `orchestration/playbook.json`
+> 的硬约定与 `orchestration/pipeline.py` 状态机的放行/拦停；更早 Phase 2-c：B1–B4 四夹具落地，
 > 同日把 `orchestration/preflight.py` 的噪声规则从「AUTOSAVE / 备份后缀」扩到「Allegro 运行痕迹 + 历史检查报告」）
 
 ## 这个目录是干什么的
@@ -20,7 +22,7 @@
 Phase 3 起，本套件还兼守 **L3 状态机自己**（`playbook.json` 的「每条规则都必须有检测方式 + 后果类别」
 与 `pipeline.run()` 的放行/拦停）—— 规则装配表如果自己不合约定，就没资格去管别人。
 
-## 五个夹具
+## 六个夹具
 
 | 夹具 | 考的规则 | 怎么造场景 | 通过条件 |
 |--|--|--|--|
@@ -29,13 +31,14 @@ Phase 3 起，本套件还兼守 **L3 状态机自己**（`playbook.json` 的「
 | **B3** | S1 噪声剔除 | 1 个真 `.dra` + `AUTOSAVE.dra` + 1 PDF | 判 `ok`、候选只剩 `real.dra`、`AUTOSAVE.dra` 落 `noise_files` |
 | **B4** | S4 先探通道 | 子进程调 `services.footprint_builder.inspect_environment()` | 结构化返回、不抛异常；`connected=False` 时 `error` **必须非空**；`connected=True` 时 `units` 合法 |
 | **B5** | L3 状态机 + playbook 硬约定 | 调 `orchestration.pipeline.run()` 造四种局面：一对 PDF/.dra / 两份候选 / 通道不可用 / 结论文本 | ① `load_playbook()` 的每条规则都有「检测方式 + 后果类别」（`deny`/`silent`/`recoverable`），且步骤引用的 gate 都在 playbook 里、无悬空；② 正常 → `proceed` + `next_step=extract`；③ **歧义 → `confirm` 且已执行步骤只有 `preflight`（后续一律 pending，不许继续取数）**，且 `G-ambiguous-src` 判失败；④ 通道不可用 → `stop` + `CHANNEL_NOT_READY`；⑤ `stale_rule_ids`（已删除的 `6.5`）在 `summarize_findings()` 里被**单独点名**、未实现的 rule_id 也不许静默通过 |
+| **B6** | D4 通道锁（票 #10） | 子进程探针：同进程第二线程抢锁 / 真子进程持锁 + `taskkill /F` / 建图租约被占 / 假 `Workspace` 下的会话开合与嵌套 `with` | ① 同进程第二线程**按超时**（0.5s）报 `CHANNEL_BUSY`，不许无限排队；② 跨进程撞锁报 BUSY 且 `holder.pid` 指向持锁子进程；③ 持锁进程被杀后 **1.5s 内**可重取锁；④ 建图租约撞上**立刻**返回持有人（不排队，`busy=True`）；⑤ `AllegroSession.open()` 持锁、`close()` 放锁、嵌套不漏锁 |
 
 ## 怎么跑
 
 ```bash
 python eval/suites/behavior/check_behavior.py            # 纯 stdlib，任何 3.10+ 都能跑
 python eval/suites/behavior/check_behavior.py --json
-python eval/suites/behavior/check_behavior.py --python <带 skillbridge 的解释器>   # 显式指定 B4 用的解释器
+python eval/suites/behavior/check_behavior.py --python <带 skillbridge 的解释器>   # 显式指定 B4/B6 用的解释器
 ```
 
 退出码：`0` = 无 ERROR；`1` = 有 ERROR。**没有基线文件**——这是断言套件（像 architecture / tool_contract），
@@ -46,13 +49,13 @@ python eval/suites/behavior/check_behavior.py --python <带 skillbridge 的解�
 | 文件 | 功能 | 影响 / 依赖 |
 |--|--|--|
 | `README.md` | 本文件：夹具表、判据、纪律 | 增删夹具必须同轮改这里 + `eval/README.md` 五套件表 |
-| `check_behavior.py` | 五夹具实现（纯 stdlib；B4 用子进程） | 只读 import `orchestration.preflight`、`orchestration.pipeline`、`services.footprint_builder`；**不改生产代码** |
+| `check_behavior.py` | 六夹具实现（纯 stdlib；B4/B6 用子进程） | 只读 import `orchestration.preflight`、`orchestration.pipeline`、`services.footprint_builder`；B6 探针另外 import `services.skillbridge_writer` / `services.channel_guard`；**不改生产代码** |
 
 ## 三条纪律
 
 1. **不用真实库做夹具**：全部在系统 TEMP 现场造目录（`tempfile.TemporaryDirectory`，跑完即删），
    不碰 `Data/footprint`。真实库只用来**发现问题**（见下）。
-2. **不静默跳过**：B4 需要装了 `skillbridge` 的解释器；找不到就报 ERROR 并给出修复提示
+2. **不静默跳过**：B4 / B6 需要装了 `skillbridge` 的解释器；找不到就报 ERROR 并给出修复提示
    （重建缓存区 `venv-unconfined`，或用 `--python` 指定），**不是「没依赖所以算通过」**。
 3. **夹具只读生产代码**：失败就是生产代码的失败，不许改夹具迎合现状。
 
