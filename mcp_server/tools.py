@@ -191,8 +191,8 @@ def register(mcp: FastMCP) -> None:
           `page=null` + `method="ambiguous"`，并把所有候选页放进 `candidates`；
           纯位图扫描件返回 `method="scan_only"`。
         ★ **`page` 有值时先看 `needs_visual`**：为 True 说明是结构推定（不是强关键词实锤），
-          读尺寸前必须 `render_pdf_page`/`render_pdf_region` 渲染确认；`page=null` 时按
-          `candidates` 逐页渲染，或 `render_pdf_contact_sheet` 拼一张缩略图一次定位。
+          读尺寸前必须用 `render_pdf_region` 裁到目标区确认（整页图只定位，不读数）；`page=null` 时按
+          `candidates` 逐页看，或 `render_pdf_contact_sheet` 拼一张缩略图一次定位。
 
         :param pdf_file_path: 规格书 PDF 路径（完整路径或 stem 均可）
         :return: {
@@ -226,7 +226,12 @@ def register(mcp: FastMCP) -> None:
         把 PDF 指定页渲染成 PNG 图片，返回图片的本地路径。
 
         用途：当客户端不支持读 MCP resource `datasheet://...` 时，
-        AI 可以通过这个 tool 拿到图片路径，再用自己的图片分析能力读图。
+        AI 可以通过这个 tool 拿到图片路径，用目视判断该看哪一块。
+
+        ★ **只定位，不读数**：固定 150 dpi（A4 → 1240×1754），模型还会把长边压到 1600 px
+        （等效 ≈137 dpi），正好落在「0.5 读成 0.7」的误差带里。任何尺寸 / 节距 / 引脚数
+        都不要从整页图上读 —— 读数一律用 `render_pdf_region`（区域裁剪 ≥600 dpi）或
+        `render_focus_regions`。实测 200 dpi 整页就把纵向间隙 0.5 读成了 0.7。
 
         :param pdf_file_path: PDF 路径（完整路径或 stem）
         :param page: 人眼 1-based 页码
@@ -312,10 +317,12 @@ def register(mcp: FastMCP) -> None:
         从 .dra 提取封装数据，跑完整的数值规则检查，并自动保存 JSON 报告、
         渲染固定格式的 Markdown 报告。
 
-        覆盖 Excel 规范的 6 大项（数值部分）：
+        覆盖 Excel 规范的 6 大项，其中 **5 项在这里用数值规则判**，第 4 项 pin number
+        来自入参 `semantic_result`（AI 语义检查的结果，本工具只负责渲染与记状态）：
           - 1. 封装命名规范（前缀、小数点、数字）
           - 2. 焊盘尺寸（与命名一致性、阻焊/钢网外扩）
           - 3. 间距与原点（pitch、pitch vs datasheet、最小间距、原点居中）
+          - 4. pin number（`semantic_result.pin_number`，非数值规则）
           - 5. Place_Bound（存在、覆盖、外扩量）
           - 6. Assembly / Silkscreen（存在、1 脚标识、重叠）
 
@@ -1649,7 +1656,7 @@ def register(mcp: FastMCP) -> None:
 
         :return: {"ok": bool, "image_path": str, "pages": int, "grid": str,
                   "page_index": {"3": [x, y, w, h]}, "note": str}
-                 拿到页码后调 `render_pdf_page(page=N)` 读尺寸数字。
+                 拿到页码后调 `render_pdf_region(page=N, rect=..., dpi>=600)` 裁到目标区读数。
         """
         pdf = pdf_service.resolve_pdf(pdf_file_path, config.PDF_SEARCH_ROOTS)
         if pdf is None:

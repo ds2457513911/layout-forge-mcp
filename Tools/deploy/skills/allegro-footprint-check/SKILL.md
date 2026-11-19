@@ -195,36 +195,59 @@ AI 拿到返回后**原样贴出 `markdown` 字段**，禁止改写、补充、�
 
 调用 `locate_land_pattern_page(pdf_file_path="<pdf>")`。
 
-根据 `method` 决定：
-- `primary` / `fallback` → 使用返回的 `page`
-- `no_match` → 尝试渲染所有页自己找；找不到就报告，用第 1 页兜底
+`method` 有 8 种取值，**不在这里逐一列举**——按返回值分支，别按记忆猜：
+
+- `page` 有值且 `needs_visual=false`（强关键词实锤）→ 直接用这一页
+- `page` 有值但 `needs_visual=true`（结构推定）→ 先渲染确认再读
+- `page=null`（`ambiguous` / `scan_only` / `no_match`）→ 看 `candidates` 与 `hint`，改用
+  `render_pdf_contact_sheet` 拼一张缩略图定位；**仍定位不到就停手报给用户**（`needs_visual=true`），
+  **不许拿第 1 页兜底** —— 那是静默错，对齐 `eval/suites/spec_reading` 的 S8「定位器不撒谎」
 
 ### 第 3 步：AI 读图提取 datasheet 理论参数
 
-> ★ **先判形态**（2026-10-13 起）：调 `pdf_probe(pdf_file_path)` 一次拿到
-> `form` ∈ {`cad_vector` | `printed` | `scan` | `thin_text`} 与 `read_hint`，按提示选读法：
-> - `cad_vector`（如 AutoCAD 出图，尺寸是字形轮廓、文本层无数字）→ **跳过定位，直接 `render_pdf_region`**
-> - `printed` → 可提文本层表格；land pattern 用 `render_pdf_region`
-> - `scan` → `render_pdf_contact_sheet` 定位页 → `render_pdf_region` 读数
-> - `thin_text` → 关键词定位，失配则走拼版
->
-> `form` 是启发式、可能误判；**它只决定"先试哪条路"**，不影响结果（区域裁剪对任何 PDF 都可用）。
+调一次 `pdf_probe(pdf_file_path)` 拿到 `form`，按下表选前置步骤；读数一律守下面六条不变式。
 
-1. 读 resource `datasheet://<pdf_stem>/page/<page>` 拿到 PDF 该页图片
-2. 按下方"提取规则"读图，输出 JSON
+#### 六条不变式（与形态无关，任何 PDF 都成立）
+
+1. **整页图只定位，不读数。** `render_pdf_page`（固定 150 dpi：A4 渲成 1240×1754，模型再把长边压到
+   1600 px 后等效 **≈137 dpi**）与 `render_pdf_contact_sheet`（拼图）的产出只用来决定「看哪页、哪块」；
+   任何尺寸 / 节距 / 引脚数都不得从这些图上读。实测 200 dpi 就把 `0.5` 读成了 `0.7`。
+2. **读数只走区域裁剪。** `render_pdf_region(page, rect, dpi)`，dpi 按矩形反解，单边 ≤8192 px、
+   焦点区 ≥600 dpi；做不到就**分块，不降 dpi**。
+3. **有文本层就先定位再渲染。** 先 `extract_page_numbers` 拿带坐标的数字表定密集区，再交
+   `render_focus_regions`；反过来先渲染整页必不够。
+4. **读数必须带出处。** 每个数值写清哪张图（`image_path`）/ 图上位置 / 页码。
+5. **交叉校验 ≥2 条且不可同源。** 来源集 = {文本层候选, 矢量阵列, 读图, `check_log/` 既有产物}，
+   必须取两个**不同**集合；`measure_region` 是可选的第三路（它最不成熟，扫描件也无矢量可量）。
+6. **形态只改前置步骤，不改不变式。** `form` 决定第 3 条走不走、怎么走；第 1/2/4/5 条与形态无关。
+
+#### 形态路由表（`pdf_probe.form` 决定前置）
+
+| form（判据） | 前置 | 读数 | 该形态的固有事实 |
+|---|---|---|---|
+| `cad_vector`（文本 <200 字符、矢量图元 ≥200） | 跳过关键词定位 | `reconstruct_pad_array` 矢量阵列 + `render_pdf_region` 高 dpi 对拍 | 尺寸被 plot 成字形轮廓，文本层拿不到 |
+| `printed`（文本 ≥200 字符） | `locate_land_pattern_page` 定页 → `extract_page_numbers` 定密集区 → `render_focus_regions` 取概览 + 焦点 | 读焦点块数值 | 主读数路径 |
+| `thin_text`（其余） | 关键词定位，失配则 `render_pdf_contact_sheet` | `render_pdf_region` | 定位可能失配（实测 13 份里 `no_match` 5 份） |
+| `scan`（位图 ≥1、文本 0 字符） | `render_pdf_contact_sheet` 定页 —— **常态分支，不是 fallback** | `render_pdf_region` dpi≥600，超单边就分块 | `extract_page_numbers` 返空表是正常；`reconstruct_pad_array` 无矢量可量；`render_focus_regions` 只回 overview；`render_pdf_page` 只许目视找 rect |
+
+`form` 是启发式、可能误判；**它只决定"先试哪条路"**，不影响结果（区域裁剪对任何 PDF 都可用）。
+
+#### 机械步骤（走完上面两步之后）
+
+1. 按路由表拿到目标区域的**裁剪图**（`render_focus_regions` 的 focus 图，或 `render_pdf_region` 的输出）
+2. 按 `references/image-reading-rules.md` 读图，输出 JSON
 3. 调用 `validate_land_pattern_json` 校验
 4. 校验通过 → 保留为 `theoretical_payload`（第 6 步要用）
 5. 校验失败 → 根据 errors 修正后重试，最多 2 次
 
-**如果客户端不支持读 MCP resource**：调用 `render_pdf_page(pdf_file_path=<pdf>, page=<page>)` 拿到整页图片。
-**整页图只用来定位（找 land pattern 在哪、判断哪块要细看），不得用它读数字**——它固定 150 dpi，
-模型还会把长边压到 1600 px（A4 等效约 190 dpi），正好落在「0.5 读成 0.7」的误差带里。
-读数一律走 `render_focus_regions`（概览 + 焦点区 ≥600 dpi，不够就切块）或 `render_pdf_region`（指定 rect）。
+**如果客户端不支持读 MCP resource**：用 `render_pdf_page(pdf_file_path=<pdf>, page=<page>)` 拿整页图，
+**只允许用它定位**（找 land pattern 在哪、判断哪块要细看），读数回到 `render_pdf_region` / `render_focus_regions`。
 
 #### 提取规则
 
 **分辨率铁律**：禁止用整页低分辨率图读数字 —— 200 dpi 整页曾把纵向间隙 `0.5` 读成 `0.7`，
-450 dpi 区域裁剪才对。正确做法：先定位区域 → `render_pdf_region(rect, dpi≥400)` → 再读数。
+450 dpi 区域裁剪才对。正确做法：先定位区域 → `render_pdf_region(rect, dpi≥600)` → 再读数；
+这条已被上面「六条不变式」的第 1、2 条覆盖，两处口径一致（焦点区 ≥600 dpi、单边 ≤8192 px、不降 dpi）。
 
 读完之后**必须**做至少两条交叉校验（图纸内自洽 / 与既有产物比对），
 并遵守公差提取与输出 schema 的完整规则（含 `unconsumed` spec 守卫、
@@ -362,10 +385,9 @@ pin 编号方向必须看 datasheet TOP VIEW（凭直觉会把反了的封装判
 - `semantic_result` = 第 5.4 步的 semantic_result
 - `save_report` = `True`（默认，可不传）
 - `compact` = `True`（默认，可不传）
-- `output_dir` = 不传（默认 `None`）。★ 2026-10-16 约定：**报告直接落 `<封装目录>/check_log/`**，
-  工具内部自动建目录、自动命名，AI **不需要也不能**自己传 `output_dir` 把报告写去别处；
-  确有归档到指定位置的需要时才显式传（如批量迁移历史报告）。
-- `output_dir` 想覆盖时才传；`report_path` 返回值可核对落点。
+- `output_dir` = 不传（默认 `None`）；**唯一例外**是把历史报告批量迁到指定位置时才显式传。
+  ★ 2026-10-16 约定：报告默认直接落 `<封装目录>/check_log/`，工具内部自动建目录、自动命名，
+  AI 不需要自己指落点；实际写哪儿以返回的 `report_path` 为准（可核对）。
 
 **默认精简模式（compact=True）** 返回：
 - `conclusion` / `component_type` / `summary`
@@ -431,9 +453,9 @@ pin 编号方向必须看 datasheet TOP VIEW（凭直觉会把反了的封装判
 
 5. **禁止用 Python 直接解析 PDF 内部结构**（如 `pg.get_images()`、
    `get_image_info()`、`page.get_drawings()`）。
-   PDF 图纸必须通过 MCP resource `datasheet://<pdf_stem>/page/<page>` 读图，
-   或通过 `render_pdf_page` / `render_pdf_region` / `render_focus_regions` tool 渲染后读图，
-   数字候选与矢量阵列只能来自 `extract_page_numbers` / `reconstruct_pad_array`。
+   PDF 图纸的**读数**只能来自 `render_pdf_region` / `render_focus_regions` 的**区域裁剪图**；
+   `render_pdf_page` 与 `render_pdf_contact_sheet`（以及 MCP resource `datasheet://...`）的整页图 / 拼图
+   **只许定位、不许读数**。数字候选与矢量阵列只能来自 `extract_page_numbers` / `reconstruct_pad_array`。
    **判文件形态**用 MCP 工具 `pdf_probe`（内部复用同一套判据，是合规出口），
    不要为了"看看是不是扫描件/CAD 图"自己写 Python 解析 PDF 结构。
    `pdf_probe` 返回 `ok:false` 时**回退旧流程**，不要中断整个检查（见本条第 4 款的例外）。
@@ -517,23 +539,26 @@ pin 编号方向必须看 datasheet TOP VIEW（凭直觉会把反了的封装判
 | `list_folder_files` | 列出 PDF / .dra / .pad | `folder_path` |
 | `list_subfolders` | 列出父文件夹的子文件夹（批量模式） | `parent_path` |
 | `locate_land_pattern_page` | 定位 land pattern 页 | `pdf_file_path` |
-| `render_pdf_page` | 渲染 PDF 页为图片（客户端不支持 resource 时用；**固定 150 dpi 整页**） | `pdf_file_path`, `page` |
+| `render_pdf_page` | 渲染 PDF 页为图片（客户端不支持 resource 时用；**固定 150 dpi 整页 —— 只定位，不读数**） | `pdf_file_path`, `page` |
+| `render_pdf_contact_sheet` | 整份拼成一张缩略图，一次扫完定页（扫描件 / 定位失配时）—— **只定位，不读数** | `pdf_file_path`, `cols`, `thumb_width`, `max_pages` |
+| `extract_page_numbers` | 抽文本层里「像尺寸」的数字候选（带 bbox），定该看哪块 | `pdf_file_path`, `page`, `max_numbers` |
+| `render_focus_regions` | 概览图 + 焦点区一次给全（焦点区 ≥600 dpi，不够就切块） | `pdf_file_path`, `page`, `dpi` |
+| `reconstruct_pad_array` | 从矢量图元还原焊盘阵列（零模型成本，与读图对拍） | `pdf_file_path`, `page` |
 | `pdf_probe` | ★ 开跑前判 PDF 形态（CAD 矢量 / 印刷 / 扫描件），决定走哪条读法 | `pdf_file_path` |
 | `render_pdf_region` | ★ **区域裁剪 + 高 dpi 重渲染** —— 读尺寸数字的主力（缩视野、不缩密度） | `pdf_file_path`, `page`, `rect`, `dpi`（默认 600，上限 1200） |
 | `measure_region` | ★ 矢量量距（图元包围盒），与读数做**交叉校验**；非主读数 | `pdf_file_path`, `page`, `rect` |
 | `validate_land_pattern_json` | 校验 AI 输出的 JSON | `raw_json` |
+| `find_case` | ★ 检查**前**查案例库：同封装 / 同族件有哪些已知坑与人工裁定 | `spec_json`, `keyword`, `include_payload` |
 | `read_full_footprint` | 提取 .dra 原始数据（pins/layers）供语义检查 | `dra_file_path` |
-| **`check_footprint_by_rules`** | **跑 6 大项数值检查 + 存档 + 渲染 markdown** | `dra_file_path`, `theoretical_payload`, `semantic_result`, `save_report`, `compact`（默认 True，精简返回）, `output_dir`（**默认不传**：报告自动落 `<封装目录>/check_log/`，2026-10-16 约定） |
+| `save_case` | ★ 检查**后**把人工裁定存档（`false_positive` / `true_positive` / `needs_human`） | `name`, `family`, `findings_json`, `lessons`, `verdict` |
+| **`check_footprint_by_rules`** | **跑 6 大项检查 + 存档 + 渲染 markdown**（第 1/2/3/5/6 项是数值规则，第 4 项 pin number 来自 `semantic_result`） | `dra_file_path`, `theoretical_payload`, `semantic_result`, `save_report`, `compact`（默认 True，精简返回）, `output_dir`（**默认不传**：报告自动落 `<封装目录>/check_log/`，2026-10-16 约定） |
 
-### 废弃工具（禁止使用）
+### 已移除的旧工具（禁止调用）
 
-以下 tool 是旧版流程，会导致焊盘尺寸误判（阻焊开窗 vs 铜箔），**禁止调用**：
-
-| Tool | 废弃原因 |
-|---|---|
-| `read_allegro_footprint` | 返回 `pin.b_box`（阻焊开窗），不是铜箔 ETCH/TOP |
-| `check_land_pattern_tolerance` | 依赖上一条 tool 的数据，会与铜箔理论值产生假 delta |
-| `save_tolerance_report` | 旧版报告格式，功能已被 `check_footprint_by_rules` 内部存档取代 |
+`read_allegro_footprint` / `check_land_pattern_tolerance` / `save_tolerance_report` 这三个旧版工具
+**已从工具层删除，现在不存在** —— 旧文档 / 旧对话里见到它们时不要调用，调了只会失败或让模型凭空编参数。
+正解是 `read_full_footprint`（铜箔 ETCH/TOP 尺寸）+ `check_footprint_by_rules`（内含存档）。
+工具全表见 `docs/tools-catalog.md`（全仓唯一清单，本文件不再抄）。
 
 ## 依赖的 MCP 资源一览
 

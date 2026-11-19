@@ -18,18 +18,13 @@
 ```
 list_specs() / find_spec(...)          ← ★ 先查 spec 库，命 exact 就零读图（见 spec-library.md）
 inspect_allegro_environment()          ← 先探，Allegro 不在会返回规范错误而非崩溃
-pdf_probe(pdf)                         → ★ 第 0 步：判形态（cad_vector/printed/scan/thin_text），决定读法
-locate_land_pattern_page(pdf)          → 定位规格书页码
-                                         ★ 返回 page:null 时看它的 hint —— 扫描件走下面这条
-render_pdf_contact_sheet(pdf)          → ★ 扫描件兜底：整份拼成一张缩略图，扫一眼定位页码
-render_pdf_region(pdf, page, rect, dpi)→ ★ 读尺寸数字主力：区域裁剪 + 高 dpi（缩视野、不缩密度）
-render_pdf_page(pdf, page)             → 整页渲染（固定 150 dpi），仅客户端不支持 resource 时用
-  …（AI 读图，产出参数 JSON）
-measure_region(pdf, page, rect)        → ★ 交叉校验：量区域内图元包围盒，与读数对拍（非主读数）
-extract_page_numbers(pdf, page)        → ★ 候选数字带坐标（文本层，零成本）；数字最密的一块 = 该重点看的地方
-render_focus_regions(pdf, page, dpi)   → ★ 概览 + 焦点区一次给全：dpi 按像素配额反解，读不准就切块、不降 dpi
-reconstruct_pad_array(pdf, page)       → ★ 矢量阵列重建：pad / pitch / 行列数（零模型成本），与读图结果对拍
-validate_land_pattern_json(raw_json)   → 守门员，防格式漂移  ※参数是 str 不是 dict
+# ── 读规格书：三组工具，不是一条链（读数守 SKILL.md 第 3 步的六条不变式）──
+#   定位  pdf_probe → locate_land_pattern_page → render_pdf_contact_sheet（扫描件 / 失配时）
+#         render_pdf_page 与 MCP resource 的整页图只定位，不读数
+#   读数  render_pdf_region（★ 主力，缩视野不缩密度）/ render_focus_regions（概览 + 焦点区）
+#   校验  extract_page_numbers · reconstruct_pad_array · measure_region → AI 读图
+#         → validate_land_pattern_json 守门  ※参数是 str 不是 dict
+#   完整工具表见 docs/tools-catalog.md，本文件不抄。
 solve_footprint_geometry(...)          → 算几何（焊盘/本体/丝印/位号）
 new_symbol_drawing(target_name)        → 建图纸
 create_padstack(name, layers, drill)   → 建焊盘
@@ -126,9 +121,9 @@ lessons 写教训。**裁定一次、全族受益**。真源 `knowledge/cases/`�
 规则阈值外置 `knowledge/rules/checker_rules.json`：改数字立即生效（不用重启 MCP），
 判定逻辑仍在 `rule_checker.py`。
 
-## 读规格书三件套（2026-10-13 新增，Tool 32~34）
+## 读规格书的工具（2026-10-13 起，2026-11-19 扩到六件）
 
-建封装的真实成本在「读规格书提参数」，这三件把这一步从"靠眼力"变成"有梯子"。
+建封装的真实成本在「读规格书提参数」，这组工具把这一步从"靠眼力"变成"有梯子"。
 
 | 工具 | 干什么 | 什么时候用 |
 |--|--|--|

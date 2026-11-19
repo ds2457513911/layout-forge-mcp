@@ -61,14 +61,15 @@ save_spec(
 LMBR140ET1G 那份是**纯位图扫描件**（文本 0 字符 + 矢量 0 条），任何文本方案都无解。
 
 ```
+pdf_probe(pdf)                     → form=scan（位图 ≥1、文本 0 字符）
 locate_land_pattern_page(pdf)      → page: null + hint 提示"文本层为空"
 render_pdf_contact_sheet(pdf)      → ★ 一张缩略图拼版（11 页 → 840×945 一张）
-   ↓ AI 扫一眼定位到 p3
-render_pdf_page(pdf, page=3)       → 读尺寸数字
+   ↓ AI 扫一眼定位到 p3（只定位，不读数）
+render_pdf_region(pdf, page=3, rect, dpi=600) → 读尺寸数字（超单边 8192 就分块，不降 dpi）
 ```
 
-成本对比：翻 6 张整页 + 1 张放大裁剪 → **1 张拼图 + 1 张目标页**。
-缩略图只够"定位哪一页"，**读数字必须回到原页**（必要时再裁剪放大）。
+成本对比：逐页翻 6 张整页图 → **1 张拼图（定位）+ 1 张区域裁剪（读数）**。
+缩略图只够"定位哪一页"；读数字回原页**用 `render_pdf_region` 裁到目标区**，不是渲染整页。
 
 ## 5. 坑
 

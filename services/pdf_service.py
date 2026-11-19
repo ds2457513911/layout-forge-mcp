@@ -281,10 +281,14 @@ def build_contact_sheet(
         "grid": f"{cols} x {rows}",
         "size": [sheet.width, sheet.height],
         "page_index": page_index,
-        "note": ("缩略图只够定位「哪一页」，读尺寸数字请用 render_pdf_page "
-                 "渲染该页原图（必要时再裁剪放大）"),
+        "note": ("缩略图只够定位「哪一页」，不读数；读尺寸数字请用 render_pdf_region "
+                 "裁到目标区（dpi>=600，超单边 8192 就分块）"),
         "error": None,
     }
+
+
+# 读数铁律（四条 read_hint 共用同一句，避免各写一版又漂回「整页图读数」）
+_READ_RULE = "读数一律 render_pdf_region >=600 dpi；整页图 / 拼图只定位，不读数"
 
 
 # ---------- ★ 判形态（pdf_probe） ----------
@@ -335,18 +339,18 @@ def probe_pdf(pdf_path: Path) -> dict:
 
     if bitmaps >= 1 and text_chars == 0:
         form = "scan"
-        hint = "纯位图/扫描件：先 contact_sheet 定位页，再 render_pdf_region 读数"
+        hint = "纯位图扫描件：先 contact_sheet 定页；" + _READ_RULE
     elif text_chars >= 200:
         form = "printed"
-        hint = "印刷规格书：可提文本层表格；land pattern 走 render_pdf_region 读数"
+        hint = "印刷规格书：可提文本层表格定密集区；" + _READ_RULE
     elif drawings >= 200:
         form = "cad_vector"
-        hint = ("CAD 矢量出图：尺寸被 plot 成字形轮廓、文本层拿不到；"
-                "跳过定位，直接 render_pdf_region 高 dpi 读数")
+        hint = ("CAD 矢量出图：尺寸被 plot 成字形轮廓、文本层拿不到，跳过关键词定位；"
+                + _READ_RULE)
     else:
         form = "thin_text"
         hint = ("薄文本层：关键词定位可能失配，失配则走 contact_sheet；"
-                "读数用 render_pdf_region")
+                + _READ_RULE)
 
     return {"ok": True, "pages": pages, "bitmaps": bitmaps,
             "text_chars": text_chars, "drawings": drawings,

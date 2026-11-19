@@ -283,8 +283,9 @@ MCP server 由客户端**拉起并长驻**，进程内缓存着启动时的代�
 
 ```
 inspect_allegro_environment()          ← 先探
+pdf_probe(pdf)                         → ★ 判形态，决定读法
 locate_land_pattern_page(pdf)          → 定位尺寸页（失配时用 render_pdf_contact_sheet）
-render_pdf_page(pdf, page)             → 渲染供 AI 读图
+render_pdf_region(pdf, page, rect, dpi)→ ★ 读数主力：区域裁剪 ≥600 dpi（整页图只定位）
   … AI 读图产出参数 …
 load_spec / find_spec                  → ★ 先查库，同封装零读图
 solve_footprint_geometry(...) 或 build_footprint_from_params(...)
@@ -335,7 +336,7 @@ Tools\test\<符号名>\
 | 读回来的值总是"上上次"的 | 通道固定约 15 帧滞后（认知问题，非故障） | 重启 SkillBridge 服务 |
 | 引脚号字号随脚号变大 | `make_axlPinText` 简化写法 `?text "N"` 被当成字块号 | 已修：强制结构体形式 `textBlock "1"`；自检有回归项 |
 | `locate_land_pattern_page` 返回 null | 2026-10-14 起分三种：`scan_only`（纯位图扫描件）/ `ambiguous`（证据并列，**故意不猜**）/ `no_match` | 看返回的 `candidates` 与 `hint`：`ambiguous` 就按候选页逐页看，或 `render_pdf_contact_sheet` 拼版一次定位 |
-| `locate_land_pattern_page` 给了页码但仍要确认 | 定位结论是**结构推定**（`needs_visual=true`），不是强关键词实锤 | 读尺寸前 `render_pdf_page` / `render_pdf_region` 渲染确认；判据 S8 会查「有没有撒谎」 |
+| `locate_land_pattern_page` 给了页码但仍要确认 | 定位结论是**结构推定**（`needs_visual=true`），不是强关键词实锤 | 读尺寸前用 `render_pdf_region` 裁到目标区确认（整页图只定位、不读数）；判据 S8 会查「有没有撒谎」 |
 | 改了代码没生效 | MCP 进程缓存旧代码 | 重连 MCP（见 §4.3） |
 | 归档落在 `Data\footprint\` | `install_shadow_library` 的 `lib_root` 默认值 | 显式传 `lib_root=<规格书所在目录>` |
 | 路径含中文导致异常 | Allegro 不支持非 ASCII 路径 | 换英文路径 |
