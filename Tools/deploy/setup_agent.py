@@ -9,11 +9,13 @@ setup_agent.py —— layout-forge-mcp 的「Agent 侧」一键配置
     .venv\Scripts\python.exe deploy\setup_agent.py --pcbenv "D:/Cadence/SPB_Data/pcbenv"
     .venv\Scripts\python.exe deploy\setup_agent.py --no-skillbridge
 
-做四件事：
+做六件事：
     A. 注册 MCP        —— 写客户端的 mcp.json（venv python + -c 注入 sys.path）
     B. 安装 Skill      —— deploy\skills\* 复制到 %USERPROFILE%\.workbuddy\skills\
     C. 配 SkillBridge  —— 调 Tools/install_skillbridge.py --non-interactive
     D. 冒烟验收        —— import 依赖 + 读 MCP 工具总数
+    E. 落点校验        —— verify_skills()：真源 vs 三个落点，不一致即失败
+    F. 契约断言        —— verify_contract()：运行期工具表 vs 源码 AST 数 / 冻结基线
 
 设计约束（★ 都是踩过的坑，改之前先读）：
     1. MCP 的 command 必须是项目 .venv 里的 python.exe。skillbridge 只装在
@@ -55,6 +57,11 @@ MANIFEST_SCHEMA = "layout-forge-deploy-manifest/1"
 
 #: 客户端给 skill 写的元数据：**仓库副本故意不带**，比对/覆盖时必须忽略或保留。
 USER_META_NAME = "_user_meta.json"
+
+#: 工具契约：冻结基线（只由 `check_tool_contract.py --update` 写，**不是产地**）
+CONTRACT_BASELINE = Path("eval") / "baselines" / "tool_contract.json"
+#: 契约套件目录（F 段复用它唯一的 AST 解析器 `tool_catalog.parse_tools`）
+CONTRACT_SUITE = Path("eval") / "suites" / "tool_contract"
 
 
 # ============================================================
@@ -565,23 +572,39 @@ def install_skillbridge(project_root: Path, pcbenv: str | None, dry_run: bool) -
 # ============================================================
 # D. 冒烟验收
 # ============================================================
-def _source_tool_count(project_root: Path) -> int | None:
-    """数 mcp_server/tools.py 里 @mcp.tool 定义的个数（纯 AST，不 import、不跑代码）。
+def _parse_source_tools(project_root: Path) -> list[dict] | None:
+    """AST 解析 `mcp_server/tools.py` 里的 @mcp.tool 定义（不 import、不跑代码）。
 
-    为什么不用常量：手写期望值（旧的 EXPECTED_TOOLS = 39）是第二份真源，
-    加一个工具就得记得改它，忘了就永远比对通过。这里比的是同一份 clone 的
-    「源码定义数」与「运行期注册数」，两个量同源，不一致才有意义。
+    ★ 复用契约套件的 `tool_catalog.parse_tools`（`eval/suites/tool_contract/`）：
+      工具名 / 数量只有一份产地，解析器也只该有一份 —— 两边各写一份，才是
+      「自检说 39、部署说 38」这类两套数并存的温床（#7 要消灭的就是这个）。
+      只有套件不在（只拷了 mcp_server 的瘦检出）才退回下面的极简解析。
+
+    :return: [{name, ...}]（按名字排序）；读不到 / 解析失败返回 None
     """
     src = project_root / "mcp_server" / "tools.py"
     if not src.is_file():
         return None
+
+    suite = project_root / CONTRACT_SUITE
+    if suite.is_dir() and str(suite) not in sys.path:
+        sys.path.insert(0, str(suite))
+    try:
+        from tool_catalog import parse_tools  # type: ignore
+
+        tools, _ = parse_tools(src)
+        return tools
+    except Exception:  # noqa: BLE001
+        pass
+
+    # 瘦检出兜底：只要名字，够 D2 报「运行期 / 源码」两个数
     try:
         import ast
 
         tree = ast.parse(src.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001
         return None
-    count = 0
+    names: list[str] = []
     for node in ast.walk(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
@@ -590,9 +613,20 @@ def _source_tool_count(project_root: Path) -> int | None:
                 deco = deco.func
             if (isinstance(deco, ast.Attribute) and deco.attr == "tool"
                     and isinstance(deco.value, ast.Name) and deco.value.id == "mcp"):
-                count += 1
+                names.append({"name": node.name})
                 break
-    return count
+    return sorted(names, key=lambda t: t["name"])
+
+
+def _source_tool_count(project_root: Path) -> int | None:
+    """数 mcp_server/tools.py 里 @mcp.tool 定义的个数。
+
+    为什么不用常量：手写期望值（旧的 EXPECTED_TOOLS = 39）是第二份真源，
+    加一个工具就得记得改它，忘了就永远比对通过。这里比的是同一份 clone 的
+    「源码定义数」与「运行期注册数」，两个量同源，不一致才有意义。
+    """
+    tools = _parse_source_tools(project_root)
+    return len(tools) if tools is not None else None
 
 
 def smoke_test(project_root: Path) -> bool:
@@ -687,6 +721,121 @@ def smoke_test(project_root: Path) -> bool:
 
 
 # ============================================================
+# F. 工具契约断言（--verify-contract；票 #9，口径见 #4 D5 / #7）
+# ============================================================
+def _load_contract_baseline(project_root: Path) -> dict | None:
+    """读冻结基线；缺文件 / 坏 JSON 都返回 None（调用方当失败，不许假绿）。"""
+    p = project_root / CONTRACT_BASELINE
+    if not p.is_file():
+        return None
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _runtime_tool_names(project_root: Path) -> list[str] | None:
+    """运行期实际注册的工具名（就是客户端拿到的那张表）。
+
+    与 `smoke_test` 的 D2 读同一处（`mcp._list_tools()`，退回 `_tool_manager._tools`），
+    这样「冒烟报的数」与「闸门断言的数」一定来自同一份运行期状态。
+    """
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    try:
+        from mcp_server.server import mcp  # type: ignore
+    except Exception as exc:  # noqa: BLE001
+        log(f"导入 mcp_server.server 失败：{exc}", "ERR")
+        return None
+
+    try:
+        import asyncio
+
+        return [t.name for t in asyncio.run(mcp._list_tools())]  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001
+        pass
+    tm = getattr(mcp, "_tool_manager", None)
+    tools = getattr(tm, "_tools", None)
+    if isinstance(tools, dict):
+        return list(tools.keys())
+    return None
+
+
+def verify_contract(project_root: Path) -> int:
+    """工具契约的**部署侧**断言（`--verify-contract`）。
+
+    只断言两条，都是「部署完成后实际发生的事实」：
+
+      1. **数量同源**：运行期注册数 == 同一份 clone 的源码 AST 定义数。
+         不写期望常量（旧的 `EXPECTED_TOOLS = 39` 是第二份真源，已按 #7 删除）——
+         两个量出自同一份代码，不等就说明「跑着的不是这份代码」或「源码没拉全」。
+      2. **名字集合**：运行期注册的工具名 == `eval/baselines/tool_contract.json`
+         的 `tools[].name`（冻结基线）。基线只回答「有没有被悄悄改名 / 删掉 / 新增」，
+         不参与生成任何东西。
+
+    **不做**：流程步骤数 —— 没有稳定锚点（步骤随分工调整，也没有单一真源），
+    硬比一个数等于再造一份手写期望值；等有锚点再议（票 #9 里写明了这个取舍）。
+
+    :return: 0 = 两条都成立；1 = 任一不符（缺基线 / 读不到源码 / 读不到运行期也算）
+    """
+    hr("F. 工具契约断言（工具数同源 + 名字集合 == 冻结基线）")
+    log(f"真源：{project_root / 'mcp_server' / 'tools.py'} 的 @mcp.tool 定义")
+    log(f"基线：{project_root / CONTRACT_BASELINE}")
+    log("      （基线只作冻结比对物，不是产地；改工具后由 --update 重冻）")
+
+    baseline = _load_contract_baseline(project_root)
+    if baseline is None:
+        log(f"缺契约基线（{CONTRACT_BASELINE.as_posix()} 不存在或不是合法 JSON）—— 无法断言。", "ERR")
+        log("  冻结基线：python eval/suites/tool_contract/check_tool_contract.py --update", "WARN")
+        return 1
+
+    base_names = {t["name"] for t in baseline.get("tools") or [] if t.get("name")}
+    log(f"基线冻结于 {baseline.get('frozen_at', '?')}，{len(base_names)} 个工具名")
+
+    source_tools = _parse_source_tools(project_root)
+    if source_tools is None:
+        log("读不到源码里的工具定义（mcp_server/tools.py 缺失或解析失败）—— 无法同源比较。", "ERR")
+        return 1
+    source_names = [t["name"] for t in source_tools]
+
+    runtime_names = _runtime_tool_names(project_root)
+    if runtime_names is None:
+        log("读不到运行期注册的工具表 —— 无法断言。", "ERR")
+        log("  常见原因：用系统 Python 跑本脚本（fastmcp / mcp_server 只在项目 .venv 里），"
+            "或客户端还连着旧进程。", "WARN")
+        return 1
+
+    log(f"工具数：运行期 {len(runtime_names)} / 源码 {len(source_names)} / 基线 {len(base_names)}")
+
+    bad = 0
+
+    # ---- 1. 数量同源（运行期 vs 这份 clone 的源码） ----
+    if len(runtime_names) != len(source_names):
+        bad += 1
+        log(f"数量不符：运行期 {len(runtime_names)} != 源码 {len(source_names)}"
+            f"（差 {abs(len(runtime_names) - len(source_names))} 个）", "ERR")
+        log("  运行期少 = 进程还挂着旧代码（重启客户端）；多 = clone 落后于正在跑的那份。", "WARN")
+
+    # ---- 2. 名字集合 == 冻结基线（缺 = 改名/删除；多 = 新增未重冻） ----
+    runtime_set = set(runtime_names)
+    missing = sorted(base_names - runtime_set)
+    extra = sorted(runtime_set - base_names)
+    for name in missing:
+        bad += 1
+        log(f"基线里的工具不在运行期：{name}（改名 / 删除 = 破坏契约）", "ERR")
+    for name in extra:
+        bad += 1
+        log(f"运行期多出基线没有的工具：{name}（确认无破坏后跑 --update 重冻基线）", "ERR")
+
+    if bad:
+        log(f"不通过：{bad} 处不符 —— 部署出来的工具表不是契约所冻结的那一份。", "ERR")
+        return 1
+    log("通过：运行期工具表 == 源码定义 == 冻结基线。", "OK")
+    return 0
+
+
+# ============================================================
 # main
 # ============================================================
 def main() -> int:
@@ -706,6 +855,8 @@ def main() -> int:
     ap.add_argument("--no-smoke", action="store_true", help="跳过冒烟验收")
     ap.add_argument("--verify-skills", action="store_true",
                     help="只做防静默回退校验：比对 deploy\\skills 与三个落点，然后退出")
+    ap.add_argument("--verify-contract", action="store_true",
+                    help="只做工具契约断言：运行期工具表 vs 源码 AST 数 / 冻结基线，然后退出")
     ap.add_argument("--sync-skills", action="store_true",
                     help="只把 deploy\\skills 同步到三个落点，然后校验")
     args = ap.parse_args()
@@ -725,6 +876,8 @@ def main() -> int:
     # ★ 两个「只干这一件事」的入口：不重复跑 MCP/冒烟，装完就能单独复核。
     if args.verify_skills:
         return verify_skills()
+    if args.verify_contract:
+        return verify_contract(project_root)
     if args.sync_skills:
         return sync_skills(project_root, dry_run=args.dry_run)
 
@@ -774,10 +927,17 @@ def main() -> int:
     if not args.no_skills and not args.dry_run:
         results["skills_sync"] = verify_skills() == 0
 
+    # ★ F：契约也是「装对了吗」的一部分 —— 运行期注册的必须就是这份源码里定义
+    #   的那份、且没偏离冻结基线（票 #9 / 决策 #4 D5）。任一不符 → results 记
+    #   False → 整体 exit 1，而不是只打一行提示。
+    if not args.dry_run:
+        results["tool_contract"] = verify_contract(project_root) == 0
+
     hr("收尾")
     print("  下一步：")
     print("    1. 完全退出并重启你的 Agent 客户端（MCP 是长驻进程，必须重启才加载）")
-    print("    2. 客户端里确认 layout-forge-mcp 已连接，工具数为 36")
+    print("    2. 客户端里确认 layout-forge-mcp 已连接；工具清单见 docs/tools-catalog.md"
+          "（数量以那里为准，别在这里写死）")
     print("    3. 启动 Allegro PCB Editor，命令行执行 netstat -ano | findstr 7777")
     print("       有 LISTENING 说明 SkillBridge 通道已通")
     print()

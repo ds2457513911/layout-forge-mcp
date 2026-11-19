@@ -51,6 +51,24 @@ python Tools\deploy\setup_agent.py --verify-skills    # 只读校验：全部 MA
 （MATCH / STALE / DIVERGED / MISSING）与「为什么需要它」见下面坑 15 ——
 **改了 SKILL 却不 `--sync-skills`，模型读到的可能还是旧版，而且你不会收到任何报错。**
 
+★ **只校验工具契约（改完 `mcp_server/tools.py` 后可单跑）**：
+
+```
+python Tools\deploy\setup_agent.py --verify-contract   # 工具数同源 + 名字集合 == 冻结基线
+```
+
+同样提前返回。它只断言两件事，都是「部署完之后实际发生的事实」：
+
+| 断言 | 比较的两边 | 不符意味着 |
+|--|--|--|
+| 工具数同源 | 运行期注册数 vs **同一份 clone** 源码的 `@mcp.tool` 定义数 | 跑着的不是这份代码（进程挂旧），或 clone 落后 |
+| 名字集合 | 运行期注册名 vs `eval/baselines/tool_contract.json` 的 `tools[].name` | 被悄悄改名 / 删除 / 新增而未重冻基线 |
+
+- **没有期望常量**：两边都不是手写数字，所以不会出现「常量过期导致的假绿」（旧 `EXPECTED_TOOLS = 39` 已按 #7 删除）。
+- 基线不是产地，只是冻结比对物：改工具后跑 `check_tool_contract.py --update` 重冻。
+- **不校验流程步骤数**：步骤没有稳定锚点（也无单一真源），硬比一个数等于再造一份手写期望值。
+- 缺基线 / 读不到源码 / 读不到运行期 → 一律 **exit 1**，不假装通过。
+
 ## 三种定位（v7.5 起）
 
 脚本第 0 步按「由近及远」三档找项目根，**任何一档命中就不再访问 GitHub**：
@@ -82,9 +100,9 @@ python Tools\deploy\setup_agent.py --verify-skills    # 只读校验：全部 MA
 | 3 | `[3/6] Check git` | clone 模式必需；local 模式**可选**（只用于第 4 步的 pull） |
 | 4 | `[4/6] Fetch project` | clone 模式 = `git clone`；local 模式 = `git pull`（失败只 WARN，`/nopull` 可跳过） |
 | 5 | `[5/6] Create .venv and install dependencies` | `.venv` 已可用（四个关键包都能 import）→ **跳过安装**；否则 `uv sync`，或 `python -m venv` + `pip install -e .` |
-| 6 | `[6/6] Register MCP, install Skills, config SkillBridge` | 调 `setup_agent.py`，见下 |
+| 6 | `[6/6] Register MCP, install Skills, config SkillBridge` | 调 `setup_agent.py`，见下；**它非零退出 = 部署失败（直接 `:fail`，不再「打一行提示继续」）** |
 
-`setup_agent.py` 的五段：
+`setup_agent.py` 的六段：
 
 - **A 注册 MCP** —— 自动找客户端配置并**合并写入**（优先级：已存在的
   `~/.workbuddy/mcp.json` → Claude Desktop → Cursor → Trae；
@@ -99,6 +117,8 @@ python Tools\deploy\setup_agent.py --verify-skills    # 只读校验：全部 MA
   跑两个离线自检（239/239、222/222）
 - **E 落点校验** —— `verify_skills()`：真源 vs 三落点，**不一致就整体 exit 1**
   （外加 `check_skill_declarations()` 的软 WARN：SKILL 头部三声明）
+- **F 工具契约断言** —— `verify_contract()`：运行期工具表 vs 源码 AST 数 / 冻结基线，
+  **任一不符就整体 exit 1**（`--verify-contract` 可单跑；口径见上一节）
 
 ## 文件清单
 

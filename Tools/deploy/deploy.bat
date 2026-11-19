@@ -492,9 +492,12 @@ set "AGENT_ARGS=--project-root "%PROJECT_ROOT%""
 if defined USER_PCENV set "AGENT_ARGS=!AGENT_ARGS! --pcbenv "%USER_PCENV%""
 if "%NO_BRIDGE%"=="1" set "AGENT_ARGS=!AGENT_ARGS! --no-skillbridge"
 
+REM  setup_agent.py 的退出码必须传出去：它的 E/F 段是「装对了吗」的判定
+REM  （Skills 落点、工具契约），只 echo 一句然后继续 == 第二层假绿。
 "%VENV_PYTHON%" "%PROJECT_ROOT%\Tools\deploy\setup_agent.py" !AGENT_ARGS!
 if errorlevel 1 (
-    echo   [!] setup_agent.py reported a failure. Read the output above.
+    echo   [X] setup_agent.py reported a failure (see the E/F sections above).
+    goto :fail
 )
 
 :done
