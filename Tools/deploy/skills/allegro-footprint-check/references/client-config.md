@@ -6,7 +6,7 @@
 ## 客户端配置示例
 
 本技能与 `allegro-skillbridge-ops` 共用同一个 MCP 服务 `layout-forge-mcp`
-（36 个工具：建封装 18 + spec/案例库 7 + 读 PDF/目录 7 + 检查 2 + 编排/统计 2）。已经注册过就不用再配。
+（工具全集与分组见 `docs/tools-catalog.md`，不在此抄清单）。已经注册过就不用再配。
 
 下面给的是**换机器 / 给同事**时的写法。
 

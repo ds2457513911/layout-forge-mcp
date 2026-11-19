@@ -4,7 +4,7 @@
 
 ## 这个目录是干什么的
 
-机器读写的**知识真源**，随代码一起入库/搬走。四个子目录/文件各管一层：
+机器读写的**知识真源**，随代码一起入库/搬走。五个子目录/文件各管一层：
 
 - **conventions.json** —— **构造约定真源（2026-10-13 第 0 层）**：由
   `Tools/mine_conventions.py` 对 253 件金标准全量收割 + AI 裁定产生，
@@ -25,6 +25,9 @@
 - **specs/** —— 参数层：每颗料解析出的 spec（喂 `solve_footprint_geometry` 复用，同封装零读图）。用法见 `specs/README.md` 与 `services/spec_library.py`。
 - **cases/** —— 经验层：每次检测的**人工裁定**沉淀（指纹 + 报告摘要 + findings + lessons）。检查前 `find_case` 按几何指纹召回同封装/同族案例做预警——裁定一次、全族受益。代码在 `services/case_library.py`。
 - **rules/** —— 阈值层：`rule_checker` 的阈值外置真源（`checker_rules.json`）。**改数字立即生效，不用重启 MCP**；判定逻辑（怎么比）仍在 `services/rule_checker.py`，改逻辑必须改代码。
+- **tool_groups.json** —— **MCP 工具分组映射（2026-11-19 第 0 层）**：工具名 → 六组（图纸/器件写侧、几何求解与库、spec/案例库、读 PDF/目录、检查、编排/观测）的唯一人工维护处。
+  名字与数量不在这里抄——名字来自 `mcp_server/tools.py` 的 `@mcp.tool`（AST 解析），本文件只回答「它属于哪组」。人读目录 `docs/tools-catalog.md` 由它与 AST 生成；
+  漏给新工具分组由 `eval/suites/tool_contract` **C7** 报红，目录忘了重生成由 **C8** 报红。
 
 ## 文件清单
 
@@ -34,6 +37,7 @@
 | `specs/*.json` + `_index.json` | spec 库 | `spec_library.py` / MCP `save_spec` 等四工具 |
 | `cases/*.json` + `_index.json` | 案例库（含 2026-10-13 CONV-2.7 钻孔实义、CONV-MINE-1 构造约定裁定） | `case_library.py` / MCP `save_case` 等三工具 |
 | `rules/checker_rules.json` | 规则阈值（naming/pad/origin/place_bound/silkscreen/assembly） | `rule_checker.py::load_external_rules()`；文件缺失/损坏自动回退内置 DEFAULT_RULES |
+| `tool_groups.json` | MCP 工具 → 六组的映射（**唯一人工维护的工具分类**） | `eval/suites/tool_contract/tool_catalog.py` 读它生成 `docs/tools-catalog.md`；C7 校验无漏分组/无幽灵名字 |
 
 ## 关键约定与坑
 

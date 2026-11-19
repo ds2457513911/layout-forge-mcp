@@ -1,0 +1,81 @@
+{
+  "_meta": {
+    "purpose": "工具分组的唯一真源：只有『一个工具属于哪一组』这件事需要人判断，代码里推不出来。名字、参数、docstring 一律以 mcp_server/tools.py 的 @mcp.tool 为准，别在这里重复。",
+    "generated_by": "eval/suites/tool_contract/tool_catalog.py",
+    "checked_by": "eval/suites/tool_contract/check_tool_contract.py C7（每个工具恰好一组、无幽灵名字）/ C8（docs/tools-catalog.md 与该文件+代码一致）",
+    "rule": "新增工具必须在这里给它一个组，否则 C7 报 ERROR；改分组只改这个文件，然后重算目录。"
+  },
+  "groups": [
+    {
+      "id": "write",
+      "title": "图纸 / 器件写侧",
+      "desc": "建图纸、建焊盘、加 pin / outline / text、扩图幅、保存与导出"
+    },
+    {
+      "id": "geometry",
+      "title": "几何求解与库",
+      "desc": "按参数算焊盘/本体/丝印/位号，以及 shadow library 的安装与列举"
+    },
+    {
+      "id": "knowledge",
+      "title": "spec / 案例库",
+      "desc": "规格书解析结果与人工裁定案例的存取、检索"
+    },
+    {
+      "id": "read",
+      "title": "读 PDF / 目录",
+      "desc": "判形态、定位、渲染、量测、重建阵列——读规格书这一侧"
+    },
+    {
+      "id": "check",
+      "title": "检查",
+      "desc": "读回已建封装并按规则判定"
+    },
+    {
+      "id": "ops",
+      "title": "编排 / 观测",
+      "desc": "目录预检与遥测统计"
+    }
+  ],
+  "tools": {
+    "inspect_allegro_environment": "write",
+    "new_footprint_drawing": "write",
+    "new_symbol_drawing": "write",
+    "clear_footprint_drawing": "write",
+    "change_drawing_extents": "write",
+    "frame_drawing_view": "write",
+    "create_padstack": "write",
+    "add_footprint_pin": "write",
+    "add_footprint_outline": "write",
+    "add_footprint_text": "write",
+    "save_footprint_drawing": "write",
+    "export_psm": "write",
+    "solve_footprint_geometry": "geometry",
+    "build_footprint_from_params": "geometry",
+    "validate_land_pattern_json": "geometry",
+    "install_shadow_library": "geometry",
+    "list_shadow_library": "geometry",
+    "save_spec": "knowledge",
+    "load_spec": "knowledge",
+    "find_spec": "knowledge",
+    "list_specs": "knowledge",
+    "save_case": "knowledge",
+    "find_case": "knowledge",
+    "list_cases": "knowledge",
+    "list_subfolders": "read",
+    "list_folder_files": "read",
+    "locate_land_pattern_page": "read",
+    "render_pdf_page": "read",
+    "render_pdf_contact_sheet": "read",
+    "pdf_probe": "read",
+    "render_pdf_region": "read",
+    "measure_region": "read",
+    "extract_page_numbers": "read",
+    "render_focus_regions": "read",
+    "reconstruct_pad_array": "read",
+    "read_full_footprint": "check",
+    "check_footprint_by_rules": "check",
+    "folder_preflight": "ops",
+    "get_run_stats": "ops"
+  }
+}

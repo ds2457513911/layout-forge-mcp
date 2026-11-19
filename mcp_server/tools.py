@@ -10,7 +10,7 @@ mcp_server/tools.py —— MCP 工具定义
 
   严禁在 tool 里写业务逻辑（循环、文件扫描、JSON 清洗）。
 
-工具列表（v4.3，共 39 个）：
+工具列表（v4.3；此处只列代表，全表见 docs/tools-catalog.md，由本文件 AST + knowledge/tool_groups.json 生成）：
   - list_subfolders / list_folder_files         批量侦察
   - folder_preflight                             ★ 动手前预检：目录里的 PDF/.dra 有没有歧义（2026-10-14 加）
   - locate_land_pattern_page / render_pdf_page  定位 & 渲染

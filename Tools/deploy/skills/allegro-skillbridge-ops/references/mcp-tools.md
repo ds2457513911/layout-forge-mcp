@@ -7,13 +7,13 @@
 
 ## 这个文件是干什么的
 
-`layout-forge-mcp` 是**服务层**（fastmcp / stdio / 36 个工具），本技能是**知识层**。
+`layout-forge-mcp` 是**服务层**（fastmcp / stdio），本技能是**知识层**。
 两者不是替代关系：MCP 负责"谁来调 Allegro"，本技能负责"调的时候别踩哪些坑"。
 
 本文件记三件事：走 MCP 建封装的完整工具链、归档怎么落位、以及
 **MCP 工具与既有 SKILL 规则的已知差异**（这块最容易踩，且会随代码变动）。
 
-## 1. 建封装的完整工具链（★ 2026-10-14：36 个工具，新增 `folder_preflight` / `get_run_stats`）
+## 1. 建封装的完整工具链（★ 2026-10-14：新增 `folder_preflight` / `get_run_stats`；本节只讲调用顺序，工具全表见 `docs/tools-catalog.md`）
 
 ```
 list_specs() / find_spec(...)          ← ★ 先查 spec 库，命 exact 就零读图（见 spec-library.md）
@@ -164,7 +164,7 @@ lessons 写教训。**裁定一次、全族受益**。真源 `knowledge/cases/`�
 3. 新工具**必须 try/except 返回 `ok:false`、绝不 raise** ——
    SKILL 规则「tool 报错即停止检查」会把一个 probe 的 bug 放大成"所有封装都检查不了"。
 
-## 编排与统计（2026-10-14 新增，Tool 35~36）
+## 编排与统计（2026-10-14 新增）
 
 > ★ **两个 "preflight" 不是一回事，别混**（2026-10-14 改名就是为这个）：
 > - **`folder_preflight`** = MCP 工具，**开工前**查目录里有没有歧义（下表第 1 行）。

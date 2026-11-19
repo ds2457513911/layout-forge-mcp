@@ -12,7 +12,7 @@
 > 写进 `mcp.json`）+ `install_skillbridge.py` 强制 UTF-8 修 C 步中断；坑 14 重写为
 > 「跑脚本的解释器 ≠ 写进配置的解释器」。此前 v7.3：加 `.deploy_manifest.json` +
 > `--verify-skills` / `--sync-skills` 防静默回退；修 junction 被 `shutil.move` 移走导致三落点陈旧的旧 bug；
-> SKILL 头部三声明软校验。此前 v7.2：工具数 36 + 实测补记「skills 目录是 Junction」的部署坑）
+> SKILL 头部三声明软校验。此前 v7.2：实测补记「skills 目录是 Junction」的部署坑）
 
 ## 这个目录是干什么的
 
@@ -95,7 +95,7 @@ python Tools\deploy\setup_agent.py --verify-skills    # 只读校验：全部 MA
   `_user_meta.json`）→ 然后写 `deploy\.deploy_manifest.json`
 - **C 配 SkillBridge** —— 调 `Tools\install_skillbridge.py --non-interactive`，
   往 `allegro.ilinit` 写自动加载块，起 7777 端口
-- **D 冒烟验收** —— import 四个依赖、读 MCP 工具总数（期望 **36**）、
+- **D 冒烟验收** —— import 四个依赖、读 MCP 工具总数并与本机源码的 `@mcp.tool` 定义数比较、
   跑两个离线自检（239/239、222/222）
 - **E 落点校验** —— `verify_skills()`：真源 vs 三落点，**不一致就整体 exit 1**
   （外加 `check_skill_declarations()` 的软 WARN：SKILL 头部三声明）
@@ -240,7 +240,7 @@ python Tools\deploy\setup_agent.py --verify-skills    # 只读校验：全部 MA
 | `[X] skillbridge is NOT importable from the project venv` | 装错解释器了。**先把 `.venv` 移到 `.trash` 再重跑**（v7.7 起脚本自己也会隔离，不会删）；确认 `pyproject.toml` 的 `requires-python` 没被改窄 |
 | `[X] uv sync failed` | 网络 / 代理 / Python 版本问题。看上面的输出；可改用系统 python 模式（把 uv 从 PATH 摘掉再跑） |
 | `[!] SkillBridge 自动加载未配成` | 通常是没 pcbenv。启动一次 Allegro 再重跑，或用 `/pcbenv` 指定 |
-| 工具数与 `setup_agent.py` 的 `EXPECTED_TOOLS`（现 36）不符 | 少于期望 → 多半 clone 到了旧提交，`git pull` 后重启客户端；多于期望 → 本地加了新工具，去更新 `EXPECTED_TOOLS` |
+| 运行期工具数与本机源码的 `@mcp.tool` 定义数不符（D2 已改为同源比较，`EXPECTED_TOOLS` 常量已删） | 少于源码 → 客户端多半连着旧进程或旧 clone，`git pull` 后重启客户端；多于源码 → 本地有未提交的新工具 |
 | `[X] git clone failed` | GitHub 不通。配代理，或手工把整个项目拷到 `/dir` 指定的目录再跑 |
 
 ## 相关目录

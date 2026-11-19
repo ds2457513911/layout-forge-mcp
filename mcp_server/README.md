@@ -1,6 +1,6 @@
 # mcp_server/ —— MCP 工具层（对外门面）
 
-> 最后更新：2026-10-14（**共 36 个工具**：新增 `folder_preflight` / `get_run_stats`；新增 `middleware.py` 遥测中间件）
+> 最后更新：2026-11-19（**工具清单改为生成物 `docs/tools-catalog.md`**，本目录不再抄数量；2026-10-14 曾新增 `folder_preflight` / `get_run_stats` 与 `middleware.py` 遥测中间件）
 
 ## 这个目录是干什么的
 
@@ -12,7 +12,7 @@
 
 | 文件 | 功能 | 影响 / 依赖 |
 |--|--|--|
-| `tools.py` | ★ **工具注册总表（最大文件）**。**共 36 个工具**（2026-10-14；其中 `folder_preflight`（目录歧义预检）/ `get_run_stats`（运行统计）为当日新增，读规格书三件套 `pdf_probe` / `render_pdf_region` / `measure_region` 为 2026-10-13 新增），每个工具 = 一个 `@mcp.tool()` 函数 + 完整 docstring（**docstring 就是给 AI 看的说明书，改行为必须同步改它**） | 会 import `services/geometry_solver` / `footprint_builder` / `library_install` / `footprint_extractor` / `pdf_service` 等，以及 `orchestration/preflight` / `observability/stats` |
+| `tools.py` | ★ **工具注册总表（最大文件）**。工具清单不在此抄写：全表见 `docs/tools-catalog.md`（生成物）。近期新增：`folder_preflight`（目录歧义预检）/ `get_run_stats`（运行统计）为当日新增，读规格书三件套 `pdf_probe` / `render_pdf_region` / `measure_region` 为 2026-10-13 新增），每个工具 = 一个 `@mcp.tool()` 函数 + 完整 docstring（**docstring 就是给 AI 看的说明书，改行为必须同步改它**） | 会 import `services/geometry_solver` / `footprint_builder` / `library_install` / `footprint_extractor` / `pdf_service` 等，以及 `orchestration/preflight` / `observability/stats` |
 | `middleware.py` | ★ **遥测中间件** `TelemetryMiddleware(Middleware)`：包住每次工具调用，把 `ts/run_id/tool/ok/ms/error_code/args_keys/args_hash` 落进 `eval/runs/<date>.jsonl`（**只落参数名与 hash，不落参数值**）；返回 `ok:false` 的业务失败也记（`error_source:"returned"`） | 放这一层而非 `observability/`，因为它必须 import `fastmcp`，而 `observability/` 要保持纯 stdlib |
 | `prompts.py` | 预置提示词 | 纯文本，无副作用 |
 | `resources.py` | MCP 资源（只读暴露） | 纯读 |

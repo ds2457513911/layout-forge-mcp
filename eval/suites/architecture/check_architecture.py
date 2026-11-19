@@ -29,6 +29,10 @@ eval/suites/architecture/check_architecture.py —— 架构与文档断言（�
 
 ★ **Phase 0 基线：现状允许非空。** 先如实记录，再在 Phase 1/3 逐条清偿；
 不要为了让脚本变绿而改判据 —— 那等于把尺子锯短。
+
+★ **2026-11-19：A5/A6 跳过 git 忽略的路径**（`.agent-cache/` 的探针、`Tools/test/` 的干活脚本）。
+降的是「管错对象」，不是尺子：那些文件根本不进库，逼 README 登记它们只会制造第二份垃圾清单。
+判定走 `git check-ignore`；git 不可用时退回不过滤（宁可多报）。
 """
 from __future__ import annotations
 
@@ -36,6 +40,7 @@ import argparse
 import ast
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -152,6 +157,28 @@ def _rel(p: Path) -> str:
     return p.relative_to(ROOT).as_posix()
 
 
+def _git_ignored(rel_paths):
+    """返回被 .gitignore 忽略的相对路径集合（posix 形式）。
+
+    A5/A6 只该管**仓库里的**代码：`Tools/test/`（图纸干活区）与 `.agent-cache/`（会话探针缓存）
+    都是 git 忽略的目录，逼 README 去登记里面的临时脚本，只会把清单变成第二份垃圾。
+    git 不可用时返回空集 —— 断言按原样跑（宁可多报，不静默放过）。
+    """
+    rels = [r for r in rel_paths if r]
+    if not rels:
+        return set()
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(ROOT), "check-ignore", "-z", "--stdin"],
+            input="\0".join(rels).encode("utf-8"),
+            capture_output=True, check=False)
+    except (OSError, ValueError):
+        return set()
+    if proc.returncode not in (0, 1):
+        return set()
+    return {p for p in proc.stdout.decode("utf-8", "replace").split("\0") if p}
+
+
 def _dir_py(rel: str):
     d = ROOT / rel if rel else ROOT
     if not d.is_dir():
@@ -241,7 +268,10 @@ def check():
             continue
         if ("最后更新" not in text) and ("最近更新" not in text):
             add("W2", "warn", f"{where}/README.md 缺「最后更新 / 最近更新」行", where)
-        missing = [n for n in _dir_py(rel) if n not in text]
+        names = _dir_py(rel)
+        ignored = _git_ignored([f"{rel}/{n}" if rel else n for n in names])
+        missing = [n for n in names
+                   if n not in text and (f"{rel}/{n}" if rel else n) not in ignored]
         if missing:
             add("A5", "error",
                 f"{where}/README.md 文件清单未覆盖 {len(missing)} 个 .py：{', '.join(missing)}", where)
@@ -250,6 +280,7 @@ def check():
     # ★ CODE_ROOTS 里的子根（eval / services / ...）本身也在根遍历范围内，
     #   同一个目录会被走到两次 → 用 checked 去重，避免同一问题报两行（2026-10-14）。
     checked_a6 = set()
+    a6_candidates = []
     for root in CODE_ROOTS:
         base = ROOT / root if root else ROOT
         if not base.is_dir():
@@ -272,8 +303,13 @@ def check():
                 continue
             if (d / "README.md").is_file():
                 continue
-            add("A6", "error",
-                f"{rel or '<root>'} 含 .py 但未登记：补进 REGISTERED_DIRS（并写 README），或列入 DOC_EXEMPT_DIRS", rel)
+            a6_candidates.append(rel)
+    ignored_a6 = _git_ignored(a6_candidates)
+    for rel in a6_candidates:
+        if rel in ignored_a6:
+            continue
+        add("A6", "error",
+            f"{rel or '<root>'} 含 .py 但未登记：补进 REGISTERED_DIRS（并写 README），或列入 DOC_EXEMPT_DIRS", rel)
 
     # A7：解析失败必须可见 —— 静默跳过等于该文件的 import 断言从未执行
     for py in _iter_code_files():

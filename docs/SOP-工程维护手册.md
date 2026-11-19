@@ -19,7 +19,7 @@
 | 层 | 位置 | 职责 |
 |---|---|---|
 | Agent（客户端） | WorkBuddy / Trae / Claude Desktop 等 | 承载 Skill 流程、调用 MCP 工具、**负责语义判断**（读规格书提参数、命名含义、极性标识） |
-| MCP 服务 | `mcp_server/` | 暴露 **36 个 tool** + resource + prompt，**负责数值计算**（几何求解、规则核验、PDF 渲染、归档） |
+| MCP 服务 | `mcp_server/` | 暴露 MCP tool + resource + prompt，**负责数值计算**（几何求解、规则核验、PDF 渲染、归档） |
 | 业务源码 | `services/` | 求解器、建造器、extracta / SkillBridge 读写、PDF 服务、spec 库、规则表 |
 
 核心原则：**数值由代码算，语义由 AI 判断。**
@@ -35,7 +35,7 @@
 | 逐字节相同 10 件 | `mcp_server/{config,prompts,resources,__init__}`、`services/{pdf_locate,rule_checker,skillbridge_reader}`、`services/{json_utils,validation}`（原 `shared/` 3 件，2026-10-12 并入 services） |
 | ★ 更正（2026-10-14 实测） | 上表的「相同 10 件」是 **2026-10-13 的快照**，当天复测只剩 **4 件逐字节相同**：`pdf_locate.py`、`cdsroot_locator.py`、`allegro_service.py`、`report_renderer.py`；**6 件已分叉**：`pdf_service`（19.9 KB vs 4.2 KB）、`pdf_renderer`（4.6 vs 3.9）、`footprint_extractor`（7.6 vs 4.6）、`extracta_reader`（33.4 vs 21.0）、`skillbridge_reader`（14.7 vs 13.0）、`rule_checker`（60.9 vs 38.2）。改前 4 件仍要两仓同轮改，后 6 件只看本仓 |
 | 本项目单方增强 3 件 | `extracta_reader` 598→646（+REF DES 第 4 路视图）、`pdf_service` 136→264（+contact sheet）、`footprint_extractor` 128→182（+缺口检测） |
-| 工具覆盖 | 本项目 36 个 ⊇ 旧版 7 个，**7/7 全覆盖** |
+| 工具覆盖 | 本项目全部工具 ⊇ 旧版 7 个，**7/7 全覆盖** |
 
 → **旧版项目不再维护**，保留在 `Layout\` 下仅作历史参考。
 → 唯一遗留风险已消除：`rule_checker.py`（1114 行）曾在两边各存一份，改规则时"改哪边"不确定；现在只认**本项目这一份**。
@@ -192,7 +192,7 @@ SkillBridge 自动加载由 `Tools\deploy\setup_agent.py` 的 C 步负责，
 |---|---|---|---|---|
 | 1 | WorkBuddy MCP 注册 | `C:\Users\ds245\.workbuddy\mcp.json` | `Tools\deploy\setup_agent.py`（A 步，合并写入 + 先备份） | 客户端里整个 server 不见 |
 | 2 | SkillBridge 自动加载 | `D:\Dev_tools\Cadence_17.2\Cadence\SPB_Data\pcbenv\allegro.ilinit` | 同上（C 步，调 `Tools\install_skillbridge.py`） | 建封装报「连不上 Allegro」 |
-| 3 | DSH 侧连接器 | `C:\Users\ds245\.dsh\profiles\tauri\cordis.patch.yml`（`insert: - id: mcp-layout-forge-mcp`） | **手工**，非本仓库 | DSH 工具列表里没有这 36 个工具 |
+| 3 | DSH 侧连接器 | `C:\Users\ds245\.dsh\profiles\tauri\cordis.patch.yml`（`insert: - id: mcp-layout-forge-mcp`） | **手工**，非本仓库 | DSH 工具列表里没有本项目的工具 |
 
 三处都指向**同一个**路径（`layout-forge-mcp\.venv\Scripts\python.exe`），重建后逐个对照：
 
@@ -369,7 +369,7 @@ Tools\test\<符号名>\
 
 ### 7.2 发布流程
 
-1. 改代码 → 2. 跑**一条命令**（五套断言全跑，见下；必须全绿）→ 3. 实机建一颗件验证 → 4. 更新相关 `README.md` → 5. 重连 MCP 验证工具数 **36**。
+1. 改代码 → 2. 跑**一条命令**（五套断言全跑，见下；必须全绿）→ 3. 实机建一颗件验证 → 4. 更新相关 `README.md` → 5. 重连 MCP 验证工具数与本机源码的 `@mcp.tool` 定义数一致（部署冒烟 D2 已是同源比较）。
 
 ```bash
 # ★ 一条命令跑完五套断言（Phase 2-d；缺依赖记 ERROR、不静默跳过）
@@ -387,7 +387,7 @@ python Tools\selfcheck_geometry.py          # 239 项
 python Tools\selfcheck_skill_syntax.py      # 222 项
 # ② 四套断言（纯 stdlib，任何 3.10+ 都能跑）
 python eval\suites\architecture\check_architecture.py      # 层方向 / 目录登记 / README 覆盖，ERROR 必须 0
-python eval\suites\tool_contract\check_tool_contract.py    # 工具数（36）/ docstring / 遥测口径
+python eval\suites\tool_contract\check_tool_contract.py    # 数量与名字 / docstring / 遥测口径 / 分组 C7 / 目录过期 C8
 python eval\suites\spec_reading\check_spec_reading.py      # 读图准确率（真值人工签字；基线 92.5%）
 python eval\suites\behavior\check_behavior.py              # S1/S2/S4 硬规则 + L3 状态机可执行性（B1–B5）
 # ③ 几何回归评分（把 239/222/35 与 253 件对拍变成分数；必须用「工作区外」的解释器，见下）
@@ -455,10 +455,9 @@ GBK 控制台下汇总行打印 `[✓]`（U+2713）抛 `UnicodeEncodeError`，�
 - `mcp_server/config.py` **无 `MCP_VERSION`**（旧版项目有）。别照抄旧版 SOP 里"更新版本号"那一步。
 - `config.py` 里 PDF 渲染输出目录变量叫 `RENDER_OUTPUT_ROOT`，落盘目录为 `Tools/log/render/`（历史名 `marker_out`，2026-10-12 迁入 Tools/log）。
 - `Tools/debug/` 下脚本定位项目根要用**上三级**（`parent.parent.parent`），迁入时修过。
-- `docs/规格书读取方案.md` 里的「31 个工具 / 34 个工具」是该方案写作时的**历史快照**，不是现状声明；
-  现状工具数以本手册 §9.1（36）与 `eval/suites/tool_contract` 基线为准。改工具数时**不必**回改该方案的正文，
-  但新写的文档别再引用旧数字。★ 2026-10-16 已把根 `README.md`、`docs/README.md` 里的遗留数字
-  （`212 项` / `180 项` 自检、`python tools/` 小写路径）一并修正。
+- 历史快照文档里的工具数（如 `docs/规格书读取方案.md` 的「31 / 34 个工具」）是该文写作时的快照，不是现状声明；
+  **现状工具数只认 `docs/tools-catalog.md`（生成物）与 `eval/suites/tool_contract` 基线**。改工具集时**不必**回改这些正文，
+  但新写的文档别再写数量、也别抄清单。★ 2026-11-19：15 份文档里 29 处声明数字已清空，改由 C7（分组漏补）/C8（目录过期）守门。
 
 ---
 
@@ -478,36 +477,26 @@ GBK 控制台下汇总行打印 `[✓]`（U+2713）抛 `UnicodeEncodeError`，�
 
 ## 9. 附录
 
-### 9.1 MCP 工具速查（36 个）
+### 9.1 MCP 工具速查
 
-★ 以 `mcp_server/tools.py` 的 `@mcp.tool` 实际注册为准（下表即从 `mcp.list_tools()` 实测抄录），
-门禁是 `eval/suites/tool_contract/check_tool_contract.py`（C1 冻结在 36）。
+★ **工具全表不在这里**。手抄的清单守不住：2026-11-19 之前这一节抄着 36 个名字与分组，同一天
+同仓另一处 `references/client-config.md` 抄的是另一套分组，两套都自称 36。
 
-**图纸 / 器件写侧（12）**：`inspect_allegro_environment`、`new_footprint_drawing`、`new_symbol_drawing`、
-`clear_footprint_drawing`、`change_drawing_extents`、`frame_drawing_view`、`create_padstack`、
-`add_footprint_pin`、`add_footprint_outline`、`add_footprint_text`、`save_footprint_drawing`、`export_psm`
+全仓唯一的工具清单是**生成的** `docs/tools-catalog.md`（按 6 组，每个工具名 + docstring 首句）。
+它由 `mcp_server/tools.py` 的 `@mcp.tool` 定义与 `knowledge/tool_groups.json`（**唯一人工维护的分组映射**）
+生成，过期由契约套件 **C8** 报红；分组漏补由 **C7** 报红。
 
-**几何求解与库（5）**：`solve_footprint_geometry`、`build_footprint_from_params`、
-`validate_land_pattern_json`、`install_shadow_library`、`list_shadow_library`
+- 想知道「有没有某个能力」→ 看 `docs/tools-catalog.md`，或直接看 MCP 客户端里的工具列表（运行期下发的就是真表）
+- 想知道「常用工具怎么配合」→ 见 `references/mcp-tools.md`（调用顺序工作流，不抄清单）
+- 门禁：`eval/suites/tool_contract/check_tool_contract.py`（C1/C2 冻结基线、C3/C4 docstring、
+  C5/C6 遥测、**C7 分组完整性**、**C8 目录过期**）
 
-**spec / 案例库（7）**：`save_spec`、`load_spec`、`find_spec`、`list_specs`、
-`save_case`、`find_case`、`list_cases`
-
-**读 PDF / 目录（8）**：`list_subfolders`、`list_folder_files`、`locate_land_pattern_page`、
-`render_pdf_page`、`render_pdf_contact_sheet`、`pdf_probe`、`render_pdf_region`、`measure_region`
-
-**检查（2）**：`read_full_footprint`、`check_footprint_by_rules`
-
-**编排 / 观测（2）**：`folder_preflight`（L3 目录预检）、`get_run_stats`（L4 遥测统计）
-
-> 12 + 5 + 7 + 8 + 2 + 2 = **36**（2026-10-14 起；此前 34 / 31 / 28）。
-> 分类是人为划分：`list_folder_files`、`render_pdf_page` 等在建、查两条链路都会用到。
->
 > ★ 阈值类参数外置在 `knowledge/rules/checker_rules.json`（2026-10-12 起），
 > 改 JSON 立即生效、不用重启 MCP；判定逻辑仍在 `rule_checker.py`。
-> ★ 改工具清单必须同轮改 `Tools/deploy/setup_agent.py::EXPECTED_TOOLS`、
-> 两份 SKILL 的清单（含 `references/mcp-tools.md`），再
-> `python eval/suites/tool_contract/check_tool_contract.py --update` 冻结基线。
+> ★ 改工具集后的三步：① 在 `knowledge/tool_groups.json` 里给新工具补分组
+> ② `python eval/suites/tool_contract/check_tool_contract.py --update` 重冻结基线
+> ③ 同一脚本加 `--write-catalog` 重生成 `docs/tools-catalog.md`。
+> **文档里不要再抄工具名或数量** —— 抄了就会成为第二份、第三份真源。
 
 ### 9.2 目录说明
 

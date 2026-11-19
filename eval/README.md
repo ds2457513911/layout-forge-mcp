@@ -23,7 +23,7 @@
 | `suites/geometry_regression/` | L1 确定性几何不退化 | **G1–G6 + R1–R4**：包住 **239** 项几何自检 + **222** 项 SKILL 语法自检 + **35** 项约定自检 + **253** 件金标准对拍，分数==基线；**G6 = 被调方探针**（extracta 四路取数健康，被沙箱掐住时会在这里红，而不是让 R4 悄悄假红）；基线 `baselines/geometry_regression.json` | **Phase 2-a ✅ 已就位** |
 | `suites/spec_reading/` | **读规格书准确率** | canonical **8 字段**（= `knowledge/specs` 的 `fingerprint` 键，不另造 schema）+ **S1–S8**：每字段四分类 correct / wrong / missing / spurious，容差 body·pad ±0.05 mm、pitch ±0.02 mm；★ **S2 真值必须人工签字**（AI 自签 = 循环论证）、S3 真值绑 PDF 哈希、S5 非 null 真值必须带页码、**S8 定位器不撒谎**（`--with-locate`）；基线 `baselines/spec_reading.json` | **✅ 2026-10-15：10 例真值已签字、正式 92.5%、基线已冻结**（80 字段：correct 74 / wrong 3 / spurious 3） |
 | `suites/behavior/` | L3 规则真的可执行 | **B1–B5 行为夹具**（把 SKILL 的 S 系硬规则 + L3 状态机造成可控临时目录，逼工具层表态）：B1 目录多份 `.dra`/PDF → 必须 `ambiguous` + `confirm` + 候选列全；B2 只有历史 `checklist_report_*.json` → 不算证据、判缺料 `stop`；B3 `AUTOSAVE.dra` → 剔除且不算候选；B4 **先探通道** → `connected=False` 时 `error` 必须非空（禁把没通道说成「没工具」）；**B5 L3 状态机 + `playbook.json` 硬约定** → 每条规则都带检测方式与后果类别、`pipeline.run()` 放行/拦停正确（歧义必须 `confirm` 且**停在 preflight 不许继续取数**、通道不可用必须 `stop` + `CHANNEL_NOT_READY`）、`stale_rule_ids`（已删除的 `6.5`）必须被单独点名。**无基线**（是断言套件，像 architecture） | **Phase 2-c ✅ 4 条 / Phase 3 ✅ B5（5/5 通过）** |
-| `suites/tool_contract/` | L2 工具契约不破 | **C1–C6 静态断言**：工具数量 / 名字集合（改名=破坏）= 基线、每个工具有 docstring、每个参数名写进 docstring、遥测字段口径、`server.py` 是否挂了 `TelemetryMiddleware`；基线 `baselines/tool_contract.json` | **Phase 1 ✅ 已就位** |
+| `suites/tool_contract/` | L2 工具契约不破 | **C1–C8 静态断言**：工具数量 / 名字集合（改名=破坏）= 基线、每个工具有 docstring、每个参数名写进 docstring、遥测字段口径、`server.py` 是否挂了 `TelemetryMiddleware`、**C7 每个工具都在 `knowledge/tool_groups.json` 里有分组**、**C8 生成的 `docs/tools-catalog.md` 与代码一致（不陈旧）**；基线 `baselines/tool_contract.json` | **Phase 1 ✅ 已就位** |
 | `suites/architecture/` | 层方向 + 文档覆盖 | `check_architecture.py`：**A1–A7**（层方向 / 登记 / README 覆盖 / **A7 解析失败必须可见**）+ W1–W3 | **Phase 0 ✅ 已就位** |
 
 ## 一条命令跑完（Phase 2-d）
@@ -73,6 +73,7 @@ python eval/suites/architecture/check_architecture.py
 # 工具契约断言（Phase 1 已可用，同样纯 stdlib）
 python eval/suites/tool_contract/check_tool_contract.py
 python eval/suites/tool_contract/check_tool_contract.py --update   # 改完契约后重新冻结基线
+python eval/suites/tool_contract/check_tool_contract.py --write-catalog   # 重生成 docs/tools-catalog.md（唯一的人读工具清单）
 #   C1 工具数（现 36）/ C2 名字集合 / C3 docstring / C4 参数写进 docstring / C5 遥测口径 / C6 中间件接线
 
 # 下面这些要项目依赖（skillbridge 等），必须用**装了依赖的解释器**
@@ -108,7 +109,7 @@ python eval/suites/behavior/check_behavior.py --python <带 skillbridge 的解�
 |--|--|--|
 | `python eval/check_eval.py` | ★ **五套全绿 / 红 0 套，用时 99 s**（geometry 96 s）；解释器自动选中「工作区外 + 有依赖」的缓存区副本 | 0 |
 | `python eval/suites/architecture/check_architecture.py` | **ERROR 0 项 / WARN 1 项**（W3 是已声明偏差：`services/skillbridge_writer.py:195` 反向 import `mcp_server.config`） | 0 |
-| `python eval/suites/tool_contract/check_tool_contract.py` | **ERROR 0 项 / WARN 0 项，全绿**（36 个工具，基线 `baselines/tool_contract.json`） | 0 |
+| `python eval/suites/tool_contract/check_tool_contract.py` | **ERROR 0 项 / WARN 0 项，全绿**（数量与名字对照冻结基线 `baselines/tool_contract.json`；分组真源 `knowledge/tool_groups.json` 由 C7 守、人读目录 `docs/tools-catalog.md` 由 C8 守） | 0 |
 | `python eval/suites/behavior/check_behavior.py` | **夹具 5/5 通过；ERROR 0 项**（B4 实测 `connected=False` 且 `error` 非空 → 通道未连如实上报；B5 实测歧义 `confirm` 且停在 preflight、无通道 `stop` + `CHANNEL_NOT_READY`）；耗时约 1 s（B4 用工作区外解释器） | 0 |
 | `python eval/suites/spec_reading/check_spec_reading.py` | **总准确率 92.5%**（80 字段：correct 74 / wrong 3 / spurious 3），S1–S8 通过；基线 `baselines/spec_reading.json` | 0 |
 | `python eval/suites/geometry_regression/check_geometry_regression.py` | **ERROR 0 项 / WARN 0 项，全绿**（噪声 0 —— 2026-10-15 噪声名单扩展后曾现形 145 个、当日全部隔离清理；253 / 14 目录 / specs 5 / cases 10；239/239、222/222、35/35；extracta 四路由产出；对拍 253 件 PASS 7 / FAIL 81 / 例外 231 / 提取失败 17 / exact 0） | 0 |
@@ -129,7 +130,7 @@ python eval/suites/behavior/check_behavior.py --python <带 skillbridge 的解�
 
 ## 关键约定与坑
 
-1. `runs/` **不进 git**（每次产物），`baselines/` **进 git**（它是「上一次被认可的行为」的唯一记录）。现有基线：`baselines/tool_contract.json`（36 工具的契约快照 + 遥测口径）、`baselines/geometry_regression.json`（资产件数 + 253 件对拍的 CSV 计数 + 四套既有检查的分数 + extracta 探针结论）、`baselines/spec_reading.json`（**2026-10-15 冻结：10 例 / 80 字段 / 准确率 92.5%**，真值已人工签字）。
+1. `runs/` **不进 git**（每次产物），`baselines/` **进 git**（它是「上一次被认可的行为」的唯一记录）。现有基线：`baselines/tool_contract.json`（工具契约快照 + 遥测口径）、`baselines/geometry_regression.json`（资产件数 + 253 件对拍的 CSV 计数 + 四套既有检查的分数 + extracta 探针结论）、`baselines/spec_reading.json`（**2026-10-15 冻结：10 例 / 80 字段 / 准确率 92.5%**，真值已人工签字）。
 2. 本层是**测试代码**：可以 import 项目任何模块；但**绝不被项目源码 import**（生产代码依赖测试 = 层方向反了）。
 3. 真值文件里**只放数据 + 出处**（页码/区域），**不放结论性描述**，否则无法自动打分。
 4. 用例路径以 `../../Data/footprint/<PN>/` 相对引用，**不复制客户 PDF 进仓库**。

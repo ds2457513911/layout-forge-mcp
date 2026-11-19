@@ -15,12 +15,14 @@ eval/suites/tool_contract/check_tool_contract.py —— L2 工具契约断言（
 
 | 码 | 判据 | 为什么 |
 |--|--|--|
-| C1 | 工具数量 == `eval/baselines/tool_contract.json` 里的数量 | 工具数变了要显式改基线（并同轮改 `EXPECTED_TOOLS` 与 SKILL 清单） |
+| C1 | 工具数量 == `eval/baselines/tool_contract.json` 里的数量 | 工具数变了要显式重冻基线（`--update`），不许悄悄变 |
 | C2 | 工具名集合 == 基线 | 改名 / 删除 = 破坏契约（下游 SKILL 与脚本按名字调用） |
 | C3 | 每个工具都有 docstring | docstring 就是接口文档；没有 = 模型只能猜 |
 | C4 | 每个工具的参数名都在 docstring 里出现 | 参数改了不同步说明 = 说明书骗人 |
 | C5 | 遥测事件的核心字段集 == 基线 | 观测口径是跨层约定，不能偷偷变 |
 | C6 | `mcp_server/server.py` 挂了 `TelemetryMiddleware` | 没挂 = 遥测永远为空（`stats` 会一直喊缺口） |
+| C7 | 每个工具在 `knowledge/tool_groups.json` 里恰好一个组，且没有幽灵名字 / 空组 | 分组是唯一需要人判断的工具事实，漏了就没人补 |
+| C8 | `docs/tools-catalog.md` == 按代码+分组重算的结果 | 手抄清单会腐烂（实测漏 11 处）；生成物过期要红，不靠「记得重跑」 |
 
 ## 警告（WARN）
 
@@ -31,9 +33,13 @@ eval/suites/tool_contract/check_tool_contract.py —— L2 工具契约断言（
 
 ## 用法
 
-    python eval/suites/tool_contract/check_tool_contract.py            # 比对基线
-    python eval/suites/tool_contract/check_tool_contract.py --update   # 重新冻结基线
+    python eval/suites/tool_contract/check_tool_contract.py                 # 比对基线 + C7/C8
+    python eval/suites/tool_contract/check_tool_contract.py --update        # 重新冻结基线
+    python eval/suites/tool_contract/check_tool_contract.py --write-catalog # 重算 docs/tools-catalog.md
     python eval/suites/tool_contract/check_tool_contract.py --json
+
+★ 加/删工具的顺序：改 tools.py → 在 knowledge/tool_groups.json 给它分组 → `--update`
+  → `--write-catalog`。C7/C8 会把漏掉的任一步变成红色。
 
 ★ 改了工具契约就**必须**跑这一套并提交新的基线 —— 基线进 git，`eval/runs/` 不进。
 """
@@ -60,38 +66,16 @@ CORE_EVENT_FIELDS = [
 ]
 
 
-# ---------------------------------------------------------------- 静态解析
-def _is_tool_decorator(node: ast.AST) -> bool:
-    """`@mcp.tool()` / `@mcp.tool` 都算。"""
-    if isinstance(node, ast.Call):
-        node = node.func
-    return (isinstance(node, ast.Attribute) and node.attr == "tool"
-            and isinstance(node.value, ast.Name) and node.value.id == "mcp")
-
-
-def parse_tools(path: Path = TOOLS_PY):
-    """返回 (工具列表, 装饰器计数)；工具项 = {name, doc_len, params, undocumented}。"""
-    tree = ast.parse(path.read_text(encoding="utf-8"))
-    tools, decorators = [], 0
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        if not any(_is_tool_decorator(d) for d in node.decorator_list):
-            continue
-        decorators += 1
-        doc = ast.get_docstring(node) or ""
-        args = node.args
-        params = [a.arg for a in (*args.posonlyargs, *args.args, *args.kwonlyargs)
-                  if a.arg not in ("self", "cls")]
-        undocumented = [p for p in params if p not in doc]
-        tools.append({
-            "name": node.name,
-            "doc_len": len(doc),
-            "params": params,
-            "undocumented": undocumented,
-        })
-    tools.sort(key=lambda t: t["name"])
-    return tools, decorators
+# ---------------------------------------------------------------- 静态解析（与生成器共用一份实现）
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from tool_catalog import (  # noqa: E402
+    consolidate,
+    freshness_problem,
+    is_tool_decorator,     # noqa: F401  （供外部脚本复用）
+    load_groups,
+    parse_tools,
+    write_catalog,
+)
 
 
 def telemetry_schema() -> dict:
@@ -115,6 +99,8 @@ def middleware_wired() -> bool:
 
 def build_snapshot() -> dict:
     tools, decorators = parse_tools()
+    # 基线只冻结契约字段（名字/长度/参数），生成器附带的 summary 不进基线
+    tools = [{k: t[k] for k in ("name", "doc_len", "params", "undocumented")} for t in tools]
     return {
         "frozen_at": datetime.now().isoformat(timespec="seconds"),
         "tool_count": len(tools),
@@ -142,7 +128,7 @@ def check() -> list:
     if current["tool_count"] != baseline["tool_count"]:
         add("C1", "error",
             f"工具数量 {current['tool_count']} != 基线 {baseline['tool_count']}"
-            f"（同轮要改 Tools/deploy/setup_agent.py::EXPECTED_TOOLS 与两份 SKILL 清单，再 --update）")
+            f"（同轮：knowledge/tool_groups.json 补分组 → --update → --write-catalog）")
     if current["decorator_count"] != current["tool_count"]:
         add("C1", "error",
             f"`@mcp.tool()` 装饰器 {current['decorator_count']} 个 != 解析到 {current['tool_count']} 个函数")
@@ -175,6 +161,21 @@ def check() -> list:
     if not middleware_wired():
         add("C6", "error", "mcp_server/server.py 没挂 TelemetryMiddleware —— 遥测会永远是空的")
 
+    # C7 分组完整性（分组只有 knowledge/tool_groups.json 一处）
+    try:
+        groups_doc = load_groups()
+    except Exception as exc:  # noqa: BLE001
+        add("C7", "error", f"读不到 knowledge/tool_groups.json：{exc}")
+    else:
+        _, problems = consolidate(current["tools"], groups_doc)
+        for p in problems:
+            add("C7", "error", p)
+
+    # C8 目录新鲜度（docs/tools-catalog.md 必须等于重算结果）
+    stale = freshness_problem()
+    if stale:
+        add("C8", "error", stale)
+
     return findings
 
 
@@ -195,8 +196,14 @@ def main() -> int:
     _force_utf8_stdout()
     ap = argparse.ArgumentParser(description="MCP 工具契约断言（L2）")
     ap.add_argument("--update", action="store_true", help="用当前状态重新冻结基线")
+    ap.add_argument("--write-catalog", action="store_true", help="按代码+分组重算 docs/tools-catalog.md")
     ap.add_argument("--json", action="store_true", help="机器可读输出")
     args = ap.parse_args()
+
+    if args.write_catalog:
+        path = write_catalog()
+        print(f"目录已重算：{path.relative_to(ROOT).as_posix()}")
+        return 0
 
     if args.update:
         snap = build_snapshot()

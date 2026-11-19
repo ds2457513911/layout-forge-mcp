@@ -22,7 +22,7 @@
 | 层 | 目录 / 文件 | 已有什么 | 还缺什么 | 谁来守 |
 |--|--|--|--|--|
 | **1 确定性内核** | `services/` 的纯函数群：`geometry_solver.py` / `skill_snippets.py` / `rule_checker.py` / `convention_engine.py` / `spec_library.py` / `case_library.py` / `validation.py` / `json_utils.py` / `report_renderer.py` / `paths.py` | 零 Allegro 依赖；239 项几何自检 + 222 项 SKILL 语法自检 + 253 件金标准对拍 | —（只防退化） | `eval/suites/architecture`（A3）+ `eval/suites/geometry_regression` |
-| **2 契约与工具层** | `mcp_server/`（**36 个工具**，`tools.py` 内 docstring 即契约；`middleware.py` 统一埋点） | 证据制判据（`axlCompileSymbol` 恒 nil → 看磁盘快照）；静默失败清零 | 统一错误码 `errors.py`；返回信封（`run_id` / `error_code`）；`list_folder_files` 的**歧义可见化**（Phase 1 已用 `folder_preflight` 从外部补齐，工具本身不动 —— 它与 `layout-check-mcp` 逐字节共享） | `eval/suites/tool_contract`（✅ 已就位：36 工具 / docstring 参数 / 遥测口径 / 中间件接线 + 冻结基线） |
+| **2 契约与工具层** | `mcp_server/`（工具清单见 `docs/tools-catalog.md`，`tools.py` 内 docstring 即契约；`middleware.py` 统一埋点） | 证据制判据（`axlCompileSymbol` 恒 nil → 看磁盘快照）；静默失败清零 | 统一错误码 `errors.py`；返回信封（`run_id` / `error_code`）；`list_folder_files` 的**歧义可见化**（Phase 1 已用 `folder_preflight` 从外部补齐，工具本身不动 —— 它与 `layout-check-mcp` 逐字节共享） | `eval/suites/tool_contract`（✅ 已就位：数量与名字 / docstring 参数 / 遥测口径 / 中间件接线 + 冻结基线 + 分组完整性 C7 + 目录过期 C8） |
 | **3 编排与控制** | `orchestration/`（`preflight.py` 已实现，`is_noise()` 为噪声判定单一真源；**`playbook.json` 规则装配表 + `pipeline.py` 状态机已落地**）+ 两份 SKILL | 铁律 / S1–S4 / 红线清单；部署侧 `Tools/deploy/scripts/preflight_check.py`；`playbook.json` 25 条 `rule_id` + 13 条 `G-*` 门禁（每条带检测方式与后果类别 `deny`/`silent`/`recoverable`，并把已删除仍在流通的 `6.5` 记进 `stale_rule_ids`）；`pipeline.py` 五步状态机 + 失败码 `CHANNEL_NOT_READY`/`AMBIGUOUS_INPUT`/`NO_CANDIDATES`/`UNITS_UNKNOWN`/`NO_DATA` | SKILL 侧尚未按计划书 §7 改写（S1 改读 `ambiguous` 字段、S4 改按失败码分支、新增「工具已保证」小节、头部三声明 `mcp_min_commit`/`verified_with`/`eval_baseline`）；**SKILL 待记条数仍 >5** | `eval/suites/behavior`（✅ 已就位：B1 S1 歧义 / B2 S2 旧报告不算证据 / B3 噪声剔除 / B4 S4 先探通道 / **B5 L3 状态机 + playbook 硬约定**）+ A1 |
 | **4 可观测性** | `observability/`（`telemetry.py` / `runstore.py` / `stats.py`）+ `eval/runs/` | 有产物：`Tools/log/` 1,242 个文件、`knowledge/cases/` 10 条裁定；**每次工具调用已落 JSONL**（`ts/run_id/tool/ok/ms/error_code/args_keys/args_hash`，只记参数名与 hash） | token 数属**客户端**指标（不进本仓）；缺口清单由 `stats.summarize()["gaps"]` 如实喊 | A2 + A6 + `eval/suites/tool_contract` C5/C6 |
 | **5 度量与评测** | `eval/` | `suites/architecture`（A1–A7）+ `suites/tool_contract`（C1–C6）+ `suites/geometry_regression`（G1–G6 + R1–R4：239 / 222 / 35 / 253 件 + extracta 被调方探针）+ `suites/spec_reading`（S1–S8 + 8 字段四分类 + **真值人工签字闸门** + **S8 定位不撒谎**）+ `suites/behavior`（B1–B5）均已就位；`baselines/tool_contract.json`、`baselines/geometry_regression.json`、`baselines/spec_reading.json`（92.5%）冻结 | `run_eval.py` 汇总入口；扩充 spec_reading 用例（现 10 例） | 本层自己（唯一没被守的层要自守） |
@@ -51,7 +51,7 @@ Data/  knowledge/  纯数据（不是代码层，谁都能读）
 | `eval/` | 任何项目模块 | **绝不被项目源码 import**（生产代码依赖测试 = 方向反了） |
 
 **为什么不搬迁目录**（2026-10-14 决定）：`services/` / `knowledge/` / `Tools/` / `docs/` / `Data/`
-一动就要改 36 个工具 + 27 个 Tools 脚本 + 两份 SKILL + 与 `layout-check-mcp` 逐字节共享的 8 个文件。
+一动就要改全部 MCP 工具 + 27 个 Tools 脚本 + 两份 SKILL + 与 `layout-check-mcp` 逐字节共享的 8 个文件。
 层能力靠**新增层目录 + 断言**补齐，不靠改名。
 
 ## 登记手续：新增目录 / 新增模块怎么做
@@ -61,7 +61,7 @@ Data/  knowledge/  纯数据（不是代码层，谁都能读）
 | 建一个新目录 | ① 写该目录 `README.md`（定位 / 最后更新 / 文件清单 / 约定与坑 / 相关目录）② 加进根 `README.md` 的目录导航表 ③ 加进 `eval/suites/architecture/check_architecture.py::REGISTERED_DIRS` ④ 若是源码包，加进 `pyproject.toml` 的 `packages.find.include` |
 | 加一个确定性内核模块 | 加进 `check_architecture.py::CORE_MODULES`（自动获得「禁止连 Allegro」保护） |
 | 加一个目录约定 | 只加在 `services/paths.py`（**唯一真源**），别在别处硬编码路径 |
-| 新增 MCP 工具 | ① 同轮改 `Tools/deploy/setup_agent.py::EXPECTED_TOOLS` ② 两份 SKILL 的工具清单（含 `references/mcp-tools.md`）③ 跑 `eval/suites/tool_contract/check_tool_contract.py --update` 重新冻结基线 —— **漏任一步都会红** |
+| 新增 MCP 工具 | ① 在 `knowledge/tool_groups.json` 里给新工具补分组（**唯一需要人工写的一处**）② 跑 `python eval/suites/tool_contract/check_tool_contract.py --update` 重冻结基线 ③ 跑同一脚本 `--write-catalog` 重生成 `docs/tools-catalog.md`。漏 ① 由 C7 红，漏 ③ 由 C8 红；**文档里不要再抄工具名或数量** |
 
 ## 已知偏差（声明制：仍然打印，但不算 ERROR）
 

@@ -4,6 +4,9 @@
 > 编写依据：`PMC\BOM_validation\SERVER_PROMPT.md`（NAS 环境真源）、`ARCHITECTURE_PROMPT.md`（四层架构与踩坑真源）、本仓 `README.md` / `LAYERS.md` / `docs/SOP-工程维护手册.md`
 > 目标：把「自动创建封装 + 封装检测」做成同事能用的网页服务，部署到 Synology DS1621+
 
+> ★ **历史快照（2026-11-11 写作时）**：文中「36 个工具」及各段的分组数量都是当时的口径，不是现状。
+> 现状工具清单只认 `docs/tools-catalog.md`（生成物）；本文的数字按「历史快照」保留，引用时请标年份。
+
 ---
 
 ## 一、一句话结论

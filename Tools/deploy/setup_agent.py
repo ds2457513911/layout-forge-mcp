@@ -565,6 +565,36 @@ def install_skillbridge(project_root: Path, pcbenv: str | None, dry_run: bool) -
 # ============================================================
 # D. 冒烟验收
 # ============================================================
+def _source_tool_count(project_root: Path) -> int | None:
+    """数 mcp_server/tools.py 里 @mcp.tool 定义的个数（纯 AST，不 import、不跑代码）。
+
+    为什么不用常量：手写期望值（旧的 EXPECTED_TOOLS = 39）是第二份真源，
+    加一个工具就得记得改它，忘了就永远比对通过。这里比的是同一份 clone 的
+    「源码定义数」与「运行期注册数」，两个量同源，不一致才有意义。
+    """
+    src = project_root / "mcp_server" / "tools.py"
+    if not src.is_file():
+        return None
+    try:
+        import ast
+
+        tree = ast.parse(src.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return None
+    count = 0
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for deco in node.decorator_list:
+            if isinstance(deco, ast.Call):
+                deco = deco.func
+            if (isinstance(deco, ast.Attribute) and deco.attr == "tool"
+                    and isinstance(deco.value, ast.Name) and deco.value.id == "mcp"):
+                count += 1
+                break
+    return count
+
+
 def smoke_test(project_root: Path) -> bool:
     ok = True
 
@@ -605,17 +635,17 @@ def smoke_test(project_root: Path) -> bool:
         if isinstance(tools, (dict, list, tuple)):
             count = len(tools)
 
-    # 当前版本的期望值（2026-10-13：31 → 34，新增读规格书三件套；
-    #                2026-10-14：34 → 36，新增 folder_preflight / get_run_stats）
-    EXPECTED_TOOLS = 39
-
-    if count:
-        log(f"MCP 工具总数：{count}（当前版本期望 {EXPECTED_TOOLS}）", "OK")
-        if count < EXPECTED_TOOLS:
-            log(f"  少了 {EXPECTED_TOOLS - count} 个，多半是仓库版本旧，不是装坏了；", "WARN")
-            log("  到仓库根 git pull 拉最新代码后重连客户端。", "WARN")
-        elif count > EXPECTED_TOOLS:
-            log("  比期望多 —— 可能是你本地加了新工具，更新本脚本的 EXPECTED_TOOLS。", "WARN")
+    # 期望值不手写：从同一份 clone 的源码现算（见 _source_tool_count）
+    source_defs = _source_tool_count(project_root)
+    if count and source_defs is not None:
+        log(f"MCP 工具总数：运行期 {count} / 源码 {source_defs}", "OK")
+        if count < source_defs:
+            log(f"  运行期比源码少 {source_defs - count} 个：多半是客户端还连着旧进程，", "WARN")
+            log("  重连客户端（或重启 Allegro）后再看；源码没拉全就到仓库根 git pull。", "WARN")
+        elif count > source_defs:
+            log("  运行期比源码多：进程里挂着本地未提交的改动，或 clone 落后于正在跑的那份代码。", "WARN")
+    elif count:
+        log(f"MCP 工具总数：{count}（读不到源码 tools.py，跳过同源比对）", "WARN")
     else:
         log("读不到工具总数（不阻塞部署，请重连客户端后自行确认）。", "WARN")
 

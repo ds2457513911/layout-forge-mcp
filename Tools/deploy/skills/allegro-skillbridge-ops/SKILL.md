@@ -4,14 +4,14 @@ metadata:
   # ★ 三声明（Phase 3 §7）：放在 front-matter 最前，确保进入部署校验的读取窗口
   mcp_min_commit: "a5bd61f"
   verified_with: "layout-forge-mcp @ a5bd61f / 2026-10-15：eval/check_eval.py 五套全绿、behavior 5/5"
-  eval_baseline: "eval/baselines/tool_contract.json（39 工具）+ geometry_regression.json（239/222/35/253 件） + spec_reading.json（92.5%）"
+  eval_baseline: "eval/baselines/tool_contract.json（工具契约快照）+ geometry_regression.json（239/222/35/253 件） + spec_reading.json（92.5%）"
 description: |
   在 Cadence Allegro (SPB 17.2+) 上通过 SkillBridge 通道做自动化时的运维与排障技能。
   覆盖：AXL/SKILL 函数「文档里有但运行时有没有」、通道错位/卡死后的恢复、
   会弹模态框把通道搞死的 API 清单、Allegro 的启动与收尾生命周期（收尾必须
   关进程 + 收回后台 shell 两件都做）、产物落点错位与「编译成功只认磁盘证据」、
   不用 Allegro 也能读 .dra（extracta + 视图文件）、图元被 extents 静默丢弃、
-  尺寸/位号/库落位口径，以及 layout-forge-mcp 的 36 个工具怎么配合本技能。
+  尺寸/位号/库落位口径，以及 layout-forge-mcp 的 MCP 工具怎么配合本技能（全表见 `docs/tools-catalog.md`）。
   只要任务涉及 Allegro 自动化、axl 函数、SkillBridge 通道、.dra/.psm 产物、
   启动/关闭 Allegro、建封装或归档封装，就先读本技能，即使对方没提 "SkillBridge"。
 
@@ -121,7 +121,7 @@ C:\Users\ds245\Documents\Work_Bmorn\Layout\layout-forge-mcp
 | Allegro（GUI 进程） | bash 命令 | 那条 bash 命令 | **需要** |
 
 MCP 只接管了「谁来调 Allegro」，**接管不了「Allegro 这个进程怎么活下来」** ——
-36 个工具里**没有任何启停 Allegro 的能力**。bash 命令一结束，
+MCP 工具里**没有任何启停 Allegro 的能力**。bash 命令一结束，
 它拉起的 GUI 子进程会被命令边界回收（沙箱内外一样，见 `lifecycle.md`）。
 
 ```bash
@@ -136,7 +136,7 @@ echo "=== 挂住中 ==="; while true; do sleep 20; done     # run_in_background=
 （`start ""` 已让它脱离父进程树）—— 后台挂住解决的是「**启动瞬间**被命令边界
 回收」，Allegro 一旦起来就独立了。**别指望 `TaskStop` 顺带关掉它**，收尾 A 必须单独做。
 
-### 3.1 主流程走 MCP 工具（★ 2026-11-19：39 个工具全部注册通过）
+### 3.1 主流程走 MCP 工具（★ 2026-11-19：当轮注册的工具全部冒烟通过）
 
 **建封装一律走 MCP 工具，不要越过服务层去跑 `Tools/e2e_*.py`。**
 主干见下（完整工具链见 **`references/mcp-tools.md` 第 1 节**）：
@@ -238,7 +238,7 @@ install_shadow_library(symbol_name="<符号名>", pn="<符号名>",
 | 项 | 值 / 规则 |
 |--|--|
 | 项目根 | `C:\Users\ds245\Documents\Work_Bmorn\Layout\layout-forge-mcp`（本技能只服务这一个项目） |
-| 调用方式 | **MCP 为主**（已注册到 `~/.workbuddy/mcp.json`，36 个工具已冒烟实测）+ **CLI 补位**（启停 / 自检 / 归档） |
+| 调用方式 | **MCP 为主**（已注册到 `~/.workbuddy/mcp.json`，当轮工具全量冒烟实测）+ **CLI 补位**（启停 / 自检 / 归档） |
 | Python | 走 MCP 时**由 server 管**，调用方不碰解释器。★ 但跑 CLI 那三件事**只能用项目 `.venv/Scripts/python.exe`** —— 系统 Python 与托管 Python 都没装 `skillbridge`，一 import 就 ImportError |
 | MCP 拉起方式 | 项目 `.venv/Scripts/python.exe -c "import sys; sys.path.insert(0, <项目根>); from mcp_server.server import main; main()"`。**不依赖 cwd**（`config.py` 的 `PROJECT_ROOT` 按 `__file__` 解析） |
 | 服务 | SkillBridge 在 **7777** 端口；Allegro 侧的 pythonw 服务随 Allegro 生灭 |
