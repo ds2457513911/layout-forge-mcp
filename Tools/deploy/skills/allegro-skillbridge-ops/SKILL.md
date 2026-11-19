@@ -61,6 +61,7 @@ description: |
 | 直接比较 `tasklist` 的原始输出 | 输出是 **GBK** | 先转码再比 |
 | 用落在 `drawing extents` 之外的坐标画图元 | **静默丢弃**：返回 `nil`、不报错不弹框 | 先扩 extents |
 | 空图纸时把 `axlDBGetDesign()->bBox` 当"内容框" | 它给的是**模板页框**（实测 1117.6×863.6 mm） | 按实际图元算 |
+| 同一台机**同时跑两个建图任务** | `AllegroSession` 无锁，SkillBridge 只有一条 7777 通道、`Channel.send()` 是「发一收一」原子操作；两个任务同时发，回复队列错位后只能重启服务清 | **一次只跑一个**：等前一个 `export_psm` + 回读核验结束，再开下一个 |
 | 命令结尾接 `\| tail` | 会把命令搞**挂死** | 重定向到文件再读 |
 
 ## 2. ★ 收尾铁律：A + B，缺一不可
@@ -135,7 +136,7 @@ echo "=== 挂住中 ==="; while true; do sleep 20; done     # run_in_background=
 （`start ""` 已让它脱离父进程树）—— 后台挂住解决的是「**启动瞬间**被命令边界
 回收」，Allegro 一旦起来就独立了。**别指望 `TaskStop` 顺带关掉它**，收尾 A 必须单独做。
 
-### 3.1 主流程走 MCP 工具（★ 2026-10-14：36 个工具全部注册通过）
+### 3.1 主流程走 MCP 工具（★ 2026-11-19：39 个工具全部注册通过）
 
 **建封装一律走 MCP 工具，不要越过服务层去跑 `Tools/e2e_*.py`。**
 主干见下（完整工具链见 **`references/mcp-tools.md` 第 1 节**）：
@@ -147,9 +148,10 @@ folder_preflight(folder)         → ★ 只给了目录时的第一步：先看
 list_specs() / find_spec(...)   → ★ 先查库：命 exact 就零读图（spec-library.md）
 inspect_allegro_environment()   → ★ 通道自检（工具内建）：connected=false 时 error 必非空，
                                    按失败码 CHANNEL_NOT_READY 处置（见 3.1.1），别盲调业务工具
-  ↓ pdf_probe 判形态（CAD/印刷/扫描件）→ AI 读规格书取参
-      · 读数主力 render_pdf_region（区域裁剪+高 dpi）
-      · 定位不到页 → render_pdf_contact_sheet 拼图扫一眼
+  ↓ pdf_probe 判形态（CAD/印刷/扫描件）→ locate_land_pattern_page 定页 → AI 读规格书取参
+      · extract_page_numbers → render_focus_regions（概览 + 焦点 ≥600dpi，不够就切块）
+      · reconstruct_pad_array 矢量对拍；指定区域才用 render_pdf_region
+      · 定位不到页 → render_pdf_contact_sheet 拼图扫一眼（整页图只定位，不读数）
   ↓ validate_land_pattern_json(raw_json)   ※参数是 str 不是 dict
 solve_footprint_geometry(...)   → 算几何；一次成型用 build_footprint_from_params(...)
   ↓ 建图纸 / 焊盘 / 图元 → ★ change_drawing_extents(...) 必须先扩，否则静默丢弃
