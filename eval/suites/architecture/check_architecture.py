@@ -18,6 +18,8 @@ eval/suites/architecture/check_architecture.py —— 架构与文档断言（�
 | A5 | 登记目录的 README 文件清单表要出现该目录**每个** `.py` 的文件名 | 清单过期 = 文档骗人 |
 | A6 | 代码根 3 层内含 `.py` 的目录必须已登记 | 新目录不能偷偷绕过文档 |
 | A7 | 代码根下的 `.py` 必须能解析（无 BOM、无语法错） | 解析失败会被静默跳过 = 该文件的 import 断言其实没跑 |
+| A8 | `docs/` 顶层每个 `.md` 必须出现在 `docs/README.md` 文件清单 | 没登记的文件 = 没人会读到它（A4/A5 只管 `.py`，文档过去无人管） |
+| A9 | `docs/边界契约.md`「权威落点」列里每个路径必须存在 | 权威路径腐烂 = 契约指空，读的人被送去不存在的文件 |
 
 ## 警告（WARN → 不影响退出码）
 
@@ -26,6 +28,7 @@ eval/suites/architecture/check_architecture.py —— 架构与文档断言（�
 | W1 | `services/` import `observability`（暂允许，需在 `LAYERS.md` 记录理由） |
 | W2 | 登记目录的 README 缺「最后更新 / 最近更新」行 |
 | W3 | 已声明的历史偏差（`DECLARED_EXCEPTIONS`）—— **仍然打印**，只是不计 ERROR |
+| W4 | 契约「指针义务」表里的投影文件已搜不到那句指针（**待升 A10**：四条指针由「机械修正」票落地后改成 ERROR） |
 
 ★ **Phase 0 基线：现状允许非空。** 先如实记录，再在 Phase 1/3 逐条清偿；
 不要为了让脚本变绿而改判据 —— 那等于把尺子锯短。
@@ -40,6 +43,7 @@ import argparse
 import ast
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -127,6 +131,10 @@ DECLARED_EXCEPTIONS = [
     },
 ]
 
+#: A8/A9/W4：边界契约与 docs 索引
+CONTRACT_DOC = "docs/边界契约.md"
+DOCS_INDEX = "docs/README.md"
+
 
 # ---------------------------------------------------------------- 工具
 def _imports(py: Path):
@@ -209,6 +217,40 @@ def _iter_code_files():
             for f in filenames:
                 if f.endswith(".py"):
                     yield d / f
+
+
+def _table_rows(text: str, header_keyword: str):
+    """取 Markdown 表格：找含 header_keyword 的表头行，跳过 `|---|`，收到非 `|` 行止。
+
+    返回 [[单元格, ...], ...]；单元格已 strip `|` 与空白。找不到表头返回 []。
+    """
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if header_keyword in line and line.lstrip().startswith("|"):
+            rows = []
+            for row_line in lines[i + 2:]:          # +2：跳过表头与分隔行
+                if not row_line.lstrip().startswith("|"):
+                    break
+                rows.append([c.strip() for c in row_line.strip().strip("|").split("|")])
+            return rows
+    return []
+
+
+def _contract_authorities(text: str):
+    """契约「事实归属」表第 2 列（权威落点）里带 `/` 的反引号 token。"""
+    for row in _table_rows(text, "权威落点"):
+        if len(row) < 2:
+            continue
+        for token in re.findall(r"`([^`]+)`", row[1]):
+            if "/" in token and " " not in token:
+                yield token
+
+
+def _contract_pointers(text: str):
+    """契约「指针义务」表：(投影文件, 必须还能搜到的那句话)。"""
+    for row in _table_rows(text, "投影文件"):
+        if len(row) >= 2 and row[0].startswith("`"):
+            yield row[0].strip("`"), row[1].strip("`")
 
 
 # ---------------------------------------------------------------- 检查
@@ -317,6 +359,38 @@ def check():
             rel = _rel(py)
             add("A7", "error",
                 f"{rel} 无法解析为 Python（BOM 或语法错）→ 该文件的 import 断言未生效", rel)
+
+    # A8：docs/ 顶层每个 .md 都要登记进 docs/README.md 的文件清单
+    docs_dir = ROOT / "docs"
+    index_path = ROOT / DOCS_INDEX
+    index_text = index_path.read_text(encoding="utf-8") if index_path.is_file() else ""
+    if docs_dir.is_dir():
+        if not index_text:
+            add("A8", "error", f"{DOCS_INDEX} 不存在 —— docs/ 的索引没了，新文档没人能找到", DOCS_INDEX)
+        for md in sorted(docs_dir.glob("*.md")):
+            if md.name == "README.md":
+                continue
+            if md.name not in index_text:
+                add("A8", "error", f"docs/{md.name} 未登记进 {DOCS_INDEX} 的文件清单", f"docs/{md.name}")
+
+    # A9 / W4：边界契约 —— 权威落点必须存在；指针义务里的那句话必须还在
+    contract_path = ROOT / CONTRACT_DOC
+    if not contract_path.is_file():
+        add("A9", "error", f"{CONTRACT_DOC} 不存在 —— 它是「哪类事实归哪一层」的唯一权威", CONTRACT_DOC)
+    else:
+        contract_text = contract_path.read_text(encoding="utf-8")
+        authorities = list(_contract_authorities(contract_text))
+        if not authorities:
+            add("A9", "error", f"{CONTRACT_DOC} 的「事实归属」表读不出任何权威路径（表头或反引号格式被改坏了）", CONTRACT_DOC)
+        for path in authorities:
+            if not (ROOT / path).exists():
+                add("A9", "error", f"{CONTRACT_DOC} 的权威落点不存在：{path}", CONTRACT_DOC)
+        for path, needle in _contract_pointers(contract_text):
+            p = ROOT / path
+            if not p.is_file():
+                add("W4", "warn", f"指针义务的文件不存在：{path}", CONTRACT_DOC)
+            elif needle not in p.read_text(encoding="utf-8"):
+                add("W4", "warn", f"{path} 已搜不到指针「{needle}」—— 待「机械修正」票落地后升 A10", path)
 
     return findings
 

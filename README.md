@@ -61,6 +61,7 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 ├── knowledge/                      ★ 热更新数据层：specs / cases / rules（改 JSON 不用重连 MCP）
 ├── docs/                           SOP 维护手册 + 使用者 SOP + SKILL API 核实报告
 ├── LAYERS.md                       ★ 五层能力 ↔ 模块映射（分层与依赖方向的**唯一权威**）
+├── GLOSSARY.md                     ★ 术语表：真源 / 投影 / 落点 / 读数链 / 形态路由 / 假绿…（只释义，实现看它指的文件）
 ├── .trash/                         隔离区（**可恢复**，不删东西进去就完事）
 └── Tools/
     ├── *.py  *.il  *.md            CLI 脚本 + 文档
@@ -89,7 +90,7 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 | `knowledge/specs/` | ★ **spec 库**（2026-10-09 新增）：已解析器件的参数 JSON，同封装零读图复用 | `knowledge/specs/README.md` |
 | `knowledge/cases/` | ★ **检测案例库**（2026-10-12 新增）：指纹 + 报告摘要 + 人工裁定 + 教训，检查前 `find_case` 同族预警 | `knowledge/README.md` |
 | `knowledge/rules/` | ★ **规则阈值外置**（2026-10-12 新增）：`checker_rules.json`，改数字立即生效 | `knowledge/README.md` |
-| `docs/` | ★ **作业流程 SOP** + 调研与攻坚清单（决策依据都在这） | `docs/README.md` |
+| `docs/` | ★ **作业流程 SOP** + 调研与攻坚清单（决策依据都在这）；`边界契约.md` 是「哪类事实归哪一层」的唯一权威 | `docs/README.md` |
 | `Tools/deploy/` | ★ **一键部署**（新机器双击 `deploy.bat` 即可：装环境 / 注册 MCP / 装 Skill / 配 SkillBridge / 验收） | `Tools/deploy/README.md` |
 | `.trash/` | 隔离区（可恢复，**不要当垃圾桶删**） | `.trash/README.md` |
 | `<Layout>/Data/footprint/` | ★ 人工模板库 = **金标准**，默认不覆盖 | `Data/footprint/README.md` |
