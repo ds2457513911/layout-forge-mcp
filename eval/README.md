@@ -23,7 +23,7 @@
 
 | 套件 | 守什么 | 判定方式 | 阶段 |
 |--|--|--|--|
-| `suites/geometry_regression/` | L1 确定性几何不退化 | **G1–G6 + R1–R6**：包住 **239** 项几何自检 + **222** 项 SKILL 语法自检 + **39** 项约定自检 + **253** 件金标准对拍 + **19** 项决策入口对拍 + **53** 项规则引擎自检，分数==基线；**G6 = 被调方探针**（extracta 四路取数健康，被沙箱掐住时会在这里红，而不是让 R4 悄悄假红）；**R5 = 票 #16 的 `check_derive.py`**（决策入口只依赖纯模块 + 8 份 spec 的求解/派生输出逐字段对拍，基线 `baselines/padstack_derive.json`）；**R6 = 票 #17 的 `check_rule_engine.py`**（规则库整体加载 + 整库哈希确定性 + 坏库全拒且报位置 + 阻焊判定与旧 2.2 状态一致，基线 `baselines/rule_engine.json`）；基线 `baselines/geometry_regression.json` | **Phase 2-a ✅ 已就位 / R5 ✅ 票 #16 / R6 ✅ 票 #17** |
+| `suites/geometry_regression/` | L1 确定性几何不退化 | **G1–G6 + R1–R6**：包住 **239** 项几何自检 + **222** 项 SKILL 语法自检 + **39** 项约定自检 + **253** 件金标准对拍 + **19** 项决策入口对拍 + **60** 项规则引擎自检，分数==基线；**G6 = 被调方探针**（extracta 四路取数健康，被沙箱掐住时会在这里红，而不是让 R4 悄悄假红）；**R5 = 票 #16 的 `check_derive.py`**（决策入口只依赖纯模块 + 8 份 spec 的求解/派生输出逐字段对拍，基线 `baselines/padstack_derive.json`）；**R6 = 票 #17 的 `check_rule_engine.py`**（规则库整体加载 + 整库哈希确定性 + 坏库全拒且报位置 + 阻焊判定与旧 2.2 状态一致，基线 `baselines/rule_engine.json`）；基线 `baselines/geometry_regression.json` | **Phase 2-a ✅ 已就位 / R5 ✅ 票 #16 / R6 ✅ 票 #17** |
 | `suites/spec_reading/` | **读规格书准确率** | canonical **8 字段**（= `knowledge/specs` 的 `fingerprint` 键，不另造 schema）+ **S1–S8**：每字段四分类 correct / wrong / missing / spurious，容差 body·pad ±0.05 mm、pitch ±0.02 mm；★ **S2 真值必须人工签字**（AI 自签 = 循环论证）、S3 真值绑 PDF 哈希、S5 非 null 真值必须带页码、**S8 定位器不撒谎**（`--with-locate`）；基线 `baselines/spec_reading.json` | **✅ 2026-10-15：10 例真值已签字、正式 92.5%、基线已冻结**（80 字段：correct 74 / wrong 3 / spurious 3） |
 | `suites/behavior/` | L3 规则真的可执行 | **B1–B6 行为夹具**（把 SKILL 的 S 系硬规则 + L3 状态机造成可控临时目录，逼工具层表态）：B1 目录多份 `.dra`/PDF → 必须 `ambiguous` + `confirm` + 候选列全；B2 只有历史 `checklist_report_*.json` → 不算证据、判缺料 `stop`；B3 `AUTOSAVE.dra` → 剔除且不算候选；B4 **先探通道** → `connected=False` 时 `error` 必须非空（禁把没通道说成「没工具」）；**B5 L3 状态机 + `playbook.json` 硬约定** → 每条规则都带检测方式与后果类别、`pipeline.run()` 放行/拦停正确（歧义必须 `confirm` 且**停在 preflight 不许继续取数**、通道不可用必须 `stop` + `CHANNEL_NOT_READY`）、`stale_rule_ids`（已删除的 `6.5`）必须被单独点名。**无基线**（是断言套件，像 architecture） | **Phase 2-c ✅ 4 条 / Phase 3 ✅ B5 / Phase 4 ✅ B6 D4 通道锁（6/6 通过）** |
 | `suites/tool_contract/` | L2 工具契约不破 | **C1–C8 静态断言**：工具数量 / 名字集合（改名=破坏）= 基线、每个工具有 docstring、每个参数名写进 docstring、遥测字段口径、`server.py` 是否挂了 `TelemetryMiddleware`、**C7 每个工具都在 `knowledge/tool_groups.json` 里有分组**、**C8 生成的 `docs/tools-catalog.md` 与代码一致（不陈旧）**；基线 `baselines/tool_contract.json` | **Phase 1 ✅ 已就位** |
@@ -88,7 +88,7 @@ python eval/suites/geometry_regression/check_geometry_regression.py
 python eval/suites/geometry_regression/check_geometry_regression.py --skip-benchmark   # 冒烟：不跑 253 件
 python eval/suites/geometry_regression/check_geometry_regression.py --update           # 重新冻结基线
 python eval/suites/geometry_regression/check_geometry_regression.py --reuse-benchmark Tools/log/golden_benchmark/stdout_*.txt
-#   G1–G6 盘点（件数/目录数/specs/cases/噪声 + extracta 被调方探针）+ R1–R6 跑分（239 / 222 / 39 / 253 件对拍 / 19 项决策对比 / 53 项规则引擎）
+#   G1–G6 盘点（件数/目录数/specs/cases/噪声 + extracta 被调方探针）+ R1–R6 跑分（239 / 222 / 39 / 253 件对拍 / 19 项决策对比 / 60 项规则引擎）
 #   R4 的计数只认 benchmark_summary.csv（控制台把「空结论」与「提取失败」混成一个数），语义是「不比基线差」
 
 # 读图准确率（Phase 2-b；打分器纯 stdlib，起草期用 --allow-unsigned）
@@ -135,7 +135,7 @@ python eval/suites/behavior/check_behavior.py --python <带 skillbridge 的解�
 
 ## 关键约定与坑
 
-1. `runs/` **不进 git**（每次产物），`baselines/` **进 git**（它是「上一次被认可的行为」的唯一记录）。现有基线：`baselines/tool_contract.json`（工具契约快照 + 遥测口径）、`baselines/geometry_regression.json`（资产件数 + 253 件对拍的 CSV 计数 + 四套既有检查的分数 + extracta 探针结论）、`baselines/spec_reading.json`（**2026-10-15 冻结：10 例 / 80 字段 / 准确率 92.5%**，真值已人工签字）。
+1. `runs/` **不进 git**（每次产物），`baselines/` **进 git**（它是「上一次被认可的行为」的唯一记录）。现有基线：`baselines/tool_contract.json`（工具契约快照 + 遥测口径）、`baselines/geometry_regression.json`（资产件数 + 253 件对拍的 CSV 计数 + 四套既有检查的分数 + extracta 探针结论）、`baselines/spec_reading.json`（**2026-10-15 冻结：10 例 / 80 字段 / 准确率 92.5%**，真值已人工签字）、`baselines/shadow_2_2_253.json`（票 #17：253 件旧/新 2.2 逐件 status 对拍记录，235 件可判定、差异 0、18 件既有不可读）。
 2. 本层是**测试代码**：可以 import 项目任何模块；但**绝不被项目源码 import**（生产代码依赖测试 = 层方向反了）。
 3. 真值文件里**只放数据 + 出处**（页码/区域），**不放结论性描述**，否则无法自动打分。
 4. 用例路径以 `../../Data/footprint/<PN>/` 相对引用，**不复制客户 PDF 进仓库**。

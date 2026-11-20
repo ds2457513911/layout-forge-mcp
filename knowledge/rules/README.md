@@ -9,11 +9,11 @@
 
 | 文件 | 对象 | 一个对象回答什么 | 必填字段 |
 |--|--|--|--|
-| `forms.json` | form（形态） | 「哪些输入算同一类封装」——由谓词白名单组合（安装方式 / 孔形 / 层存在 / 层集包含 / 名字族 / 焊盘数） | `id`、`predicates` |
+| `forms.json` | form（形态） | 「哪些输入算同一类封装」——由谓词白名单组合（安装方式 / 孔形 / 层存在 / 层集包含 / 名字族 / 焊盘数） | `id`、`name`、`when` |
 | `parameters.json` | parameter（参数） | 「这一类封装的某尺寸该是多少」——按 form 分组，一个参数只在**一处**定义 | `id`、`form`、`keys`、`value`、`allowed`、`support`、`source` |
 | `rules.json` | rule（规则） | 「拿哪个参数、比哪一侧、违反了算什么」——`when` 选 form、`use` 选参数、`assert` 选判法 | `id`、`name`、`use`、`assert`、`severity`、`source`、`since` |
 | `sources.json` | source（出处） | 这个数字/这条规则**凭什么**——裁定记录、金标准对拍、ADR | `id`、`kind`、`ref` |
-| `_severity.json` | severity 映射 | 违反之后报多重 —— `severity = f(consequence, evidence)`，映射表单独一份，不散在代码里 | `id`、`level`、`consequence`、`evidence` |
+| `_severity.json` | severity 映射 | 违反之后报多重 —— `severity = f(consequence, evidence)`，映射表单独一份，不散在代码里 | `id`、`severity`、`consequence`、`evidence` |
 
 整库有一个内容哈希（`RuleLibrary.fingerprint`）：同一份输入两次加载必须逐字节相同。
 finding 里会带 `rule_set_hash`，报告可回溯「这条判定出自哪一版规则集」。

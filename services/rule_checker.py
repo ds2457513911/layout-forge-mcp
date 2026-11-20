@@ -564,8 +564,13 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
     #   - finding 带 rule_id / 形态 / 出处 / 支持件数 / 整库哈希，便于溯源；
     #   - 规则库不合法 → load_library 直接抛错，绝不带病判定。
     lib = rule_engine.load_library()
-    mask_rule = lib.rules_by_id.get("RULE-MASK-EXPAND") or {}
+    mask_rule = lib.rules_by_id.get("RULE-MASK-EXPAND")
+    if mask_rule is None:
+        raise RuntimeError(
+            "规则库缺 RULE-MASK-EXPAND（knowledge/rules/rules.json），2.2 拒绝判定"
+        )
     sm_statuses = []
+    sm_verdicts = []
     sm_forms = []
     sm_skips = []
     sm_bad = []
@@ -588,6 +593,7 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
         )
         status = verdict.get("status")
         sm_statuses.append(status)
+        sm_verdicts.append(verdict)
         form_id = verdict.get("form")
         if form_id and form_id not in sm_forms:
             sm_forms.append(form_id)
@@ -596,16 +602,10 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
         elif status != "PASS":
             sm_bad.append(f"pin{verdict.get('subject')} {verdict.get('detail')}")
 
-    allowed_pairs = sorted({
-        tuple(lib.parameters_by_id[pid].get("allowed") or [])
-        for pid in mask_rule.get("use", [])
-        if pid in lib.parameters_by_id
-    })
-    allowed_lo, allowed_hi = (
-        (allowed_pairs[0][0], allowed_pairs[0][1]) if len(allowed_pairs) == 1
-        else (min(p[0] for p in allowed_pairs), max(p[1] for p in allowed_pairs))
-    ) if allowed_pairs else (0.05, 0.13)
-    rule_display = mask_rule.get("display") or "阻焊开窗外扩"
+    allowed_pairs = sorted({tuple(v["allowed"]) for v in sm_verdicts if v.get("allowed")})
+    allowed_lo = min(p[0] for p in allowed_pairs) if allowed_pairs else None
+    allowed_hi = max(p[1] for p in allowed_pairs) if allowed_pairs else None
+    rule_display = mask_rule.get("display") or mask_rule.get("name")
 
     if not sm_statuses:
         items.append(_item(
@@ -616,7 +616,9 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
         items[-1].update({
             "rule_id": "RULE-MASK-EXPAND",
             "forms": [],
+            "rule_source": mask_rule.get("source"),
             "support": None,
+            "support_by_form": {},
             "rule_set_hash": lib.fingerprint,
         })
     else:
@@ -629,32 +631,30 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
         else:
             sm_status = "PASS"
             sm_detail = ""
-        support = None
-        for pid in mask_rule.get("use", []):
-            par = lib.parameters_by_id.get(pid)
-            if par and par.get("form") in sm_forms:
-                support = par.get("support")
-                break
-        source_ref = None
-        for pid in mask_rule.get("use", []):
-            par = lib.parameters_by_id.get(pid)
-            if par and par.get("form") in sm_forms:
-                source_ref = par.get("source")
-                break
+        support_by_form = {}
+        for v in sm_verdicts:
+            fid, sup = v.get("form"), v.get("support")
+            if fid and sup is not None:
+                support_by_form[fid] = sup
+        support = sum(support_by_form.values()) if support_by_form else None
+        source_ref = next((v.get("source_ref") for v in sm_verdicts
+                           if v.get("source_ref")), None)
         items.append(_item(
             "2.2", "阻焊开窗外扩",
             sm_status,
             value={"单边x": _round(sample_ex), "单边y": _round(sample_ey)},
             rule=rule_display,
             detail=sm_detail,
-            expected=f"单边 [{allowed_lo}, {allowed_hi}]",
+            expected=(f"单边 [{allowed_lo}, {allowed_hi}]" if allowed_lo is not None else None),
             source="default",
         ))
         items[-1].update({
             "rule_id": "RULE-MASK-EXPAND",
             "forms": sm_forms,
+            "rule_source": mask_rule.get("source"),
             "source_ref": source_ref,
             "support": support,
+            "support_by_form": support_by_form,
             "rule_set_hash": lib.fingerprint,
         })
 

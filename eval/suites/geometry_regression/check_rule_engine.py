@@ -31,7 +31,7 @@
        基线冻结值；模块纯度（services/rule_engine.py 不碰宿主/网络/进程）。
        对应 AC：「旧阈值文件保持只读，未被改写」。
 
-基线来历：eval/baselines/rule_engine.json 由 _make_rule_engine_baseline.py
+基线来历：eval/baselines/rule_engine.json 由一次性脚本（未进仓）
 在**改造前**的 HEAD 上冻结（当时 2.2 还是内联阈值判定），fixtures 里的
 status22 就是那份旧判定的原话。
 
@@ -48,6 +48,7 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -98,6 +99,11 @@ def _load_json(p: Path) -> dict:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def _item_22(items: list) -> dict:
+    """按 id 取 2.2，避免用列表下标（前面插项就测错对象）。"""
+    return next(i for i in items if i.get("id") == "2.2")
+
+
 def _dump_json(p: Path, obj: dict) -> None:
     p.write_text(json.dumps(obj, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -108,10 +114,28 @@ def check_load_and_determinism(c: Checker, RE) -> Any:
     fp = getattr(lib, "fingerprint", None)
     c.check(isinstance(fp, str) and len(fp) == 64,
             "R6.1 整库哈希是 64 位 hex", f"实际 {fp!r}")
+    RE.reset_cache()          # 清缓存，逼第二次从磁盘重新加载
     lib2 = RE.load_library(RULES_DIR)
     c.check(lib2.fingerprint == fp, "R6.1 两次加载指纹相同", f"{fp} vs {lib2.fingerprint}")
     c.check(RE.canonical_json(lib.dump()) == RE.canonical_json(lib2.dump()),
             "R6.1 canonical 输出逐字节相同")
+
+    # 「两次运行」按两个独立进程验：各自从磁盘加载，stdout 逐字节比
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+    probe = (
+        "import sys; sys.path.insert(0, %r);"
+        "from services import rule_engine as RE;"
+        "lib = RE.load_library(%r);"
+        "sys.stdout.write(RE.canonical_json({'fingerprint': lib.fingerprint, 'library': lib.dump()}))"
+    ) % (str(ROOT), str(RULES_DIR))
+    runs = [subprocess.run([sys.executable, "-c", probe], cwd=str(ROOT),
+                           capture_output=True, text=True, encoding="utf-8", env=env)
+            for _ in range(2)]
+    c.check(all(r.returncode == 0 for r in runs), "R6.1 两次独立进程加载均成功",
+            "；".join((r.stderr or "").strip()[-300:] for r in runs if r.returncode))
+    c.check(bool(runs[0].stdout) and runs[0].stdout == runs[1].stdout,
+            "R6.1 两次独立进程输出逐字节相同",
+            f"{len(runs[0].stdout)} vs {len(runs[1].stdout)} 字节")
 
     subject = {"id": "1", "mount": "smd", "layers": ["ETCH/TOP", "PIN/SOLDERMASK_TOP"],
                "drill": None, "name": "R0D2X0D6", "pad_count": 8}
@@ -197,6 +221,20 @@ def check_load_failures(c: Checker, RE) -> None:
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
+    # 错误信息要带对象 id，库大时不用人去数 items[i]
+    tmp = Path(tempfile.mkdtemp(prefix="r6_objid_"))
+    try:
+        d = _write_lib(tmp, source_mutate)
+        try:
+            RE.load_library(d)
+            c.check(False, "R6.2 缺出处 → 错误带对象 id", "竟然加载成功")
+        except RE.RuleLibraryError as exc:
+            txt = json.dumps(getattr(exc, "errors", []), ensure_ascii=False)
+            c.check("PARAM-MASK-EXPAND" in txt,
+                    "R6.2 缺出处 → 错误带对象 id", txt[:300])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
 
 # ---------------------------------------------------------------- R6.3
 def check_three_states(c: Checker, RE, lib) -> None:
@@ -210,16 +248,18 @@ def check_three_states(c: Checker, RE, lib) -> None:
                      "pad_count": 2}
     sub_smd = {"id": "3", "mount": "smd", "layers": ["ETCH/TOP", "PIN/SOLDERMASK_TOP"],
                "drill": None, "name": "R0D2X0D6", "pad_count": 8}
+    support_oblong = lib.parameters_by_id["PARAM-MASK-EXPAND-TH-OBLONG"]["support"]
+    support_circle = lib.parameters_by_id["PARAM-MASK-EXPAND-TH-CIRCLE"]["support"]
 
     d = RE.judge(lib, "RULE-MASK-EXPAND", sub_th_oblong, {"expand_x": 0.05, "expand_y": 0.05})
     c.check(d["form"] == "FORM-MASK-TH-OBLONG" and d["status"] == "PASS"
-            and d["support"] == 22,
-            "R6.3 通孔长圆 0.05 → PASS，支持件数 22", json.dumps(d, ensure_ascii=False)[:260])
+            and d["support"] == support_oblong,
+            f"R6.3 通孔长圆 0.05 → PASS，支持件数 {support_oblong}", json.dumps(d, ensure_ascii=False)[:260])
 
     d = RE.judge(lib, "RULE-MASK-EXPAND", sub_th_circle, {"expand_x": 0.05, "expand_y": 0.05})
     c.check(d["form"] == "FORM-MASK-TH-CIRCLE" and d["status"] == "PASS"
-            and d["support"] == 9,
-            "R6.3 通孔圆 0.05 → PASS，支持件数 9", json.dumps(d, ensure_ascii=False)[:260])
+            and d["support"] == support_circle,
+            f"R6.3 通孔圆 0.05 → PASS，支持件数 {support_circle}", json.dumps(d, ensure_ascii=False)[:260])
 
     # 边界：allowed=[0.05,0.13] + eps 0.005 → 0.134 PASS、0.14 WARN
     d = RE.judge(lib, "RULE-MASK-EXPAND", sub_smd, {"expand_x": 0.134, "expand_y": 0.134})
@@ -266,7 +306,7 @@ def check_wired_to_new_library(c: Checker, RE) -> None:
 
     os.environ.pop("LAYOUT_FORGE_RULES_DIR", None)
     RE.reset_cache()
-    item = RC.check_pad_size(_smd_payload(), None, RC.DEFAULT_RULES)[1]
+    item = _item_22(RC.check_pad_size(_smd_payload(), None, RC.DEFAULT_RULES))
     c.check(item["id"] == "2.2" and item["status"] == "PASS",
             "R6.4 基本件 2.2 → PASS", json.dumps(item, ensure_ascii=False)[:300])
     c.check(item.get("rule_id") == "RULE-MASK-EXPAND",
@@ -274,8 +314,32 @@ def check_wired_to_new_library(c: Checker, RE) -> None:
     c.check(bool(item.get("source_ref")) and item.get("support") is not None,
             "R6.4 finding 带出处与支持件数",
             f"source_ref={item.get('source_ref')!r} support={item.get('support')!r}")
+    c.check(item.get("rule_source") == "SRC-ADR-0002",
+            "R6.4 finding 带规则出处（不是只有参数出处）", str(item.get("rule_source")))
+    c.check(bool(item.get("support_by_form")),
+            "R6.4 finding 带按形态分组的支持件数", str(item.get("support_by_form")))
     c.check(bool(item.get("rule_set_hash")),
             "R6.4 finding 带整库哈希", str(item.get("rule_set_hash")))
+
+    mixed = _smd_payload()
+    mixed["pins"].append({
+        "number": "2", "name": "POB1D7X0D5HOB2D3X1D1", "rotation": 0.0,
+        "bbox": [[0.0, 0.0], [1.2, 2.4]],
+        "pads": [
+            {"layer": "ETCH/TOP", "figure_name": "OBLONG", "size": [1.1, 2.3],
+             "bbox": [[0.0, 0.0], [1.1, 2.3]]},
+            {"layer": "PIN/SOLDERMASK_TOP", "figure_name": "OBLONG", "size": [1.2, 2.4],
+             "bbox": [[0.0, 0.0], [1.2, 2.4]]},
+            {"layer": "DRILL", "figure_name": "OBLONG_Y", "size": [0.7, 1.9],
+             "hole_type": "OVAL SLOT"},
+        ],
+    })
+    item_m = _item_22(RC.check_pad_size(mixed, None, RC.DEFAULT_RULES))
+    c.check(set(item_m.get("support_by_form") or {}) == {
+                "FORM-MASK-TH-OBLONG", "FORM-MASK-SMD"}
+            and item_m.get("support") == sum(item_m["support_by_form"].values()),
+            "R6.4 混合形态 finding 按形态分组且 support 为合计",
+            json.dumps(item_m.get("support_by_form"), ensure_ascii=False))
 
     # 临时库把 SMD 的 allowed 收窄到 [0.2,0.3] → 同一 payload 必须转 WARN
     tmp = Path(tempfile.mkdtemp(prefix="r6_wide_"))
@@ -290,7 +354,7 @@ def check_wired_to_new_library(c: Checker, RE) -> None:
         _dump_json(p, data)
         os.environ["LAYOUT_FORGE_RULES_DIR"] = str(tmp)
         RE.reset_cache()
-        item2 = RC.check_pad_size(_smd_payload(), None, RC.DEFAULT_RULES)[1]
+        item2 = _item_22(RC.check_pad_size(_smd_payload(), None, RC.DEFAULT_RULES))
         c.check(item2["status"] == "WARN",
                 "R6.4 改库即改判定（证明 2.2 走新库，不是读死阈值）",
                 f"状态 {item2['status']}，rule={item2.get('rule')!r}")
@@ -309,13 +373,25 @@ def check_status_parity(c: Checker, RE, base: dict) -> None:
     for fx in fixtures:
         name = fx.get("file")
         payload = {"pins": fx.get("pins") or []}
-        item = RC.check_pad_size(payload, None, RC.DEFAULT_RULES)[1]
+        item = _item_22(RC.check_pad_size(payload, None, RC.DEFAULT_RULES))
         got, want = item.get("status"), fx.get("status22")
         c.check(got == want, f"R6.5 {name} 2.2 状态一致（旧 {want}）",
                 f"新 {got}；detail={item.get('detail')!r}")
         forms = item.get("forms")
         c.check(forms == fx.get("forms"), f"R6.5 {name} 形态归属一致",
                 f"基线 {fx.get('forms')} → 实际 {forms}")
+
+    shadow_path = BASELINE.parent / "shadow_2_2_253.json"
+    try:
+        shadow = json.loads(shadow_path.read_text(encoding="utf-8"))
+    except Exception:                                      # noqa: BLE001
+        shadow = {}
+    summ = shadow.get("summary") or {}
+    c.check(summ.get("files") == 253 and summ.get("judged") == 235
+            and summ.get("diff") == 0 and len(shadow.get("rows") or []) == 253,
+            "R6.5 253 件 shadow 记录在案（差异 0）",
+            f"files={summ.get('files')} judged={summ.get('judged')} "
+            f"diff={summ.get('diff')} rows={len(shadow.get('rows') or [])}")
 
 
 # ---------------------------------------------------------------- R6.6
@@ -350,7 +426,7 @@ def main() -> int:
     c = Checker()
     if not BASELINE.is_file():
         print(f"缺基线：{BASELINE}")
-        print(f"结果: 0/{len(c.items)}")
+        print("结果: 0/1")
         return 1
     base = json.loads(BASELINE.read_text(encoding="utf-8"))
 

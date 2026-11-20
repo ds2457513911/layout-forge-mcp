@@ -17,7 +17,7 @@
   3. 派生 —— 留给票 #18 / #20（本文件暂不实现，只有 assert 的规则在派生模式
      应报 SKIP「该形态缺派生规则」，见 ADR D2）。
 
-本模块是**纯函数 + 纯数据**：
+本模块分两层：加载器有 I/O 与缓存（只读 knowledge/rules），判定/匹配是纯函数。
   - 只用标准库（json / hashlib / re / ast / os / pathlib），不碰宿主、网络、进程；
   - 不读 knowledge/rules 以外的路径，不写盘；
   - 同输入两次调用输出逐字节相同（canonical_json 排序键 + 固定分隔符）。
@@ -39,13 +39,32 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 SCHEMA_VERSION = "layout-forge/rules@1"
 
 # 库目录：环境变量优先（测试用），否则项目根下 knowledge/rules
 RULE_DIR_ENV = "LAYOUT_FORGE_RULES_DIR"
 DEFAULT_RULE_DIR = Path(__file__).resolve().parents[1] / "knowledge" / "rules"
+
+SCHEMA_FILE_VERSIONS: Dict[str, str] = {
+    "forms": "layout-forge/rules/forms@1",
+    "parameters": "layout-forge/rules/parameters@1",
+    "rules": "layout-forge/rules/rules@1",
+    "sources": "layout-forge/rules/sources@1",
+    "severity": "layout-forge/rules/severity@1",
+}
+
+# 四类对象允许出现的字段：拼错的字段一律拒绝，不静默忽略（README 的硬要求）
+KNOWN_FIELDS: Dict[str, set] = {
+    "forms": {"id", "name", "when", "desc"},
+    "parameters": {"id", "form", "keys", "value", "allowed", "warn", "eps",
+                   "support", "source", "field", "unit", "note"},
+    "rules": {"id", "name", "use", "assert", "severity", "source", "since",
+              "derive", "form", "when", "display", "summary", "note"},
+    "sources": {"id", "kind", "ref", "note"},
+    "severity": {"id", "severity", "consequence", "evidence", "note"},
+}
 
 # 四类对象 + severity 表的文件名（都是 {"items": [...]} 形状）
 SCHEMA_FILES: Dict[str, str] = {
@@ -76,7 +95,6 @@ ASSERT_KINDS: Tuple[str, ...] = ("allowed", "eq", "ne", "range", "bounds", "abs"
 DEFAULT_EPS = 0.005    # 边界浮点擦边，与旧 2.2 同口径
 
 # 派生表达式里允许出现的名字（参数键 / 层名 / 四则运算）；派生实现留给 #18
-_DERIVE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class RuleLibraryError(Exception):
@@ -151,8 +169,10 @@ def _err(errors: List[Dict[str, str]], file: str, path: str, message: str) -> No
 def _require(errors: List[Dict[str, str]], file: str, path: str, obj: Dict[str, Any],
              key: str, kind: type, allow_none: bool = False) -> bool:
     """必填字段 + 类型校验；返回是否存在且类型对。"""
+    label = obj.get("id")
+    suffix = f"（对象 {label}）" if isinstance(label, str) and label else ""
     if key not in obj:
-        _err(errors, file, f"{path}.{key}", "缺必填字段")
+        _err(errors, file, f"{path}.{key}", f"缺必填字段{suffix}")
         return False
     val = obj[key]
     if val is None:
@@ -168,16 +188,18 @@ def _require(errors: List[Dict[str, str]], file: str, path: str, obj: Dict[str, 
 
 
 def _check_predicate(errors: List[Dict[str, str]], file: str, path: str,
-                     pred: Any, seen_layers: Iterable[str]) -> None:
+                     pred: Any, owner: str = "") -> None:
+    suffix = f"（形态 {owner}）" if owner else ""
     if not isinstance(pred, dict):
-        _err(errors, file, path, "谓词必须是对象")
+        _err(errors, file, path, f"谓词必须是对象{suffix}")
         return
     name = pred.get("predicate")
     if not isinstance(name, str) or not name:
-        _err(errors, file, f"{path}.predicate", "缺谓词名")
+        _err(errors, file, f"{path}.predicate", f"缺谓词名{suffix}")
         return
     if name not in PREDICATES:
-        _err(errors, file, f"{path}.predicate", f"未知谓词 {name!r}（白名单：{'/'.join(sorted(PREDICATES))}）")
+        _err(errors, file, f"{path}.predicate",
+             f"未知谓词 {name!r}（白名单：{'/'.join(sorted(PREDICATES))}）{suffix}")
         return
     allowed_keys = set(PREDICATES[name]) | {"predicate"}
     extra = set(pred) - allowed_keys
@@ -250,6 +272,9 @@ def _read_schema_file(directory: Path, key: str, errors: List[Dict[str, str]]) -
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         _err(errors, name, "$", f"JSON 解析失败：{exc}")
         return [], hashes
+    expected = SCHEMA_FILE_VERSIONS.get(key)
+    if isinstance(data, dict) and expected and data.get("schema") != expected:
+        _err(errors, name, "$.schema", f"schema 应为 {expected!r}，实际 {data.get('schema')!r}")
     items = data.get("items") if isinstance(data, dict) else None
     if not isinstance(items, list):
         _err(errors, name, "$.items", "顶层必须是 {\"items\": [...]}")
@@ -266,9 +291,8 @@ def _read_schema_file(directory: Path, key: str, errors: List[Dict[str, str]]) -
 
 def _validate_forms(forms: List[Dict[str, Any]], errors: List[Dict[str, str]]) -> None:
     name = SCHEMA_FILES["forms"]
-    all_layers = set()
-    for form in forms:
-        p = f"items[{forms.index(form)}]"
+    for i, form in enumerate(forms):
+        p = f"items[{i}]"
         for key in ("name", "when"):
             _require(errors, name, p, form, key, dict if key == "when" else str)
         when = form.get("when")
@@ -279,7 +303,10 @@ def _validate_forms(forms: List[Dict[str, Any]], errors: List[Dict[str, str]]) -
             _err(errors, name, f"{p}.when.all", "形态必须至少有一条谓词")
             continue
         for j, pred in enumerate(conds):
-            _check_predicate(errors, name, f"{p}.when.all[{j}]", pred, all_layers)
+            _check_predicate(errors, name, f"{p}.when.all[{j}]", pred,
+                             str(form.get("id") or ""))
+        if "any" in when:
+            _err(errors, name, f"{p}.when.any", "when 暂不支持 any（只支持全部谓词同时满足）")
         unknown = set(when) - {"all", "any"}
         if unknown:
             _err(errors, name, f"{p}.when.{sorted(unknown)[0]}",
@@ -301,10 +328,12 @@ def _validate_parameters(params: List[Dict[str, Any]], forms: List[Dict[str, Any
         _require(errors, name, p, par, "source", str)
         form = par.get("form")
         if isinstance(form, str) and form not in form_ids:
-            _err(errors, name, f"{p}.form", f"引用了不存在的形态 {form!r}")
+            _err(errors, name, f"{p}.form",
+                 f"引用了不存在的形态 {form!r}（参数 {par.get('id')}）")
         src = par.get("source")
         if isinstance(src, str) and src not in source_ids:
-            _err(errors, name, f"{p}.source", f"引用了不存在的出处 {src!r}")
+            _err(errors, name, f"{p}.source",
+                 f"引用了不存在的出处 {src!r}（参数 {par.get('id')}）")
         keys = par.get("keys")
         if isinstance(keys, list) and (not keys or not all(isinstance(k, str) and k for k in keys)):
             _err(errors, name, f"{p}.keys", "应为非空字符串数组")
@@ -347,7 +376,8 @@ def _validate_rules(rules: List[Dict[str, Any]], forms: List[Dict[str, Any]],
                 if not isinstance(pid, str):
                     _err(errors, name, f"{p}.use[{j}]", "参数 id 应为字符串")
                 elif pid not in param_ids:
-                    _err(errors, name, f"{p}.use[{j}]", f"引用了不存在的参数 {pid!r}")
+                    _err(errors, name, f"{p}.use[{j}]",
+                         f"引用了不存在的参数 {pid!r}（规则 {rule.get('id')}）")
         asserts = rule.get("assert")
         if isinstance(asserts, list):
             if not asserts:
@@ -361,7 +391,7 @@ def _validate_rules(rules: List[Dict[str, Any]], forms: List[Dict[str, Any]],
                 if kind not in ASSERT_KINDS:
                     _err(errors, name, f"{ap}.kind", f"未知断言种类 {kind!r}（白名单：{'/'.join(ASSERT_KINDS)}）")
                     continue
-                extra = set(a) - {"kind", "eps", "tol", "lo", "hi", "min", "max"}
+                extra = set(a) - {"kind", "eps", "tol", "lo", "hi", "min", "max", "value"}
                 if extra:
                     _err(errors, name, f"{ap}.{sorted(extra)[0]}", f"断言不认识的字段 {sorted(extra)}")
         sev = rule.get("severity")
@@ -396,6 +426,8 @@ def _validate_severity(severity: List[Dict[str, Any]], errors: List[Dict[str, st
     for i, sev in enumerate(severity):
         p = f"items[{i}]"
         _require(errors, name, p, sev, "severity", str)
+        _require(errors, name, p, sev, "consequence", str)
+        _require(errors, name, p, sev, "evidence", str)
         s = sev.get("severity")
         if isinstance(s, str) and s not in ("PASS", "FAIL", "WARN", "NA", "REVIEW_REQUIRED"):
             _err(errors, name, f"{p}.severity", f"未知状态 {s!r}")
@@ -417,15 +449,15 @@ def _check_duplicate_ids(objs: Dict[str, List[Dict[str, Any]]], errors: List[Dic
                 seen[oid] = {"file": file_name, "path": f"items[{i}]"}
 
 
-_CACHE: Dict[str, Tuple[Tuple[Tuple[str, int, int], ...], RuleLibrary]] = {}
+_CACHE: Dict[str, Tuple[Tuple[Tuple[str, int, int, int], ...], RuleLibrary]] = {}
 
 
-def _dir_state(directory: Path) -> Tuple[Tuple[str, int, int], ...]:
+def _dir_state(directory: Path) -> Tuple[Tuple[str, int, int, int], ...]:
     state = []
     for name in sorted(p.name for p in directory.glob("*.json") if p.is_file()):
         path = directory / name
         st = path.stat()
-        state.append((name, int(st.st_mtime_ns), int(st.st_size)))
+        state.append((name, int(st.st_mtime_ns), int(st.st_ctime_ns), int(st.st_size)))
     return tuple(state)
 
 
@@ -467,6 +499,13 @@ def load_library(path: Optional[Any] = None) -> RuleLibrary:
         _err(errors, name, "$", "库目录里的未知 JSON（新对象类型请先登记 schema）")
 
     if not errors:
+        for file_key, items in files.items():
+            known = KNOWN_FIELDS[file_key]
+            for i, obj in enumerate(items):
+                extra = set(obj) - known
+                if extra:
+                    _err(errors, SCHEMA_FILES[file_key], f"items[{i}].{sorted(extra)[0]}",
+                         f"未声明字段 {sorted(extra)}")
         _check_duplicate_ids(files, errors)
         _validate_forms(files["forms"], errors)
         _validate_sources(files["sources"], errors)
@@ -643,6 +682,9 @@ def judge(lib: RuleLibrary, rule_id: str, subject: Dict[str, Any],
     source = rule.get("source")
     source_ref = param.get("source")
 
+    allowed = list(param.get("allowed") or [None, None])
+    eps = float(param.get("eps", DEFAULT_EPS))
+
     base = {
         "status": "PASS",
         "rule_id": rule_id,
@@ -656,6 +698,8 @@ def judge(lib: RuleLibrary, rule_id: str, subject: Dict[str, Any],
         "support": param.get("support"),
         "rule_set_hash": lib.fingerprint,
         "value": {k: observed[k] for k in keys},
+        "allowed": allowed,
+        "eps": eps,
         "detail": "",
     }
 
