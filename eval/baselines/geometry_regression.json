@@ -1,5 +1,5 @@
 {
-  "frozen_at": "2026-11-19T15:58:06",
+  "frozen_at": "2026-11-20T18:01:56",
   "schema_version": 2,
   "interpreter": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\.venv\\Scripts\\python.exe",
   "inventory": {
@@ -15,7 +15,7 @@
   "runs": {
     "geometry": {
       "rc": 0,
-      "seconds": 0.1,
+      "seconds": 0.2,
       "timeout": false,
       "passed": 239,
       "total": 239,
@@ -24,7 +24,7 @@
     },
     "skill_syntax": {
       "rc": 0,
-      "seconds": 0.1,
+      "seconds": 0.2,
       "timeout": false,
       "passed": 222,
       "total": 222,
@@ -35,15 +35,24 @@
       "rc": 0,
       "seconds": 0.1,
       "timeout": false,
-      "passed": 35,
-      "total": 35,
+      "passed": 39,
+      "total": 39,
       "failed": 0,
-      "tail": "\n[B] 约定消费覆盖率（受管键 ↔ 源码消费点双向断言）\n  · 欠账（显式登记 KNOWN_UNWIRED，待接线）:\n    - adjudicated.smd\n    - adjudicated.th_circle_plated\n    - adjudicated.th_other\n    - smd\n    - th_circle\n    - th_oblong.drill_char\n    - th_other\n============================================================\n  结果: 35/35 全部通过 ✓"
+      "tail": "  · 欠账（显式登记 KNOWN_UNWIRED，待接线）:\n    - adjudicated.smd\n    - adjudicated.th_circle_plated\n    - adjudicated.th_other\n    - smd\n    - th_circle\n    - th_oblong.drill_char\n    - th_other\n\n[C] 裁定常量与约定库一致性（改约定必须走裁定流程）\n============================================================\n  结果: 39/39 全部通过 ✓"
+    },
+    "derive": {
+      "rc": 0,
+      "seconds": 0.1,
+      "timeout": false,
+      "passed": 19,
+      "total": 19,
+      "failed": 0,
+      "tail": "  ok    R5.3 派生输出不变 nb_lmbr140et1g_2p.json\n  ok    R5.2 求解输出不变 nb_lydpj_5p_12x6.json\n  ok    R5.3 派生输出不变 nb_lydpj_5p_12x6.json\n  ok    R5.2 求解输出不变 nb_mos8_3d15x3d1x0d85_0d65.json\n  ok    R5.3 派生输出不变 nb_mos8_3d15x3d1x0d85_0d65.json\n  ok    R5.2 求解输出不变 nb_sot23-6_3d02x1d7x1d5_1d05.json\n  ok    R5.3 派生输出不变 nb_sot23-6_3d02x1d7x1d5_1d05.json\n  ok    R5.2 求解输出不变 nb_typec24p_p2g.json\n  ok    R5.3 派生输出不变 nb_typec24p_p2g.json\n  ok    R5.2 求解输出不变 nb_xtal4_3d2x2d5x0d7.json\n  ok    R5.3 派生输出不变 nb_xtal4_3d2x2d5x0d7.json\n结果: 19/19"
     },
     "extracta": {
       "ok": true,
       "sample": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\3S48000163\\nb_xtal4_3d2x2d5x0d7.dra",
-      "cwd": "C:\\Users\\ds245\\AppData\\Local\\Temp\\extracta_probe_n4__h86w",
+      "cwd": "C:\\Users\\ds245\\AppData\\Local\\Temp\\extracta_probe_i90udy9a",
       "cdsroot": "C:\\Software\\Cadence\\Cadence_SPB_17.2-2016",
       "extracta": "C:\\Software\\Cadence\\Cadence_SPB_17.2-2016\\tools\\bin\\extracta.exe",
       "seconds": 0.2,
@@ -80,12 +89,12 @@
     },
     "benchmark": {
       "rc": 2,
-      "seconds": 50.7,
+      "seconds": 49.5,
       "timeout": false,
       "passed": null,
       "total": null,
       "failed": null,
-      "tail": "  [250/253] tvs_1x0d6x0d53_esd54231n.dra                 REVIEW_REQUIRED  P12/F0/W1/NA3  none\n  [251/253] tvs_1x0d6x0d5_esd5411n.dra                   FAIL  P11/F1/W1/NA3  none\n  [252/253] xtal2_3d2x1d5x0d9.dra                        REVIEW_REQUIRED  P14/F0/W1/NA2  none\n  [253/253] y_4p_smd3225.dra                             REVIEW_REQUIRED  P15/F0/W1/NA1  none\n\n================================================================\n  完成：253 件，用时 51s\n  PASS 7 ｜ WARN 0 ｜ FAIL 81 ｜ 其他/提取失败 183\n  例外件（有 FAIL/WARN 项）：230 件 → exceptions/（第 2 层 AI 复核输入）\n  指纹 exact 命中：0/253\n  报告：C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\Tools\\log\\golden_benchmark\\benchmark_summary.csv\n================================================================",
+      "tail": "  [250/253] tvs_1x0d6x0d53_esd54231n.dra                 REVIEW_REQUIRED  P12/F0/W1/NA3  none\n  [251/253] tvs_1x0d6x0d5_esd5411n.dra                   FAIL  P11/F1/W1/NA3  none\n  [252/253] xtal2_3d2x1d5x0d9.dra                        REVIEW_REQUIRED  P14/F0/W1/NA2  none\n  [253/253] y_4p_smd3225.dra                             REVIEW_REQUIRED  P15/F0/W1/NA1  none\n\n================================================================\n  完成：253 件，用时 49s\n  PASS 7 ｜ WARN 0 ｜ FAIL 81 ｜ 其他/提取失败 183\n  例外件（有 FAIL/WARN 项）：230 件 → exceptions/（第 2 层 AI 复核输入）\n  指纹 exact 命中：0/253\n  报告：C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\Tools\\log\\golden_benchmark\\benchmark_summary.csv\n================================================================",
       "pieces": 253,
       "pass": 7,
       "warn": 0,

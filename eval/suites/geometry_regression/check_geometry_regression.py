@@ -4,8 +4,8 @@ eval/suites/geometry_regression/check_geometry_regression.py —— L5 评测（
 
 ## 为什么要有这一套
 
-项目里**早就有** 239 项几何自检、222 项 SKILL 语法自检、35 项约定链路自检、
-253 件金标准批量对拍 —— 但它们一直是"**跑一下看看**"：
+项目里**早就有** 239 项几何自检、222 项 SKILL 语法自检、39 项约定链路自检、
+253 件金标准批量对拍（票 #16 起又加了 19 项 padstack 决策入口对拍） —— 但它们一直是"**跑一下看看**"：
 没人记得住上一次的分数，少跑一项、少跑一件、把某段自检注释掉，**没有任何东西会红**。
 本套件把分数**冻结成基线**，并在每次改动后重跑比对：分数掉了就是回归。
 
@@ -17,12 +17,13 @@ eval/suites/geometry_regression/check_geometry_regression.py —— L5 评测（
 | 盘点 | G2 | `Data/footprint` 的子目录 / PDF / 真 `.dra` 数 == 基线 | 无 |
 | 盘点 | G3 | `knowledge/specs`、`knowledge/cases` 条目数 == 基线 | 无 |
 | 盘点 | G4 | 三个库（`Data/PCB_Footprint` + `Data/footprint` + `Data/footprint_test`）**无噪声文件**；判定**只调** `orchestration.preflight.is_noise()`（2026-10-15 起含 `*.log` / `checklist_report_*.json` / `allegro.jrl` 等运行痕迹与历史报告） | 无 |
-| 盘点 | G5 | 四份既有检查脚本仍在（`selfcheck_geometry` / `selfcheck_skill_syntax` / `selfcheck_conventions` / `benchmark_golden`） | 无 |
+| 盘点 | G5 | 五份检查脚本仍在（`selfcheck_geometry` / `selfcheck_skill_syntax` / `selfcheck_conventions` / `benchmark_golden` / `check_derive`） | 无 |
 | 盘点 | G6 | **被调方探针**：extracta 四路取数健康（崩在第 2 路 → 后面三路全没跑，R4 的分数就没意义） | 需 Cadence |
 | 跑分 | R1 | `Tools/selfcheck_geometry.py` 失败 0 且总数 == 基线 | 需 skillbridge |
 | 跑分 | R2 | `Tools/selfcheck_skill_syntax.py` 失败 0 且总数 == 基线 | 需 skillbridge |
 | 跑分 | R3 | `Tools/selfcheck_conventions.py` 失败 0 且总数 == 基线 | 无 |
 | 跑分 | R4 | `Tools/benchmark_golden.py`（253 件）：件数 == 基线、**提取失败 ≤ 基线**、FAIL 件数 ≤ 基线、exact ≥ 基线（**读 `benchmark_summary.csv`，不解析控制台**） | 无 |
+| 跑分 | R5 | `eval/suites/geometry_regression/check_derive.py`（票 #16）：**决策入口只依赖纯模块** + 8 份 spec 的求解输出 / 派生输出与 `eval/baselines/padstack_derive.json` 逐字段相等 | 无 |
 
 R4 的语义是「**不比基线差**」而不是「必须全 0」：金标准库里本来就有一批提取不出
 （`extracta pins.txt 输出为空`），硬要求 0 会让闸门永远红着 ＝ 等于没有闸门。
@@ -116,12 +117,15 @@ GOLDEN_LIB = LAYOUT_DIR / "Data" / "PCB_Footprint"   # 253 件金标准（无规
 TEMPLATE_LIB = LAYOUT_DIR / "Data" / "footprint"     # 14 个人工模板（有规格书）
 TEST_LIB = LAYOUT_DIR / "Data" / "footprint_test"
 
-#: 既有检查脚本（盘的是"产线还在不在"）
+#: 检查脚本（盘的是"产线还在不在"）。derive 在 eval/ 下：它是**新增**的判据
+#: （票 #16 拆出决策入口后的对拍），不是既有资产，所以不落 Tools/（Tools/* 被 .gitignore
+#: 整目录排除，只有白名单里的文件进 git；判据要可追溯就得进 git + 进基线）。
 LEGACY_CHECKS = {
     "geometry": TOOLS / "selfcheck_geometry.py",
     "skill_syntax": TOOLS / "selfcheck_skill_syntax.py",
     "conventions": TOOLS / "selfcheck_conventions.py",
     "benchmark": TOOLS / "benchmark_golden.py",
+    "derive": ROOT / "eval" / "suites" / "geometry_regression" / "check_derive.py",
 }
 
 #: 被调方探针（G6）：extracta 四路取数健康
@@ -386,6 +390,8 @@ def build_snapshot(py: str | None, timeout: int, skip_benchmark: bool,
         runs[key] = _run(py, LEGACY_CHECKS[key], timeout) if py else \
             {"rc": None, "skipped": "no-interpreter", "passed": None, "total": None,
              "failed": None, "tail": "未找到能 import skillbridge 的解释器"}
+    # R5 的决策入口对拍是纯 stdlib（不 import skillbridge），所以不依赖那个解释器
+    runs["derive"] = _run(py or sys.executable, LEGACY_CHECKS["derive"], timeout)
     probe = _run_probe(py, timeout)
     runs["extracta"] = probe
     csv_path = (benchmark_dir or BENCHMARK_DIR) / "benchmark_summary.csv"
@@ -468,7 +474,8 @@ def check(baseline: dict, current: dict, skip_benchmark: bool) -> list[dict]:
     base_runs, cur_runs = baseline.get("runs", {}), current["runs"]
     for key, rule, label in (("geometry", "R1", "selfcheck_geometry"),
                              ("skill_syntax", "R2", "selfcheck_skill_syntax"),
-                             ("conventions", "R3", "selfcheck_conventions")):
+                             ("conventions", "R3", "selfcheck_conventions"),
+                             ("derive", "R5", "check_derive（票 #16 决策入口对拍）")):
         cur, base = cur_runs.get(key, {}), base_runs.get(key, {})
         if cur.get("skipped") == "no-interpreter":
             _add(f, rule, "error",
@@ -585,7 +592,9 @@ def main() -> int:
 
     if args.update:
         BASELINE.parent.mkdir(parents=True, exist_ok=True)
-        BASELINE.write_text(json.dumps(current, ensure_ascii=False, indent=2) + "\n",
+        # newline="\n"：默认文本模式在 Windows 上会写成 CRLF，把整份基线变成「全文件改动」，
+        # 掩盖真正变了的那几行（2026-11-20 票 #16 重冻时踩过一次）。基线统一 LF。
+        BASELINE.write_text(json.dumps(current, ensure_ascii=False, indent=2) + "\n", newline="\n",
                             encoding="utf-8")
         inv = current["inventory"]
         csv_data = current["runs"]["benchmark"].get("csv_data") or {}
@@ -593,6 +602,7 @@ def main() -> int:
               f"（金标准 {inv['golden_dra']} 件 / 几何 {current['runs']['geometry'].get('total')} 项"
               f" / SKILL 语法 {current['runs']['skill_syntax'].get('total')} 项"
               f" / 约定 {current['runs']['conventions'].get('total')} 项"
+              f" / 派生 {current['runs']['derive'].get('total')} 项"
               f" / 对拍 {csv_data.get('pieces', current['runs']['benchmark'].get('pieces'))} 件"
               f" FAIL {csv_data.get('fail_rows')} 提取失败 {csv_data.get('extract_errors')}）")
         if not py:
@@ -631,7 +641,7 @@ def main() -> int:
           f"{inv['template_pdf']} PDF/{inv['template_dra']} .dra ｜ "
           f"specs {inv['specs']} ｜ cases {inv['cases']} ｜ 噪声 {len(inv['noise_files'])}")
     for key, label in (("geometry", "selfcheck_geometry"), ("skill_syntax", "selfcheck_skill_syntax"),
-                       ("conventions", "selfcheck_conventions")):
+                       ("conventions", "selfcheck_conventions"), ("derive", "check_derive")):
         r = runs[key]
         state = (f"{r.get('passed')}/{r.get('total')} 通过"
                  if r.get("total") is not None else f"未跑（{r.get('skipped') or '无汇总行'}）")

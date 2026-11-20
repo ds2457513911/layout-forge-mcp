@@ -1,15 +1,16 @@
 # services/ —— 生成侧核心（编译器 + 执行器 + 读取层）
 
-> 最后更新：2026-11-19（新增 `channel_guard.py`：通道锁 + 建图租约，撞锁报 `CHANNEL_BUSY`；此前同一日新增 `pdf_reading.py` / `pdf_geometry.py` 与读数配额三件套 MCP 工具；`pdf_service.render_region` 的 dpi 改按单边 8192 反解。此前：2026-10-14 `pdf_locate.py` 重写为「文本 + 结构」双证据定位；`pdf_renderer.safe_stem()` 修尾空格坑；实测更正与 `layout-check-mcp` 的共享文件清单（只剩 4 件相同）。此前：Phase 0 登记 L3/L4/L5 目录常量、补齐漏登记的 4 个模块）
+> 最后更新：2026-11-20（票 #16 / ADR-0002：新增 `padstack_derive.py` —— padstack 形态**决策**入口，从 `footprint_builder.build_footprint` 的 1a/1b 段搬出，与 `create_padstack` 的实例化彻底分开，判定口径一字未改）。此前：2026-11-19（新增 `channel_guard.py`：通道锁 + 建图租约，撞锁报 `CHANNEL_BUSY`；此前同一日新增 `pdf_reading.py` / `pdf_geometry.py` 与读数配额三件套 MCP 工具；`pdf_service.render_region` 的 dpi 改按单边 8192 反解。此前：2026-10-14 `pdf_locate.py` 重写为「文本 + 结构」双证据定位；`pdf_renderer.safe_stem()` 修尾空格坑；实测更正与 `layout-check-mcp` 的共享文件清单（只剩 4 件相同）。此前：Phase 0 登记 L3/L4/L5 目录常量、补齐漏登记的 4 个模块）
 
 ## 这个目录是干什么的
 
 **规格书参数 → Allegro 封装（.dra / .psm）** 的全部业务逻辑都在这。
-按职责分四层，**不要跨层混用**：
+按职责分五层，**不要跨层混用**：
 
 | 层 | 文件 | 职责 | 是否需要 Allegro |
 |--|--|--|--|
 | **求解层（编译器）** | `geometry_solver.py` | 参数 → 几何（padstack/pins/丝印/本体/PB/位号），纯函数、可单测 | ❌ 不需要 |
+| **决策层（padstack 形态）** | `padstack_derive.py` | 决定「这颗 padstack 该长什么样」（层集 / 各层尺寸 / 命名 / 旋转），吃 dict 吐 dict | ❌ 不需要 |
 | **执行层** | `footprint_builder.py` | 把算好的几何**在 Allegro 里真正建出来**，并发 SKILL 表达式 | ✅ 需要 |
 | **读取层** | `footprint_extractor.py` → `extracta_reader.py` / `skillbridge_reader.py` | 读 `.dra` 回来做校验/对拍 | extracta ❌ / skillbridge ✅ |
 | **代码生成** | `skill_snippets.py` | 只负责**拼 SKILL 表达式字符串**，不连 Allegro | ❌ 不需要 |
@@ -22,6 +23,7 @@
 |--|--|--|
 | `paths.py` | ★ **目录约定的单一真源**（`PROJECT_ROOT` / `TOOLS_DIR` / `TEST_DIR` / `LOG_DIR` / `TRASH_DIR`；2026-10-14 增 `ORCHESTRATION_DIR` / `OBSERVABILITY_DIR` / `EVAL_DIR` / `RUNS_DIR` / `BASELINE_DIR`）+ 运行痕迹归集 `collect_run_logs()` | **几乎所有模块都 import 它**；改目录结构先改这里 |
 | `geometry_solver.py` | ★ **尺寸求解器**。含 `resolve_dim()`（尺寸来源口径：图上标注→取标注值 / 查表→取 MAX）、`solve_padstack/pins/outlines/silkscreen/refdes`、`solve()` 总入口、`to_build_args()`、`SPEC_3S48000163` 金标准样例 | 纯函数，7 条 doctest；**改它必须同步 `Tools/selfcheck_geometry.py`** |
+| `padstack_derive.py` | ★ **padstack 形态决策入口**（2026-11-20 票 #16 / ADR-0002 D5·D8）：`derive_padstacks(reading)` 吃一份 spec 形读数（mount / padstack / extra_padstacks / pins_override），吐纯数据计划（`padstack` / `extra_padstacks` / `pins_override` + `notes.conventions/tht_layers/errors`）；`ensure_tht_padstack_layers()` 通孔层兜底由本文件从执行器搬来。<br>★ 与 `create_padstack()` 的分工：**这里只决定形状，实例化归执行器** —— 拆开是为了让规则引擎（#17 起）能整体替换决策而不碰实例化 | 纯模块，登记在 `CORE_MODULES`（A3）：不 import 执行器 / SkillBridge / 通道，可离线调用；对拍基线 `eval/baselines/padstack_derive.json` + `eval/suites/geometry_regression/check_derive.py`（R5） |
 | `footprint_builder.py` | ★ **执行器 + 顶层接口**。`new_symbol_drawing()`（含切 mm / 工作目录断言 / 污染校验）、`build_footprint()`、`export_psm()`（**磁盘证据制成功判据**）、`add_*()` 单步动作、`_quarantine_file()` 隔离。<br>★ `_compute_auto_extents()` / `_outline_xy_points()`：**绘图范围必须覆盖全部将画的几何**（引脚+丝印+本体+Place_Bound）—— 越界的图元会被 Allegro **静默丢弃**（返回 nil 不报错）。<br>★ `change_extents()`：**先精确设定，失败才并集**（空图纸的 `->bBox` 是"模板页框"不是内容框） | **最大文件**；在线建封装的唯一入口 |
 | `skill_snippets.py` | SKILL 表达式构造器：`build_text` / `build_text_orientation` / `build_polyline` / `build_rect_polyline` / `build_change_units` / `build_extent_set` / `build_zoom_points` / `build_zoom_bbox` … | 只拼字符串；`Tools/selfcheck_skill_syntax.py` 对它做 212 项离线自检 |
 | `skillbridge_writer.py` | SkillBridge 通道客户端：`AllegroSession`、`eval_skill()`、`units()`、`MIL_TO_MM` | ✅ 需要 Allegro 在跑；通道错位时看它 |

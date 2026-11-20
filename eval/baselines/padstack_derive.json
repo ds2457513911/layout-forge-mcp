@@ -1,0 +1,3709 @@
+{
+  "frozen_at": "2026-11-20",
+  "schema_version": 1,
+  "note": "8 份 knowledge/specs 的求解输出与 padstack 决策输出；冻结点=票 #16 拆入口之前的 HEAD 行为。生成方式：现场复制 build_footprint 改造前 1a/1b 段的内联逻辑（apply_conventions → 按派生结果回写 padstack/extra/pins → ensure_tht_padstack_layers 主件+每个 extra → tht_fixed），对 8 份 spec 的 solve 输出逐份冻结；键名随后对齐新入口（decide→derive、pins→pins_override），取值一字未改。与改造前内联代码的两处非等价（8 份 spec 均不触发，故取值零差异）：① padstack 为 None 时的守卫；② 约定引擎抛异常时基线记 __FAILED__: 而非走 logger。只读：本文件是行为快照，不是真源；重冻 = 承认行为变了（见 check_derive.py docstring）。",
+  "specs": {
+    "nb_cstj421_aj35_6p.json": {
+      "solve": {
+        "success": true,
+        "symbol_name": "NB_CSTJ421_AJ35_6P",
+        "padstack": {
+          "name": "OB1D2X2D2",
+          "layers": [
+            {
+              "layer": "TOP",
+              "figure": "OBLONG",
+              "size": [
+                1.2,
+                2.2
+              ]
+            },
+            {
+              "layer": "SOLDERMASK_TOP",
+              "figure": "OBLONG",
+              "size": [
+                1.3,
+                2.3
+              ]
+            }
+          ],
+          "drill": {
+            "size": [
+              0.6,
+              1.6
+            ],
+            "drill_type": "OBLONG_DRILL",
+            "plated": true,
+            "offset": [
+              0,
+              0
+            ]
+          }
+        },
+        "extra_padstacks": [
+          {
+            "name": "OB1D2X2D0",
+            "layers": [
+              {
+                "layer": "TOP",
+                "figure": "OBLONG",
+                "size": [
+                  1.2,
+                  2.0
+                ]
+              },
+              {
+                "layer": "SOLDERMASK_TOP",
+                "figure": "OBLONG",
+                "size": [
+                  1.3,
+                  2.1
+                ]
+              }
+            ],
+            "drill": {
+              "size": [
+                0.6,
+                1.4
+              ],
+              "drill_type": "OBLONG_DRILL",
+              "plated": true
+            }
+          },
+          {
+            "name": "R1D42X1D4",
+            "layers": [
+              {
+                "layer": "TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  1.42,
+                  1.4
+                ]
+              },
+              {
+                "layer": "SOLDERMASK_TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  1.52,
+                  1.5
+                ]
+              }
+            ],
+            "drill": {
+              "size": [
+                0.7,
+                1.0
+              ],
+              "drill_type": "OBLONG_DRILL",
+              "plated": true
+            }
+          }
+        ],
+        "pins": [
+          {
+            "number": "1",
+            "x": -4.14,
+            "y": -2.75,
+            "padstack": "R1D42X1D4",
+            "pad_size": [
+              1.42,
+              1.4
+            ]
+          },
+          {
+            "number": "2",
+            "x": 4.25,
+            "y": -2.75,
+            "padstack": "OB1D2X2D2",
+            "pad_size": [
+              1.2,
+              2.2
+            ]
+          },
+          {
+            "number": "3",
+            "x": -4.23,
+            "y": -5.35,
+            "padstack": "OB1D2X2D2",
+            "pad_size": [
+              1.2,
+              2.2
+            ]
+          },
+          {
+            "number": "4",
+            "x": -4.45,
+            "y": -11.5,
+            "padstack": "OB1D2X2D2",
+            "pad_size": [
+              1.2,
+              2.2
+            ]
+          },
+          {
+            "number": "5",
+            "x": 4.55,
+            "y": -9.0,
+            "padstack": "OB1D2X2D0",
+            "pad_size": [
+              1.2,
+              2.0
+            ]
+          },
+          {
+            "number": "6",
+            "x": 4.55,
+            "y": -11.6,
+            "padstack": "OB1D2X2D0",
+            "pad_size": [
+              1.2,
+              2.0
+            ]
+          }
+        ],
+        "silk": [
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  -3.6,
+                  -12.2
+                ],
+                [
+                  3.645,
+                  -12.2
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  -3.945,
+                  0.0
+                ],
+                [
+                  3.645,
+                  0.0
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  -3.945,
+                  -10.15
+                ],
+                [
+                  -3.945,
+                  -6.7
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  -3.945,
+                  -4.0
+                ],
+                [
+                  -3.945,
+                  -3.7
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  -3.945,
+                  -1.8
+                ],
+                [
+                  -3.945,
+                  0.0
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  3.645,
+                  -12.2
+                ],
+                [
+                  3.645,
+                  -4.1
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  3.645,
+                  -1.4
+                ],
+                [
+                  3.645,
+                  0.0
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "pin1_mark",
+            "lines": [
+              [
+                [
+                  -4.14,
+                  -1.9
+                ],
+                [
+                  -4.44,
+                  -1.6
+                ]
+              ],
+              [
+                [
+                  -4.44,
+                  -1.6
+                ],
+                [
+                  -3.84,
+                  -1.6
+                ]
+              ],
+              [
+                [
+                  -3.84,
+                  -1.6
+                ],
+                [
+                  -4.14,
+                  -1.9
+                ]
+              ]
+            ],
+            "width": 0.15,
+            "corner": "top-left"
+          }
+        ],
+        "body": {
+          "x1": -3.945,
+          "y1": -12.2,
+          "x2": 3.645,
+          "y2": 0.0,
+          "width": 0.1
+        },
+        "assembly": [
+          {
+            "x1": -3.945,
+            "y1": -12.2,
+            "x2": 3.645,
+            "y2": 0.0,
+            "width": 0.1
+          },
+          {
+            "kind": "pin1_mark",
+            "lines": [
+              [
+                [
+                  -4.14,
+                  -1.9
+                ],
+                [
+                  -4.44,
+                  -1.6
+                ]
+              ],
+              [
+                [
+                  -4.44,
+                  -1.6
+                ],
+                [
+                  -3.84,
+                  -1.6
+                ]
+              ],
+              [
+                [
+                  -3.84,
+                  -1.6
+                ],
+                [
+                  -4.14,
+                  -1.9
+                ]
+              ]
+            ],
+            "width": 0.1,
+            "corner": "top-left"
+          }
+        ],
+        "pad_rects": [
+          {
+            "pin": "1",
+            "x1": -4.9,
+            "y1": -3.5,
+            "x2": -3.38,
+            "y2": -2.0
+          },
+          {
+            "pin": "2",
+            "x1": 3.6,
+            "y1": -3.9,
+            "x2": 4.9,
+            "y2": -1.6
+          },
+          {
+            "pin": "3",
+            "x1": -4.88,
+            "y1": -6.5,
+            "x2": -3.58,
+            "y2": -4.2
+          },
+          {
+            "pin": "4",
+            "x1": -5.1,
+            "y1": -12.65,
+            "x2": -3.8,
+            "y2": -10.35
+          },
+          {
+            "pin": "5",
+            "x1": 3.9,
+            "y1": -10.05,
+            "x2": 5.2,
+            "y2": -7.95
+          },
+          {
+            "pin": "6",
+            "x1": 3.9,
+            "y1": -12.65,
+            "x2": 5.2,
+            "y2": -10.55
+          }
+        ],
+        "place_bound": {
+          "x1": -5.545,
+          "y1": -13.8,
+          "x2": 5.245,
+          "y2": 1.6
+        },
+        "refdes": {
+          "text": "#REF",
+          "x": -0.15,
+          "y": -6.1,
+          "text_block": "1",
+          "targets": [
+            "refdes_assembly"
+          ],
+          "justify": "left"
+        },
+        "silk_info": {
+          "style": "outline",
+          "box": [
+            7.59,
+            12.2
+          ],
+          "width": 0.15,
+          "to_pad_clearance": 0.2,
+          "clearance": 0.2,
+          "outline_segments": 7,
+          "items": 8,
+          "min_gap_to_pad": null,
+          "pin1": {
+            "style": "triangle",
+            "corner": "top-left",
+            "axis": "y",
+            "apex": [
+              -4.14,
+              -1.9
+            ],
+            "base": [
+              [
+                -4.44,
+                -1.6
+              ],
+              [
+                -3.84,
+                -1.6
+              ]
+            ],
+            "segments": [
+              [
+                [
+                  -4.14,
+                  -1.9
+                ],
+                [
+                  -4.44,
+                  -1.6
+                ]
+              ],
+              [
+                [
+                  -4.44,
+                  -1.6
+                ],
+                [
+                  -3.84,
+                  -1.6
+                ]
+              ],
+              [
+                [
+                  -3.84,
+                  -1.6
+                ],
+                [
+                  -4.14,
+                  -1.9
+                ]
+              ]
+            ],
+            "size": [
+              0.6,
+              0.3
+            ],
+            "clearance": 0.1,
+            "layers": [
+              "silkscreen",
+              "assembly"
+            ]
+          },
+          "per_edge": [
+            {
+              "edge": "bottom",
+              "at": -12.2,
+              "axis": "x",
+              "blocked_by": 2,
+              "kept": 1
+            },
+            {
+              "edge": "top",
+              "at": 0.0,
+              "axis": "x",
+              "blocked_by": 0,
+              "kept": 1
+            },
+            {
+              "edge": "left",
+              "at": -3.945,
+              "axis": "y",
+              "blocked_by": 3,
+              "kept": 3
+            },
+            {
+              "edge": "right",
+              "at": 3.645,
+              "axis": "y",
+              "blocked_by": 1,
+              "kept": 2
+            }
+          ]
+        },
+        "pad_bbox": {
+          "span": [
+            10.1,
+            2.3
+          ],
+          "half": [
+            5.05,
+            1.15
+          ]
+        },
+        "derivations": [
+          {
+            "item": "dim.body.x 本体宽 X",
+            "value": 7.59,
+            "formula": "来源=drawing；图上标注值 7.59",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.body.y 本体高 Y",
+            "value": 12.2,
+            "formula": "来源=drawing；图上标注值 12.2",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pad.x 焊盘宽 X",
+            "value": 1.2,
+            "formula": "来源=drawing；图上标注值 1.2",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pad.y 焊盘高 Y",
+            "value": 2.2,
+            "formula": "来源=drawing；图上标注值 2.2",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pitch_x 横向间距",
+            "value": 1.76,
+            "formula": "来源=drawing；图上标注值 1.76",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pitch_y 纵向间距",
+            "value": 1.0,
+            "formula": "来源=drawing；图上标注值 1",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "padstack.name",
+            "value": "OB1D2X2D2",
+            "formula": "OB(1D2)X(2D2)",
+            "source": "[规范 二] 焊盘命名 r长x宽"
+          },
+          {
+            "item": "padstack.layers[1]",
+            "value": [
+              1.3,
+              2.3000000000000003
+            ],
+            "formula": "TOP + 2×0.05",
+            "source": "[规范 三] 阻焊开窗单边 +0.05"
+          },
+          {
+            "item": "padstack.layers[2]",
+            "value": [
+              1.2,
+              2.2
+            ],
+            "formula": "= TOP",
+            "source": "[规范 三] 钢网与焊盘等大"
+          },
+          {
+            "item": "pins.order",
+            "value": "6 个（显式引脚表）",
+            "formula": "pins_override 逐条采用",
+            "source": "非规则阵列（信号脚+固定脚）—— 规格书 RECOMMEND PCB LAYOUT"
+          },
+          {
+            "item": "body(assembly)",
+            "value": [
+              7.59,
+              12.2
+            ],
+            "formula": "本体 7.59×12.2（图上标注值）",
+            "source": "[规范 三] Assembly 与本体一致 ±0.05；[规范 一] 命名用中值 / 画实体按用户口径：图上标注→取标注值；查表→取 MAX"
+          },
+          {
+            "item": "place_bound.expand",
+            "value": 1.6,
+            "formula": "connector_expand_mm",
+            "source": "[规范 三] 本体 + 单边外扩（ic 0.35 / chip 0.15 / connector 0.85）"
+          },
+          {
+            "item": "place_bound.size",
+            "value": [
+              10.79,
+              15.4
+            ],
+            "formula": "7.59+2×1.6 × 12.2+2×1.6",
+            "source": "基准=本体（图上标注值）；金标准 5.2 实测 3.9×3.2 同此口径"
+          },
+          {
+            "item": "pad_array.bbox(含阻焊)",
+            "value": [
+              10.1,
+              2.3
+            ],
+            "formula": "pitch×(6-1)+pad+2×0.05 等",
+            "source": "用于丝印避让 / Place_Bound 覆盖校验"
+          },
+          {
+            "item": "body_center",
+            "value": [
+              -0.15,
+              -6.1
+            ],
+            "formula": "spec['body_center']（本体中心在成品坐标系中的位置）",
+            "source": "连接器类：原点常取「本体上边缘 × 中心线」，本体中心随之偏离原点（规格书标注基准）"
+          },
+          {
+            "item": "silk.outline",
+            "value": "7 段残段",
+            "formula": "本体 4 条边 −「焊盘(含阻焊) 外扩 0.2」冲突区间",
+            "source": "[规范 四] 丝印不得进入阻焊开窗区；★ 形态由金标准在线反解（本体轮廓 + 逐边裁剪）"
+          },
+          {
+            "item": "silk.edge_bottom",
+            "value": "保留 1 段（被 2 个焊盘挡）",
+            "formula": "x 方向区间裁剪 @ -12.2",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.edge_top",
+            "value": "保留 1 段（被 0 个焊盘挡）",
+            "formula": "x 方向区间裁剪 @ 0.0",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.edge_left",
+            "value": "保留 3 段（被 3 个焊盘挡）",
+            "formula": "y 方向区间裁剪 @ -3.945",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.edge_right",
+            "value": "保留 2 段（被 1 个焊盘挡）",
+            "formula": "y 方向区间裁剪 @ 3.645",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.pin1_mark",
+            "value": "三角形 @ top-left",
+            "formula": "apex=[-4.14, -1.9]，base=[[-4.44, -1.6], [-3.84, -1.6]]（0.6×0.3）",
+            "source": "[规范 四] 1 脚标识必须清晰、唯一；★ 形态/尺寸由金标准在线反解（apex 朝器件、贴 1 脚焊盘外缘外移 0.10、底宽 0.60 高 0.30）"
+          },
+          {
+            "item": "refdes.pos",
+            "value": [
+              -0.15,
+              -6.1
+            ],
+            "formula": "本体中心(-0.15, -6.1) + 偏移(0.0, 0.0)",
+            "source": "人工模板库口径：位号居中于本体（14/14 模板实测）"
+          },
+          {
+            "item": "refdes.layer",
+            "value": [
+              "refdes_assembly"
+            ],
+            "formula": "REF DES/ASSEMBLY_TOP",
+            "source": "人工模板库口径：14/14 模板位号都在装配层 （Data/footprint/*/*.dra 实测）"
+          },
+          {
+            "item": "refdes.text",
+            "value": "#REF",
+            "formula": "#REF",
+            "source": "人工模板库口径（Cadence 占位符写法）"
+          },
+          {
+            "item": "symbol_name",
+            "value": "NB_CSTJ421_AJ35_6P",
+            "formula": "NB_CSTJ4216_7D59X12D2",
+            "source": "[规范 一] <前缀><类型><引脚数>_<长>X<宽>[X<高>]；命名用中值"
+          }
+        ],
+        "warnings": [],
+        "error": null
+      },
+      "derive": {
+        "padstack": {
+          "name": "POB1D6X0D6HOB2D2X1D2",
+          "layers": [
+            {
+              "layer": "TOP",
+              "figure": "OBLONG_X",
+              "size": [
+                1.2,
+                2.2
+              ]
+            },
+            {
+              "layer": "DEFAULT_INTERNAL",
+              "figure": "OBLONG_X",
+              "size": [
+                1.2,
+                2.2
+              ]
+            },
+            {
+              "layer": "BOTTOM",
+              "figure": "OBLONG_X",
+              "size": [
+                1.2,
+                2.2
+              ]
+            },
+            {
+              "layer": "SOLDERMASK_TOP",
+              "figure": "OBLONG_X",
+              "size": [
+                1.3,
+                2.3
+              ]
+            },
+            {
+              "layer": "SOLDERMASK_BOTTOM",
+              "figure": "OBLONG_X",
+              "size": [
+                1.3,
+                2.3
+              ]
+            },
+            {
+              "layer": "PASTEMASK_TOP",
+              "figure": "OBLONG_X",
+              "size": [
+                1.2,
+                2.2
+              ]
+            }
+          ],
+          "drill": {
+            "size": [
+              0.6,
+              1.6
+            ],
+            "drill_type": "OVAL_SLOT",
+            "figure": "OBLONG_Y",
+            "plated": true,
+            "offset": [
+              0,
+              0
+            ]
+          },
+          "paste_bottom": false
+        },
+        "extra_padstacks": [
+          {
+            "name": "POB1D4X0D6HOB2X1D2",
+            "layers": [
+              {
+                "layer": "TOP",
+                "figure": "OBLONG_X",
+                "size": [
+                  1.2,
+                  2.0
+                ]
+              },
+              {
+                "layer": "DEFAULT_INTERNAL",
+                "figure": "OBLONG_X",
+                "size": [
+                  1.2,
+                  2.0
+                ]
+              },
+              {
+                "layer": "BOTTOM",
+                "figure": "OBLONG_X",
+                "size": [
+                  1.2,
+                  2.0
+                ]
+              },
+              {
+                "layer": "SOLDERMASK_TOP",
+                "figure": "OBLONG_X",
+                "size": [
+                  1.3,
+                  2.1
+                ]
+              },
+              {
+                "layer": "SOLDERMASK_BOTTOM",
+                "figure": "OBLONG_X",
+                "size": [
+                  1.3,
+                  2.1
+                ]
+              },
+              {
+                "layer": "PASTEMASK_TOP",
+                "figure": "OBLONG_X",
+                "size": [
+                  1.2,
+                  2.0
+                ]
+              }
+            ],
+            "drill": {
+              "size": [
+                0.6,
+                1.4
+              ],
+              "drill_type": "OVAL_SLOT",
+              "figure": "OBLONG_Y",
+              "plated": true
+            },
+            "paste_bottom": false
+          },
+          {
+            "name": "POB1X0D7HOB1D6X1D3",
+            "layers": [
+              {
+                "layer": "TOP",
+                "figure": "OBLONG_X",
+                "size": [
+                  1.3,
+                  1.6
+                ]
+              },
+              {
+                "layer": "DEFAULT_INTERNAL",
+                "figure": "OBLONG_X",
+                "size": [
+                  1.3,
+                  1.6
+                ]
+              },
+              {
+                "layer": "BOTTOM",
+                "figure": "OBLONG_X",
+                "size": [
+                  1.3,
+                  1.6
+                ]
+              },
+              {
+                "layer": "SOLDERMASK_TOP",
+                "figure": "OBLONG_X",
+                "size": [
+                  1.4,
+                  1.7
+                ]
+              },
+              {
+                "layer": "SOLDERMASK_BOTTOM",
+                "figure": "OBLONG_X",
+                "size": [
+                  1.4,
+                  1.7
+                ]
+              },
+              {
+                "layer": "PASTEMASK_TOP",
+                "figure": "OBLONG_X",
+                "size": [
+                  1.3,
+                  1.6
+                ]
+              }
+            ],
+            "drill": {
+              "size": [
+                0.7,
+                1.0
+              ],
+              "drill_type": "OVAL_SLOT",
+              "figure": "OBLONG_Y",
+              "plated": true
+            },
+            "paste_bottom": false
+          }
+        ],
+        "pins_override": [
+          {
+            "number": "1",
+            "x": -4.14,
+            "y": -2.75,
+            "padstack": "POB1X0D7HOB1D6X1D3",
+            "pad_size": [
+              1.42,
+              1.4
+            ],
+            "rotation": 90
+          },
+          {
+            "number": "2",
+            "x": 4.25,
+            "y": -2.75,
+            "padstack": "POB1D6X0D6HOB2D2X1D2",
+            "pad_size": [
+              1.2,
+              2.2
+            ],
+            "rotation": 90
+          },
+          {
+            "number": "3",
+            "x": -4.23,
+            "y": -5.35,
+            "padstack": "POB1D6X0D6HOB2D2X1D2",
+            "pad_size": [
+              1.2,
+              2.2
+            ],
+            "rotation": 90
+          },
+          {
+            "number": "4",
+            "x": -4.45,
+            "y": -11.5,
+            "padstack": "POB1D6X0D6HOB2D2X1D2",
+            "pad_size": [
+              1.2,
+              2.2
+            ],
+            "rotation": 90
+          },
+          {
+            "number": "5",
+            "x": 4.55,
+            "y": -9.0,
+            "padstack": "POB1D4X0D6HOB2X1D2",
+            "pad_size": [
+              1.2,
+              2.0
+            ],
+            "rotation": 90
+          },
+          {
+            "number": "6",
+            "x": 4.55,
+            "y": -11.6,
+            "padstack": "POB1D4X0D6HOB2X1D2",
+            "pad_size": [
+              1.2,
+              2.0
+            ],
+            "rotation": 90
+          }
+        ],
+        "notes": {
+          "conventions": [
+            "焊盘按标准环宽 0.3 派生：2.2x1.2",
+            "⚠ padstack 名 `OB1D2X2D2` 不合库语法（应为 POB{孔}X{孔}HOB{盘}X{盘}）→ 改用 `POB1D6X0D6HOB2D2X1D2`",
+            "焊盘按标准环宽 0.3 派生：2.0x1.2",
+            "⚠ padstack 名 `OB1D2X2D0` 不合库语法（应为 POB{孔}X{孔}HOB{盘}X{盘}）→ 改用 `POB1D4X0D6HOB2X1D2`",
+            "焊盘按标准环宽 0.3 派生：1.6x1.2999999999999998",
+            "⚠ padstack 名 `R1D42X1D4` 不合库语法（应为 POB{孔}X{孔}HOB{盘}X{盘}）→ 改用 `POB1X0D7HOB1D6X1D3`",
+            "pin1 padstack 引用同步改名 → POB1X0D7HOB1D6X1D3",
+            "pin1 补 rotation=90（本地竖孔→板面横槽，金标准口径）",
+            "pin2 padstack 引用同步改名 → POB1D6X0D6HOB2D2X1D2",
+            "pin2 补 rotation=90（本地竖孔→板面横槽，金标准口径）",
+            "pin3 padstack 引用同步改名 → POB1D6X0D6HOB2D2X1D2",
+            "pin3 补 rotation=90（本地竖孔→板面横槽，金标准口径）",
+            "pin4 padstack 引用同步改名 → POB1D6X0D6HOB2D2X1D2",
+            "pin4 补 rotation=90（本地竖孔→板面横槽，金标准口径）",
+            "pin5 padstack 引用同步改名 → POB1D4X0D6HOB2X1D2",
+            "pin5 补 rotation=90（本地竖孔→板面横槽，金标准口径）",
+            "pin6 padstack 引用同步改名 → POB1D4X0D6HOB2X1D2",
+            "pin6 补 rotation=90（本地竖孔→板面横槽，金标准口径）"
+          ],
+          "tht_layers": []
+        }
+      }
+    },
+    "nb_fpc0510_6p_4d77x3d6.json": {
+      "solve": {
+        "success": true,
+        "symbol_name": "NB_FPC0510_6P_4D77X3D6",
+        "padstack": {
+          "name": "R0D3X0D65",
+          "layers": [
+            {
+              "layer": "TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                0.3,
+                0.65
+              ]
+            },
+            {
+              "layer": "SOLDERMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                0.4,
+                0.75
+              ]
+            },
+            {
+              "layer": "PASTEMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                0.3,
+                0.65
+              ]
+            }
+          ],
+          "drill": null
+        },
+        "extra_padstacks": [
+          {
+            "name": "R0D3X1D15",
+            "layers": [
+              {
+                "layer": "TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  0.3,
+                  1.15
+                ]
+              },
+              {
+                "layer": "SOLDERMASK_TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  0.4,
+                  1.25
+                ]
+              },
+              {
+                "layer": "PASTEMASK_TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  0.3,
+                  1.15
+                ]
+              }
+            ]
+          }
+        ],
+        "pins": [
+          {
+            "number": "1",
+            "x": -1.25,
+            "y": -2.235,
+            "padstack": "R0D3X0D65",
+            "pad_size": [
+              0.3,
+              0.65
+            ]
+          },
+          {
+            "number": "2",
+            "x": -0.75,
+            "y": -2.235,
+            "padstack": "R0D3X0D65",
+            "pad_size": [
+              0.3,
+              0.65
+            ]
+          },
+          {
+            "number": "3",
+            "x": -0.25,
+            "y": -2.235,
+            "padstack": "R0D3X0D65",
+            "pad_size": [
+              0.3,
+              0.65
+            ]
+          },
+          {
+            "number": "4",
+            "x": 0.25,
+            "y": -2.235,
+            "padstack": "R0D3X0D65",
+            "pad_size": [
+              0.3,
+              0.65
+            ]
+          },
+          {
+            "number": "5",
+            "x": 0.75,
+            "y": -2.235,
+            "padstack": "R0D3X0D65",
+            "pad_size": [
+              0.3,
+              0.65
+            ]
+          },
+          {
+            "number": "6",
+            "x": 1.25,
+            "y": -2.235,
+            "padstack": "R0D3X0D65",
+            "pad_size": [
+              0.3,
+              0.65
+            ]
+          },
+          {
+            "number": "7",
+            "x": -2.135,
+            "y": 0.575,
+            "padstack": "R0D3X1D15",
+            "pad_size": [
+              0.3,
+              1.15
+            ]
+          },
+          {
+            "number": "8",
+            "x": 2.135,
+            "y": 0.575,
+            "padstack": "R0D3X1D15",
+            "pad_size": [
+              0.3,
+              1.15
+            ]
+          }
+        ],
+        "silk": [
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  -2.385,
+                  -1.8
+                ],
+                [
+                  -1.65,
+                  -1.8
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  1.65,
+                  -1.8
+                ],
+                [
+                  2.385,
+                  -1.8
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  -2.385,
+                  1.8
+                ],
+                [
+                  2.385,
+                  1.8
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  -2.385,
+                  -1.8
+                ],
+                [
+                  -2.385,
+                  -0.25
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  -2.385,
+                  1.4
+                ],
+                [
+                  -2.385,
+                  1.8
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  2.385,
+                  -1.8
+                ],
+                [
+                  2.385,
+                  -0.25
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  2.385,
+                  1.4
+                ],
+                [
+                  2.385,
+                  1.8
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "pin1_mark",
+            "lines": [
+              [
+                [
+                  -1.25,
+                  -2.71
+                ],
+                [
+                  -1.55,
+                  -3.01
+                ]
+              ],
+              [
+                [
+                  -1.55,
+                  -3.01
+                ],
+                [
+                  -0.95,
+                  -3.01
+                ]
+              ],
+              [
+                [
+                  -0.95,
+                  -3.01
+                ],
+                [
+                  -1.25,
+                  -2.71
+                ]
+              ]
+            ],
+            "width": 0.15,
+            "corner": "bottom-left"
+          }
+        ],
+        "body": {
+          "x1": -2.385,
+          "y1": -1.8,
+          "x2": 2.385,
+          "y2": 1.8,
+          "width": 0.1
+        },
+        "assembly": [
+          {
+            "x1": -2.385,
+            "y1": -1.8,
+            "x2": 2.385,
+            "y2": 1.8,
+            "width": 0.1
+          },
+          {
+            "kind": "pin1_mark",
+            "lines": [
+              [
+                [
+                  -1.25,
+                  -2.71
+                ],
+                [
+                  -1.55,
+                  -3.01
+                ]
+              ],
+              [
+                [
+                  -1.55,
+                  -3.01
+                ],
+                [
+                  -0.95,
+                  -3.01
+                ]
+              ],
+              [
+                [
+                  -0.95,
+                  -3.01
+                ],
+                [
+                  -1.25,
+                  -2.71
+                ]
+              ]
+            ],
+            "width": 0.1,
+            "corner": "bottom-left"
+          }
+        ],
+        "pad_rects": [
+          {
+            "pin": "1",
+            "x1": -1.45,
+            "y1": -2.61,
+            "x2": -1.05,
+            "y2": -1.86
+          },
+          {
+            "pin": "2",
+            "x1": -0.95,
+            "y1": -2.61,
+            "x2": -0.55,
+            "y2": -1.86
+          },
+          {
+            "pin": "3",
+            "x1": -0.45,
+            "y1": -2.61,
+            "x2": -0.05,
+            "y2": -1.86
+          },
+          {
+            "pin": "4",
+            "x1": 0.05,
+            "y1": -2.61,
+            "x2": 0.45,
+            "y2": -1.86
+          },
+          {
+            "pin": "5",
+            "x1": 0.55,
+            "y1": -2.61,
+            "x2": 0.95,
+            "y2": -1.86
+          },
+          {
+            "pin": "6",
+            "x1": 1.05,
+            "y1": -2.61,
+            "x2": 1.45,
+            "y2": -1.86
+          },
+          {
+            "pin": "7",
+            "x1": -2.335,
+            "y1": -0.05,
+            "x2": -1.935,
+            "y2": 1.2
+          },
+          {
+            "pin": "8",
+            "x1": 1.935,
+            "y1": -0.05,
+            "x2": 2.335,
+            "y2": 1.2
+          }
+        ],
+        "place_bound": {
+          "x1": -3.235,
+          "y1": -2.65,
+          "x2": 3.235,
+          "y2": 2.65
+        },
+        "refdes": {
+          "text": "#REF",
+          "x": 0.0,
+          "y": 0.0,
+          "text_block": "1",
+          "targets": [
+            "refdes_assembly"
+          ],
+          "justify": "left"
+        },
+        "silk_info": {
+          "style": "outline",
+          "box": [
+            4.77,
+            3.6
+          ],
+          "width": 0.15,
+          "to_pad_clearance": 0.2,
+          "clearance": 0.2,
+          "outline_segments": 7,
+          "items": 8,
+          "min_gap_to_pad": null,
+          "pin1": {
+            "style": "triangle",
+            "corner": "bottom-left",
+            "axis": "y",
+            "apex": [
+              -1.25,
+              -2.71
+            ],
+            "base": [
+              [
+                -1.55,
+                -3.01
+              ],
+              [
+                -0.95,
+                -3.01
+              ]
+            ],
+            "segments": [
+              [
+                [
+                  -1.25,
+                  -2.71
+                ],
+                [
+                  -1.55,
+                  -3.01
+                ]
+              ],
+              [
+                [
+                  -1.55,
+                  -3.01
+                ],
+                [
+                  -0.95,
+                  -3.01
+                ]
+              ],
+              [
+                [
+                  -0.95,
+                  -3.01
+                ],
+                [
+                  -1.25,
+                  -2.71
+                ]
+              ]
+            ],
+            "size": [
+              0.6,
+              0.3
+            ],
+            "clearance": 0.1,
+            "layers": [
+              "silkscreen",
+              "assembly"
+            ]
+          },
+          "per_edge": [
+            {
+              "edge": "bottom",
+              "at": -1.8,
+              "axis": "x",
+              "blocked_by": 6,
+              "kept": 2
+            },
+            {
+              "edge": "top",
+              "at": 1.8,
+              "axis": "x",
+              "blocked_by": 0,
+              "kept": 1
+            },
+            {
+              "edge": "left",
+              "at": -2.385,
+              "axis": "y",
+              "blocked_by": 1,
+              "kept": 2
+            },
+            {
+              "edge": "right",
+              "at": 2.385,
+              "axis": "y",
+              "blocked_by": 1,
+              "kept": 2
+            }
+          ]
+        },
+        "pad_bbox": {
+          "span": [
+            2.9,
+            0.75
+          ],
+          "half": [
+            1.45,
+            0.375
+          ]
+        },
+        "derivations": [
+          {
+            "item": "dim.body.x 本体宽 X",
+            "value": 4.77,
+            "formula": "来源=drawing；图上标注值 4.77",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.body.y 本体高 Y",
+            "value": 3.6,
+            "formula": "来源=drawing；图上标注值 3.6",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pad.x 焊盘宽 X",
+            "value": 0.3,
+            "formula": "来源=drawing；图上标注值 0.3",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pad.y 焊盘高 Y",
+            "value": 0.65,
+            "formula": "来源=drawing；图上标注值 0.65",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pitch_x 横向间距",
+            "value": 0.5,
+            "formula": "来源=drawing；图上标注值 0.5",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pitch_y 纵向间距",
+            "value": 0.5,
+            "formula": "来源=drawing；图上标注值 0.5",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "padstack.name",
+            "value": "R0D3X0D65",
+            "formula": "R(0D3)X(0D65)",
+            "source": "[规范 二] 焊盘命名 r长x宽"
+          },
+          {
+            "item": "padstack.layers[1]",
+            "value": [
+              0.4,
+              0.75
+            ],
+            "formula": "TOP + 2×0.05",
+            "source": "[规范 三] 阻焊开窗单边 +0.05"
+          },
+          {
+            "item": "padstack.layers[2]",
+            "value": [
+              0.3,
+              0.65
+            ],
+            "formula": "= TOP",
+            "source": "[规范 三] 钢网与焊盘等大"
+          },
+          {
+            "item": "pins.order",
+            "value": "8 个（显式引脚表）",
+            "formula": "pins_override 逐条采用",
+            "source": "非规则阵列（信号脚+固定脚）—— 规格书 RECOMMEND PCB LAYOUT"
+          },
+          {
+            "item": "body(assembly)",
+            "value": [
+              4.77,
+              3.6
+            ],
+            "formula": "本体 4.77×3.6（图上标注值）",
+            "source": "[规范 三] Assembly 与本体一致 ±0.05；[规范 一] 命名用中值 / 画实体按用户口径：图上标注→取标注值；查表→取 MAX"
+          },
+          {
+            "item": "place_bound.expand",
+            "value": 0.85,
+            "formula": "connector_expand_mm",
+            "source": "[规范 三] 本体 + 单边外扩（ic 0.35 / chip 0.15 / connector 0.85）"
+          },
+          {
+            "item": "place_bound.size",
+            "value": [
+              6.47,
+              5.3
+            ],
+            "formula": "4.77+2×0.85 × 3.6+2×0.85",
+            "source": "基准=本体（图上标注值）；金标准 5.2 实测 3.9×3.2 同此口径"
+          },
+          {
+            "item": "pad_array.bbox(含阻焊)",
+            "value": [
+              2.9,
+              0.75
+            ],
+            "formula": "pitch×(6-1)+pad+2×0.05 等",
+            "source": "用于丝印避让 / Place_Bound 覆盖校验"
+          },
+          {
+            "item": "silk.outline",
+            "value": "7 段残段",
+            "formula": "本体 4 条边 −「焊盘(含阻焊) 外扩 0.2」冲突区间",
+            "source": "[规范 四] 丝印不得进入阻焊开窗区；★ 形态由金标准在线反解（本体轮廓 + 逐边裁剪）"
+          },
+          {
+            "item": "silk.edge_bottom",
+            "value": "保留 2 段（被 6 个焊盘挡）",
+            "formula": "x 方向区间裁剪 @ -1.8",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.edge_top",
+            "value": "保留 1 段（被 0 个焊盘挡）",
+            "formula": "x 方向区间裁剪 @ 1.8",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.edge_left",
+            "value": "保留 2 段（被 1 个焊盘挡）",
+            "formula": "y 方向区间裁剪 @ -2.385",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.edge_right",
+            "value": "保留 2 段（被 1 个焊盘挡）",
+            "formula": "y 方向区间裁剪 @ 2.385",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.pin1_mark",
+            "value": "三角形 @ bottom-left",
+            "formula": "apex=[-1.25, -2.71]，base=[[-1.55, -3.01], [-0.95, -3.01]]（0.6×0.3）",
+            "source": "[规范 四] 1 脚标识必须清晰、唯一；★ 形态/尺寸由金标准在线反解（apex 朝器件、贴 1 脚焊盘外缘外移 0.10、底宽 0.60 高 0.30）"
+          },
+          {
+            "item": "refdes.pos",
+            "value": [
+              0.0,
+              0.0
+            ],
+            "formula": "本体中心(0.0, 0.0) + 偏移(0.0, 0.0)",
+            "source": "人工模板库口径：位号居中于本体（14/14 模板实测）"
+          },
+          {
+            "item": "refdes.layer",
+            "value": [
+              "refdes_assembly"
+            ],
+            "formula": "REF DES/ASSEMBLY_TOP",
+            "source": "人工模板库口径：14/14 模板位号都在装配层 （Data/footprint/*/*.dra 实测）"
+          },
+          {
+            "item": "refdes.text",
+            "value": "#REF",
+            "formula": "#REF",
+            "source": "人工模板库口径（Cadence 占位符写法）"
+          },
+          {
+            "item": "symbol_name",
+            "value": "NB_FPC0510_6P_4D77X3D6",
+            "formula": "NB_FPC05108_4D77X3D6",
+            "source": "[规范 一] <前缀><类型><引脚数>_<长>X<宽>[X<高>]；命名用中值"
+          }
+        ],
+        "warnings": [
+          "⚠️ 1 脚标识（x -1.55~-0.95，y -3.01~-2.71）伸出 Place_Bound（x ±3.235 / y ±2.65）—— [金标] 人工金标准那份**同样伸出**，属该件既有做法；若要求丝印不出 PB，请调小 pin1_mark_width / pin1_mark_height / pin1_mark_clearance。"
+        ],
+        "error": null
+      },
+      "derive": {
+        "padstack": {
+          "name": "R0D3X0D65",
+          "layers": [
+            {
+              "layer": "TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                0.3,
+                0.65
+              ]
+            },
+            {
+              "layer": "SOLDERMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                0.4,
+                0.75
+              ]
+            },
+            {
+              "layer": "PASTEMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                0.3,
+                0.65
+              ]
+            }
+          ],
+          "drill": null
+        },
+        "extra_padstacks": [
+          {
+            "name": "R0D3X1D15",
+            "layers": [
+              {
+                "layer": "TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  0.3,
+                  1.15
+                ]
+              },
+              {
+                "layer": "SOLDERMASK_TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  0.4,
+                  1.25
+                ]
+              },
+              {
+                "layer": "PASTEMASK_TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  0.3,
+                  1.15
+                ]
+              }
+            ]
+          }
+        ],
+        "pins_override": [
+          {
+            "number": "1",
+            "x": -1.25,
+            "y": -2.235,
+            "padstack": "R0D3X0D65",
+            "pad_size": [
+              0.3,
+              0.65
+            ]
+          },
+          {
+            "number": "2",
+            "x": -0.75,
+            "y": -2.235,
+            "padstack": "R0D3X0D65",
+            "pad_size": [
+              0.3,
+              0.65
+            ]
+          },
+          {
+            "number": "3",
+            "x": -0.25,
+            "y": -2.235,
+            "padstack": "R0D3X0D65",
+            "pad_size": [
+              0.3,
+              0.65
+            ]
+          },
+          {
+            "number": "4",
+            "x": 0.25,
+            "y": -2.235,
+            "padstack": "R0D3X0D65",
+            "pad_size": [
+              0.3,
+              0.65
+            ]
+          },
+          {
+            "number": "5",
+            "x": 0.75,
+            "y": -2.235,
+            "padstack": "R0D3X0D65",
+            "pad_size": [
+              0.3,
+              0.65
+            ]
+          },
+          {
+            "number": "6",
+            "x": 1.25,
+            "y": -2.235,
+            "padstack": "R0D3X0D65",
+            "pad_size": [
+              0.3,
+              0.65
+            ]
+          },
+          {
+            "number": "7",
+            "x": -2.135,
+            "y": 0.575,
+            "padstack": "R0D3X1D15",
+            "pad_size": [
+              0.3,
+              1.15
+            ]
+          },
+          {
+            "number": "8",
+            "x": 2.135,
+            "y": 0.575,
+            "padstack": "R0D3X1D15",
+            "pad_size": [
+              0.3,
+              1.15
+            ]
+          }
+        ],
+        "notes": {
+          "conventions": [],
+          "tht_layers": []
+        }
+      }
+    },
+    "nb_lmbr140et1g_2p.json": {
+      "solve": {
+        "success": true,
+        "symbol_name": "NB_LMBR140ET1G_2P",
+        "padstack": {
+          "name": "R2X1D1",
+          "layers": [
+            {
+              "layer": "TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                2.0,
+                1.1
+              ]
+            },
+            {
+              "layer": "SOLDERMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                2.1,
+                1.2
+              ]
+            },
+            {
+              "layer": "PASTEMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                2.0,
+                1.1
+              ]
+            }
+          ],
+          "drill": null
+        },
+        "extra_padstacks": [
+          {
+            "name": "R0D8X1D",
+            "layers": [
+              {
+                "layer": "TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  0.8,
+                  1
+                ]
+              },
+              {
+                "layer": "SOLDERMASK_TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  0.9,
+                  1.1
+                ]
+              },
+              {
+                "layer": "PASTEMASK_TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  0.8,
+                  1
+                ]
+              }
+            ]
+          }
+        ],
+        "pins": [
+          {
+            "number": "1",
+            "x": -0.65,
+            "y": 0.0,
+            "padstack": null,
+            "pad_size": [
+              2,
+              1.1
+            ]
+          },
+          {
+            "number": "2",
+            "x": 1.25,
+            "y": 0.0,
+            "padstack": "R0D8X1D",
+            "pad_size": [
+              0.8,
+              1
+            ]
+          }
+        ],
+        "silk": [
+          {
+            "kind": "fallback",
+            "x1": -2.06,
+            "y1": -0.66,
+            "x2": 2.06,
+            "y2": 0.66,
+            "width": 0.15
+          },
+          {
+            "kind": "pin1_mark",
+            "lines": [
+              [
+                [
+                  -0.65,
+                  -0.7
+                ],
+                [
+                  -0.95,
+                  -1.0
+                ]
+              ],
+              [
+                [
+                  -0.95,
+                  -1.0
+                ],
+                [
+                  -0.35,
+                  -1.0
+                ]
+              ],
+              [
+                [
+                  -0.35,
+                  -1.0
+                ],
+                [
+                  -0.65,
+                  -0.7
+                ]
+              ]
+            ],
+            "width": 0.15,
+            "corner": "bottom-left"
+          }
+        ],
+        "body": {
+          "x1": -1.35,
+          "y1": -0.7,
+          "x2": 1.35,
+          "y2": 0.7,
+          "width": 0.1
+        },
+        "assembly": [
+          {
+            "x1": -1.35,
+            "y1": -0.7,
+            "x2": 1.35,
+            "y2": 0.7,
+            "width": 0.1
+          },
+          {
+            "kind": "pin1_mark",
+            "lines": [
+              [
+                [
+                  -0.65,
+                  -0.7
+                ],
+                [
+                  -0.95,
+                  -1.0
+                ]
+              ],
+              [
+                [
+                  -0.95,
+                  -1.0
+                ],
+                [
+                  -0.35,
+                  -1.0
+                ]
+              ],
+              [
+                [
+                  -0.35,
+                  -1.0
+                ],
+                [
+                  -0.65,
+                  -0.7
+                ]
+              ]
+            ],
+            "width": 0.1,
+            "corner": "bottom-left"
+          }
+        ],
+        "pad_rects": [
+          {
+            "pin": "1",
+            "x1": -1.7,
+            "y1": -0.6,
+            "x2": 0.4,
+            "y2": 0.6
+          },
+          {
+            "pin": "2",
+            "x1": 0.8,
+            "y1": -0.55,
+            "x2": 1.7,
+            "y2": 0.55
+          }
+        ],
+        "place_bound": {
+          "x1": -1.75,
+          "y1": -1.1,
+          "x2": 1.75,
+          "y2": 1.1
+        },
+        "refdes": {
+          "text": "#REF",
+          "x": 0.0,
+          "y": 0.0,
+          "text_block": "1",
+          "justify": "left"
+        },
+        "silk_info": {
+          "style": "fallback_edge",
+          "box": [
+            2.7,
+            1.4
+          ],
+          "width": 0.15,
+          "to_pad_clearance": 0.2,
+          "clearance": 0.2,
+          "outline_segments": 0,
+          "items": 2,
+          "min_gap_to_pad": 0.06,
+          "pin1": {
+            "style": "triangle",
+            "corner": "bottom-left",
+            "axis": "y",
+            "apex": [
+              -0.65,
+              -0.7
+            ],
+            "base": [
+              [
+                -0.95,
+                -1.0
+              ],
+              [
+                -0.35,
+                -1.0
+              ]
+            ],
+            "segments": [
+              [
+                [
+                  -0.65,
+                  -0.7
+                ],
+                [
+                  -0.95,
+                  -1.0
+                ]
+              ],
+              [
+                [
+                  -0.95,
+                  -1.0
+                ],
+                [
+                  -0.35,
+                  -1.0
+                ]
+              ],
+              [
+                [
+                  -0.35,
+                  -1.0
+                ],
+                [
+                  -0.65,
+                  -0.7
+                ]
+              ]
+            ],
+            "size": [
+              0.6,
+              0.3
+            ],
+            "clearance": 0.1,
+            "layers": [
+              "silkscreen",
+              "assembly"
+            ]
+          },
+          "per_edge": null
+        },
+        "pad_bbox": {
+          "span": [
+            4.0,
+            1.2
+          ],
+          "half": [
+            2.0,
+            0.6
+          ]
+        },
+        "derivations": [
+          {
+            "item": "dim.body.x 本体宽 X",
+            "value": 2.7,
+            "formula": "来源=table；表 MAX",
+            "source": "用户口径 2026-09-29：图上无值、需查表 → 取表 MAX（无 MAX 用 TYP 并告警）"
+          },
+          {
+            "item": "dim.body.y 本体高 Y",
+            "value": 1.4,
+            "formula": "来源=table；表 MAX",
+            "source": "用户口径 2026-09-29：图上无值、需查表 → 取表 MAX（无 MAX 用 TYP 并告警）"
+          },
+          {
+            "item": "dim.pad.x 焊盘宽 X",
+            "value": 2.0,
+            "formula": "来源=drawing；图上标注值 2",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pad.y 焊盘高 Y",
+            "value": 1.1,
+            "formula": "来源=drawing；图上标注值 1.1",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pitch_x 横向间距",
+            "value": 1.9,
+            "formula": "来源=drawing；图上标注值 1.9",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pitch_y 纵向间距",
+            "value": 0.0,
+            "formula": "来源=drawing；图上标注值 0",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "padstack.name",
+            "value": "R2X1D1",
+            "formula": "R(2)X(1D1)",
+            "source": "[规范 二] 焊盘命名 r长x宽"
+          },
+          {
+            "item": "padstack.layers[1]",
+            "value": [
+              2.1,
+              1.2000000000000002
+            ],
+            "formula": "TOP + 2×0.05",
+            "source": "[规范 三] 阻焊开窗单边 +0.05"
+          },
+          {
+            "item": "padstack.layers[2]",
+            "value": [
+              2.0,
+              1.1
+            ],
+            "formula": "= TOP",
+            "source": "[规范 三] 钢网与焊盘等大"
+          },
+          {
+            "item": "pins.order",
+            "value": "2 个（显式引脚表）",
+            "formula": "pins_override 逐条采用",
+            "source": "非规则阵列（信号脚+固定脚）—— 规格书 RECOMMEND PCB LAYOUT"
+          },
+          {
+            "item": "body(assembly)",
+            "value": [
+              2.7,
+              1.4
+            ],
+            "formula": "本体 2.7×1.4（图上标注值）",
+            "source": "[规范 三] Assembly 与本体一致 ±0.05；[规范 一] 命名用中值 / 画实体按用户口径：图上标注→取标注值；查表→取 MAX"
+          },
+          {
+            "item": "place_bound.expand",
+            "value": 0.4,
+            "formula": "chip_expand_mm",
+            "source": "[规范 三] 本体 + 单边外扩（ic 0.35 / chip 0.15 / connector 0.85）"
+          },
+          {
+            "item": "place_bound.size",
+            "value": [
+              3.5,
+              2.2
+            ],
+            "formula": "2.7+2×0.4 × 1.4+2×0.4",
+            "source": "基准=本体（图上标注值）；金标准 5.2 实测 3.9×3.2 同此口径"
+          },
+          {
+            "item": "pad_array.bbox(含阻焊)",
+            "value": [
+              4.0,
+              1.2
+            ],
+            "formula": "pitch×(2-1)+pad+2×0.05 等",
+            "source": "用于丝印避让 / Place_Bound 覆盖校验"
+          },
+          {
+            "item": "silk.fallback_box",
+            "value": [
+              4.12,
+              1.32
+            ],
+            "formula": "焊盘(含阻焊) bbox + 2×0.06",
+            "source": "[规范 四] 不得进入阻焊开窗区（本体无残段可用时的兜底）"
+          },
+          {
+            "item": "silk.pin1_mark",
+            "value": "三角形 @ bottom-left",
+            "formula": "apex=[-0.65, -0.7]，base=[[-0.95, -1.0], [-0.35, -1.0]]（0.6×0.3）",
+            "source": "[规范 四] 1 脚标识必须清晰、唯一；★ 形态/尺寸由金标准在线反解（apex 朝器件、贴 1 脚焊盘外缘外移 0.10、底宽 0.60 高 0.30）"
+          },
+          {
+            "item": "refdes.pos",
+            "value": [
+              0.0,
+              0.0
+            ],
+            "formula": "本体中心(0.0, 0.0) + 偏移(0.0, 0.0)",
+            "source": "人工模板库口径：位号居中于本体（14/14 模板实测）"
+          },
+          {
+            "item": "refdes.layer",
+            "value": [
+              "refdes_assembly"
+            ],
+            "formula": "REF DES/ASSEMBLY_TOP",
+            "source": "人工模板库口径：14/14 模板位号都在装配层 （Data/footprint/*/*.dra 实测）"
+          },
+          {
+            "item": "refdes.text",
+            "value": "#REF",
+            "formula": "#REF",
+            "source": "人工模板库口径（Cadence 占位符写法）"
+          },
+          {
+            "item": "symbol_name",
+            "value": "NB_LMBR140ET1G_2P",
+            "formula": "NB_LMBR140ET1G2_2D7X1D4",
+            "source": "[规范 一] <前缀><类型><引脚数>_<长>X<宽>[X<高>]；命名用中值"
+          }
+        ],
+        "warnings": [
+          "尺寸 'pad.x' 没给表（整件默认来源是 'table'，但图上标了值 2）—— 已按**图上标注值**取值，请确认这确实就是图纸口径。",
+          "尺寸 'pad.y' 没给表（整件默认来源是 'table'，但图上标了值 1.1）—— 已按**图上标注值**取值，请确认这确实就是图纸口径。",
+          "尺寸 'pitch_x' 没给表（整件默认来源是 'table'，但图上标了值 1.9）—— 已按**图上标注值**取值，请确认这确实就是图纸口径。",
+          "尺寸 'pitch_y' 没给表（整件默认来源是 'table'，但图上标了值 0）—— 已按**图上标注值**取值，请确认这确实就是图纸口径。",
+          "⚠️ Place_Bound（3.5×2.2）比焊盘阵列（含阻焊 4.0×1.2）还小 —— 违反 [规范 三] '需覆盖所有焊盘'。多半是本体尺寸小于焊盘跨距（3.2×2.5 本体 vs 3.6×2.9 焊盘跨距即是此例），建议改用 '本体 + 外扩' 与 '焊盘 bbox + 外扩' 取大者。",
+          "⚠️ 本体 4 条边被焊盘**全部占满**（含 0.2mm 避让后无残留）—— 丝印无法沿本体绘制，已退回「焊盘(含阻焊) bbox 外缘 + 0.06」包框，请人工确认。"
+        ],
+        "error": null
+      },
+      "derive": {
+        "padstack": {
+          "name": "R2X1D1",
+          "layers": [
+            {
+              "layer": "TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                2.0,
+                1.1
+              ]
+            },
+            {
+              "layer": "SOLDERMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                2.1,
+                1.2
+              ]
+            },
+            {
+              "layer": "PASTEMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                2.0,
+                1.1
+              ]
+            }
+          ],
+          "drill": null
+        },
+        "extra_padstacks": [
+          {
+            "name": "R0D8X1D",
+            "layers": [
+              {
+                "layer": "TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  0.8,
+                  1
+                ]
+              },
+              {
+                "layer": "SOLDERMASK_TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  0.9,
+                  1.1
+                ]
+              },
+              {
+                "layer": "PASTEMASK_TOP",
+                "figure": "RECTANGLE",
+                "size": [
+                  0.8,
+                  1
+                ]
+              }
+            ]
+          }
+        ],
+        "pins_override": [
+          {
+            "number": "1",
+            "x": -0.65,
+            "y": 0.0,
+            "padstack": null,
+            "pad_size": [
+              2,
+              1.1
+            ]
+          },
+          {
+            "number": "2",
+            "x": 1.25,
+            "y": 0.0,
+            "padstack": "R0D8X1D",
+            "pad_size": [
+              0.8,
+              1
+            ]
+          }
+        ],
+        "notes": {
+          "conventions": [],
+          "tht_layers": []
+        }
+      }
+    },
+    "nb_lydpj_5p_12x6.json": {
+      "solve": {
+        "success": false,
+        "error": "KeyError: 'pad'",
+        "derivations": [
+          {
+            "item": "dim.body.x 本体宽 X",
+            "value": 12.2,
+            "formula": "来源=drawing；图上标注值 12.2",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.body.y 本体高 Y",
+            "value": 6.7,
+            "formula": "来源=drawing；图上标注值 6.7",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          }
+        ],
+        "warnings": []
+      },
+      "derive": {
+        "padstack": null,
+        "extra_padstacks": null,
+        "pins_override": [],
+        "notes": {
+          "conventions": [],
+          "tht_layers": []
+        }
+      }
+    },
+    "nb_mos8_3d15x3d1x0d85_0d65.json": {
+      "solve": {
+        "success": false,
+        "error": "ValueError: spec['array'] 必须给 rows / cols（>0）",
+        "derivations": [
+          {
+            "item": "dim.body.x 本体宽 X",
+            "value": 2.084,
+            "formula": "来源=drawing；图上标注值 2.084",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.body.y 本体高 Y",
+            "value": 2.185,
+            "formula": "来源=drawing；图上标注值 2.185",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pad.x 焊盘宽 X",
+            "value": 0.4,
+            "formula": "来源=drawing；图上标注值 0.4",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pad.y 焊盘高 Y",
+            "value": 0.598,
+            "formula": "来源=drawing；图上标注值 0.598",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          }
+        ],
+        "warnings": [
+          "spec 含 7 个未消费键（本工具不认识、已忽略，若为规格书约束请人工裁定）: accuracy, assembly, long_pad, pins, silk, thermal_pad, units"
+        ]
+      },
+      "derive": {
+        "padstack": null,
+        "extra_padstacks": null,
+        "pins_override": [],
+        "notes": {
+          "conventions": [],
+          "tht_layers": []
+        }
+      }
+    },
+    "nb_sot23-6_3d02x1d7x1d5_1d05.json": {
+      "solve": {
+        "success": true,
+        "symbol_name": "NB_SOT23-6_3D02X1D7X1D5_1D05",
+        "padstack": {
+          "name": "R0D5X0D95",
+          "layers": [
+            {
+              "layer": "TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                0.5,
+                0.95
+              ]
+            },
+            {
+              "layer": "SOLDERMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                0.6,
+                1.05
+              ]
+            },
+            {
+              "layer": "PASTEMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                0.5,
+                0.95
+              ]
+            }
+          ],
+          "drill": null
+        },
+        "extra_padstacks": [],
+        "pins": [
+          {
+            "number": "1",
+            "x": -1.05,
+            "y": -1.325
+          },
+          {
+            "number": "2",
+            "x": 0.0,
+            "y": -1.325
+          },
+          {
+            "number": "3",
+            "x": 1.05,
+            "y": -1.325
+          },
+          {
+            "number": "4",
+            "x": 1.05,
+            "y": 1.325
+          },
+          {
+            "number": "5",
+            "x": 0.0,
+            "y": 1.325
+          },
+          {
+            "number": "6",
+            "x": -1.05,
+            "y": 1.325
+          }
+        ],
+        "silk": [
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  -1.51,
+                  -0.6
+                ],
+                [
+                  -1.51,
+                  0.6
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  1.51,
+                  -0.6
+                ],
+                [
+                  1.51,
+                  0.6
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "pin1_mark",
+            "lines": [
+              [
+                [
+                  -1.05,
+                  -1.95
+                ],
+                [
+                  -1.35,
+                  -2.25
+                ]
+              ],
+              [
+                [
+                  -1.35,
+                  -2.25
+                ],
+                [
+                  -0.75,
+                  -2.25
+                ]
+              ],
+              [
+                [
+                  -0.75,
+                  -2.25
+                ],
+                [
+                  -1.05,
+                  -1.95
+                ]
+              ]
+            ],
+            "width": 0.15,
+            "corner": "bottom-left"
+          }
+        ],
+        "body": {
+          "x1": -1.51,
+          "y1": -0.85,
+          "x2": 1.51,
+          "y2": 0.85,
+          "width": 0.1
+        },
+        "assembly": [
+          {
+            "x1": -1.51,
+            "y1": -0.85,
+            "x2": 1.51,
+            "y2": 0.85,
+            "width": 0.1
+          },
+          {
+            "kind": "pin1_mark",
+            "lines": [
+              [
+                [
+                  -1.05,
+                  -1.95
+                ],
+                [
+                  -1.35,
+                  -2.25
+                ]
+              ],
+              [
+                [
+                  -1.35,
+                  -2.25
+                ],
+                [
+                  -0.75,
+                  -2.25
+                ]
+              ],
+              [
+                [
+                  -0.75,
+                  -2.25
+                ],
+                [
+                  -1.05,
+                  -1.95
+                ]
+              ]
+            ],
+            "width": 0.1,
+            "corner": "bottom-left"
+          }
+        ],
+        "pad_rects": [
+          {
+            "pin": "1",
+            "x1": -1.35,
+            "y1": -1.85,
+            "x2": -0.75,
+            "y2": -0.8
+          },
+          {
+            "pin": "2",
+            "x1": -0.3,
+            "y1": -1.85,
+            "x2": 0.3,
+            "y2": -0.8
+          },
+          {
+            "pin": "3",
+            "x1": 0.75,
+            "y1": -1.85,
+            "x2": 1.35,
+            "y2": -0.8
+          },
+          {
+            "pin": "4",
+            "x1": 0.75,
+            "y1": 0.8,
+            "x2": 1.35,
+            "y2": 1.85
+          },
+          {
+            "pin": "5",
+            "x1": -0.3,
+            "y1": 0.8,
+            "x2": 0.3,
+            "y2": 1.85
+          },
+          {
+            "pin": "6",
+            "x1": -1.35,
+            "y1": 0.8,
+            "x2": -0.75,
+            "y2": 1.85
+          }
+        ],
+        "place_bound": {
+          "x1": -1.86,
+          "y1": -1.2,
+          "x2": 1.86,
+          "y2": 1.2
+        },
+        "refdes": {
+          "text": "#REF",
+          "x": 0.0,
+          "y": 0.0,
+          "text_block": "1",
+          "justify": "left"
+        },
+        "silk_info": {
+          "style": "outline",
+          "box": [
+            3.02,
+            1.7
+          ],
+          "width": 0.15,
+          "to_pad_clearance": 0.2,
+          "clearance": 0.2,
+          "outline_segments": 2,
+          "items": 3,
+          "min_gap_to_pad": null,
+          "pin1": {
+            "style": "triangle",
+            "corner": "bottom-left",
+            "axis": "y",
+            "apex": [
+              -1.05,
+              -1.95
+            ],
+            "base": [
+              [
+                -1.35,
+                -2.25
+              ],
+              [
+                -0.75,
+                -2.25
+              ]
+            ],
+            "segments": [
+              [
+                [
+                  -1.05,
+                  -1.95
+                ],
+                [
+                  -1.35,
+                  -2.25
+                ]
+              ],
+              [
+                [
+                  -1.35,
+                  -2.25
+                ],
+                [
+                  -0.75,
+                  -2.25
+                ]
+              ],
+              [
+                [
+                  -0.75,
+                  -2.25
+                ],
+                [
+                  -1.05,
+                  -1.95
+                ]
+              ]
+            ],
+            "size": [
+              0.6,
+              0.3
+            ],
+            "clearance": 0.1,
+            "layers": [
+              "silkscreen",
+              "assembly"
+            ]
+          },
+          "per_edge": [
+            {
+              "edge": "bottom",
+              "at": -0.85,
+              "axis": "x",
+              "blocked_by": 3,
+              "kept": 0
+            },
+            {
+              "edge": "top",
+              "at": 0.85,
+              "axis": "x",
+              "blocked_by": 3,
+              "kept": 0
+            },
+            {
+              "edge": "left",
+              "at": -1.51,
+              "axis": "y",
+              "blocked_by": 2,
+              "kept": 1
+            },
+            {
+              "edge": "right",
+              "at": 1.51,
+              "axis": "y",
+              "blocked_by": 2,
+              "kept": 1
+            }
+          ]
+        },
+        "pad_bbox": {
+          "span": [
+            2.7,
+            3.7
+          ],
+          "half": [
+            1.35,
+            1.85
+          ]
+        },
+        "derivations": [
+          {
+            "item": "dim.body.x 本体宽 X",
+            "value": 3.02,
+            "formula": "来源=table；表 MAX",
+            "source": "用户口径 2026-09-29：图上无值、需查表 → 取表 MAX（无 MAX 用 TYP 并告警）"
+          },
+          {
+            "item": "dim.body.y 本体高 Y",
+            "value": 1.7,
+            "formula": "来源=table；表 MAX",
+            "source": "用户口径 2026-09-29：图上无值、需查表 → 取表 MAX（无 MAX 用 TYP 并告警）"
+          },
+          {
+            "item": "dim.pad.x 焊盘宽 X",
+            "value": 0.5,
+            "formula": "来源=table；表 MAX",
+            "source": "用户口径 2026-09-29：图上无值、需查表 → 取表 MAX（无 MAX 用 TYP 并告警）"
+          },
+          {
+            "item": "dim.pad.y 焊盘高 Y",
+            "value": 0.95,
+            "formula": "来源=table；表 MAX",
+            "source": "用户口径 2026-09-29：图上无值、需查表 → 取表 MAX（无 MAX 用 TYP 并告警）"
+          },
+          {
+            "item": "dim.pitch_x 横向间距",
+            "value": 1.05,
+            "formula": "来源=drawing；图上标注值 1.05",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pitch_y 纵向间距",
+            "value": 2.65,
+            "formula": "来源=drawing；图上标注值 2.65",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "padstack.name",
+            "value": "R0D5X0D95",
+            "formula": "R(0D5)X(0D95)",
+            "source": "[规范 二] 焊盘命名 r长x宽"
+          },
+          {
+            "item": "padstack.layers[1]",
+            "value": [
+              0.6,
+              1.05
+            ],
+            "formula": "TOP + 2×0.05",
+            "source": "[规范 三] 阻焊开窗单边 +0.05"
+          },
+          {
+            "item": "padstack.layers[2]",
+            "value": [
+              0.5,
+              0.95
+            ],
+            "formula": "= TOP",
+            "source": "[规范 三] 钢网与焊盘等大"
+          },
+          {
+            "item": "pins.order",
+            "value": "2×3 上下两排",
+            "formula": "下排从左到右 → 上排从右到左",
+            "source": "[规范 四] + 排针通用惯例"
+          },
+          {
+            "item": "pins.coords",
+            "value": "6 个",
+            "formula": "x=±pitch_x×(cols-1)/2=1.05，y=±pitch_y×(rows-1)/2=1.325",
+            "source": "[规范 四] 原点在封装中心"
+          },
+          {
+            "item": "body(assembly)",
+            "value": [
+              3.02,
+              1.7
+            ],
+            "formula": "本体 3.02×1.7（图上标注值）",
+            "source": "[规范 三] Assembly 与本体一致 ±0.05；[规范 一] 命名用中值 / 画实体按用户口径：图上标注→取标注值；查表→取 MAX"
+          },
+          {
+            "item": "place_bound.expand",
+            "value": 0.35,
+            "formula": "ic_expand_mm",
+            "source": "[规范 三] 本体 + 单边外扩（ic 0.35 / chip 0.15 / connector 0.85）"
+          },
+          {
+            "item": "place_bound.size",
+            "value": [
+              3.72,
+              2.4
+            ],
+            "formula": "3.02+2×0.35 × 1.7+2×0.35",
+            "source": "基准=本体（图上标注值）；金标准 5.2 实测 3.9×3.2 同此口径"
+          },
+          {
+            "item": "pad_array.bbox(含阻焊)",
+            "value": [
+              2.7,
+              3.7
+            ],
+            "formula": "pitch×(3-1)+pad+2×0.05 等",
+            "source": "用于丝印避让 / Place_Bound 覆盖校验"
+          },
+          {
+            "item": "silk.outline",
+            "value": "2 段残段",
+            "formula": "本体 4 条边 −「焊盘(含阻焊) 外扩 0.2」冲突区间",
+            "source": "[规范 四] 丝印不得进入阻焊开窗区；★ 形态由金标准在线反解（本体轮廓 + 逐边裁剪）"
+          },
+          {
+            "item": "silk.edge_bottom",
+            "value": "保留 0 段（被 3 个焊盘挡）",
+            "formula": "x 方向区间裁剪 @ -0.85",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.edge_top",
+            "value": "保留 0 段（被 3 个焊盘挡）",
+            "formula": "x 方向区间裁剪 @ 0.85",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.edge_left",
+            "value": "保留 1 段（被 2 个焊盘挡）",
+            "formula": "y 方向区间裁剪 @ -1.51",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.edge_right",
+            "value": "保留 1 段（被 2 个焊盘挡）",
+            "formula": "y 方向区间裁剪 @ 1.51",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.pin1_mark",
+            "value": "三角形 @ bottom-left",
+            "formula": "apex=[-1.05, -1.95]，base=[[-1.35, -2.25], [-0.75, -2.25]]（0.6×0.3）",
+            "source": "[规范 四] 1 脚标识必须清晰、唯一；★ 形态/尺寸由金标准在线反解（apex 朝器件、贴 1 脚焊盘外缘外移 0.10、底宽 0.60 高 0.30）"
+          },
+          {
+            "item": "refdes.pos",
+            "value": [
+              0.0,
+              0.0
+            ],
+            "formula": "本体中心(0.0, 0.0) + 偏移(0.0, 0.0)",
+            "source": "人工模板库口径：位号居中于本体（14/14 模板实测）"
+          },
+          {
+            "item": "refdes.layer",
+            "value": [
+              "refdes_assembly"
+            ],
+            "formula": "REF DES/ASSEMBLY_TOP",
+            "source": "人工模板库口径：14/14 模板位号都在装配层 （Data/footprint/*/*.dra 实测）"
+          },
+          {
+            "item": "refdes.text",
+            "value": "#REF",
+            "formula": "#REF",
+            "source": "人工模板库口径（Cadence 占位符写法）"
+          },
+          {
+            "item": "symbol_name",
+            "value": "NB_SOT23-6_3D02X1D7X1D5_1D05",
+            "formula": "NB_SOT23-66_3D02X1D7",
+            "source": "[规范 一] <前缀><类型><引脚数>_<长>X<宽>[X<高>]；命名用中值"
+          }
+        ],
+        "warnings": [
+          "spec 含 1 个未消费键（本工具不认识、已忽略，若为规格书约束请人工裁定）: place_bound_basis",
+          "尺寸 'pitch_x' 没给表（整件默认来源是 'table'，但图上标了值 1.05）—— 已按**图上标注值**取值，请确认这确实就是图纸口径。",
+          "尺寸 'pitch_y' 没给表（整件默认来源是 'table'，但图上标了值 2.65）—— 已按**图上标注值**取值，请确认这确实就是图纸口径。",
+          "⚠️ Place_Bound（3.72×2.4）比焊盘阵列（含阻焊 2.7×3.7）还小 —— 违反 [规范 三] '需覆盖所有焊盘'。多半是本体尺寸小于焊盘跨距（3.2×2.5 本体 vs 3.6×2.9 焊盘跨距即是此例），建议改用 '本体 + 外扩' 与 '焊盘 bbox + 外扩' 取大者。",
+          "整条被挖光的边：bottom、top（[金标] 金标准同样如此 —— 该件左右边整条压在焊盘上）。",
+          "⚠️ 1 脚标识（x -1.35~-0.75，y -2.25~-1.95）伸出 Place_Bound（x ±1.86 / y ±1.2）—— [金标] 人工金标准那份**同样伸出**，属该件既有做法；若要求丝印不出 PB，请调小 pin1_mark_width / pin1_mark_height / pin1_mark_clearance。"
+        ],
+        "error": null
+      },
+      "derive": {
+        "padstack": {
+          "name": "R0D5X0D95",
+          "layers": [
+            {
+              "layer": "TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                0.5,
+                0.95
+              ]
+            },
+            {
+              "layer": "SOLDERMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                0.6,
+                1.05
+              ]
+            },
+            {
+              "layer": "PASTEMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                0.5,
+                0.95
+              ]
+            }
+          ],
+          "drill": null
+        },
+        "extra_padstacks": [],
+        "pins_override": [
+          {
+            "number": "1",
+            "x": -1.05,
+            "y": -1.325
+          },
+          {
+            "number": "2",
+            "x": 0.0,
+            "y": -1.325
+          },
+          {
+            "number": "3",
+            "x": 1.05,
+            "y": -1.325
+          },
+          {
+            "number": "4",
+            "x": 1.05,
+            "y": 1.325
+          },
+          {
+            "number": "5",
+            "x": 0.0,
+            "y": 1.325
+          },
+          {
+            "number": "6",
+            "x": -1.05,
+            "y": 1.325
+          }
+        ],
+        "notes": {
+          "conventions": [],
+          "tht_layers": []
+        }
+      }
+    },
+    "nb_typec24p_p2g.json": {
+      "solve": {
+        "success": false,
+        "error": "KeyError: 'pad'",
+        "derivations": [
+          {
+            "item": "dim.body.x 本体宽 X",
+            "value": 9.45,
+            "formula": "来源=drawing；图上标注值 9.45",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.body.y 本体高 Y",
+            "value": 4.67,
+            "formula": "来源=drawing；图上标注值 4.67",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          }
+        ],
+        "warnings": []
+      },
+      "derive": {
+        "padstack": null,
+        "extra_padstacks": null,
+        "pins_override": [],
+        "notes": {
+          "conventions": [],
+          "tht_layers": []
+        }
+      }
+    },
+    "nb_xtal4_3d2x2d5x0d7.json": {
+      "solve": {
+        "success": true,
+        "symbol_name": "NB_XTAL4_3D2X2D5X0D7",
+        "padstack": {
+          "name": "R1D4X1D2",
+          "layers": [
+            {
+              "layer": "TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                1.4,
+                1.2
+              ]
+            },
+            {
+              "layer": "SOLDERMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                1.5,
+                1.3
+              ]
+            },
+            {
+              "layer": "PASTEMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                1.4,
+                1.2
+              ]
+            }
+          ],
+          "drill": null
+        },
+        "extra_padstacks": [],
+        "pins": [
+          {
+            "number": "1",
+            "x": -1.1,
+            "y": -0.85
+          },
+          {
+            "number": "2",
+            "x": 1.1,
+            "y": -0.85
+          },
+          {
+            "number": "3",
+            "x": 1.1,
+            "y": 0.85
+          },
+          {
+            "number": "4",
+            "x": -1.1,
+            "y": 0.85
+          }
+        ],
+        "silk": [
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  -0.15,
+                  -1.25
+                ],
+                [
+                  0.15,
+                  -1.25
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "outline",
+            "lines": [
+              [
+                [
+                  -0.15,
+                  1.25
+                ],
+                [
+                  0.15,
+                  1.25
+                ]
+              ]
+            ],
+            "width": 0.15
+          },
+          {
+            "kind": "pin1_mark",
+            "lines": [
+              [
+                [
+                  -1.1,
+                  -1.6
+                ],
+                [
+                  -1.4,
+                  -1.9
+                ]
+              ],
+              [
+                [
+                  -1.4,
+                  -1.9
+                ],
+                [
+                  -0.8,
+                  -1.9
+                ]
+              ],
+              [
+                [
+                  -0.8,
+                  -1.9
+                ],
+                [
+                  -1.1,
+                  -1.6
+                ]
+              ]
+            ],
+            "width": 0.15,
+            "corner": "bottom-left"
+          }
+        ],
+        "body": {
+          "x1": -1.6,
+          "y1": -1.25,
+          "x2": 1.6,
+          "y2": 1.25,
+          "width": 0.1
+        },
+        "assembly": [
+          {
+            "x1": -1.6,
+            "y1": -1.25,
+            "x2": 1.6,
+            "y2": 1.25,
+            "width": 0.1
+          },
+          {
+            "kind": "pin1_mark",
+            "lines": [
+              [
+                [
+                  -1.1,
+                  -1.6
+                ],
+                [
+                  -1.4,
+                  -1.9
+                ]
+              ],
+              [
+                [
+                  -1.4,
+                  -1.9
+                ],
+                [
+                  -0.8,
+                  -1.9
+                ]
+              ],
+              [
+                [
+                  -0.8,
+                  -1.9
+                ],
+                [
+                  -1.1,
+                  -1.6
+                ]
+              ]
+            ],
+            "width": 0.1,
+            "corner": "bottom-left"
+          }
+        ],
+        "pad_rects": [
+          {
+            "pin": "1",
+            "x1": -1.85,
+            "y1": -1.5,
+            "x2": -0.35,
+            "y2": -0.2
+          },
+          {
+            "pin": "2",
+            "x1": 0.35,
+            "y1": -1.5,
+            "x2": 1.85,
+            "y2": -0.2
+          },
+          {
+            "pin": "3",
+            "x1": 0.35,
+            "y1": 0.2,
+            "x2": 1.85,
+            "y2": 1.5
+          },
+          {
+            "pin": "4",
+            "x1": -1.85,
+            "y1": 0.2,
+            "x2": -0.35,
+            "y2": 1.5
+          }
+        ],
+        "place_bound": {
+          "x1": -1.95,
+          "y1": -1.6,
+          "x2": 1.95,
+          "y2": 1.6
+        },
+        "refdes": {
+          "text": "#REF",
+          "x": -0.15,
+          "y": 0.04,
+          "text_block": "1",
+          "targets": [
+            "refdes_assembly"
+          ],
+          "justify": "left"
+        },
+        "silk_info": {
+          "style": "outline",
+          "box": [
+            3.2,
+            2.5
+          ],
+          "width": 0.15,
+          "to_pad_clearance": 0.2,
+          "clearance": 0.2,
+          "outline_segments": 2,
+          "items": 3,
+          "min_gap_to_pad": null,
+          "pin1": {
+            "style": "triangle",
+            "corner": "bottom-left",
+            "axis": "y",
+            "apex": [
+              -1.1,
+              -1.6
+            ],
+            "base": [
+              [
+                -1.4,
+                -1.9
+              ],
+              [
+                -0.8,
+                -1.9
+              ]
+            ],
+            "segments": [
+              [
+                [
+                  -1.1,
+                  -1.6
+                ],
+                [
+                  -1.4,
+                  -1.9
+                ]
+              ],
+              [
+                [
+                  -1.4,
+                  -1.9
+                ],
+                [
+                  -0.8,
+                  -1.9
+                ]
+              ],
+              [
+                [
+                  -0.8,
+                  -1.9
+                ],
+                [
+                  -1.1,
+                  -1.6
+                ]
+              ]
+            ],
+            "size": [
+              0.6,
+              0.3
+            ],
+            "clearance": 0.1,
+            "layers": [
+              "silkscreen",
+              "assembly"
+            ]
+          },
+          "per_edge": [
+            {
+              "edge": "bottom",
+              "at": -1.25,
+              "axis": "x",
+              "blocked_by": 2,
+              "kept": 1
+            },
+            {
+              "edge": "top",
+              "at": 1.25,
+              "axis": "x",
+              "blocked_by": 2,
+              "kept": 1
+            },
+            {
+              "edge": "left",
+              "at": -1.6,
+              "axis": "y",
+              "blocked_by": 2,
+              "kept": 0
+            },
+            {
+              "edge": "right",
+              "at": 1.6,
+              "axis": "y",
+              "blocked_by": 2,
+              "kept": 0
+            }
+          ]
+        },
+        "pad_bbox": {
+          "span": [
+            3.7,
+            3.0
+          ],
+          "half": [
+            1.85,
+            1.5
+          ]
+        },
+        "derivations": [
+          {
+            "item": "dim.body.x 本体宽 X",
+            "value": 3.2,
+            "formula": "来源=drawing；图上标注值 3.2",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.body.y 本体高 Y",
+            "value": 2.5,
+            "formula": "来源=drawing；图上标注值 2.5",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pad.x 焊盘宽 X",
+            "value": 1.4,
+            "formula": "来源=drawing；图上标注值 1.4",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pad.y 焊盘高 Y",
+            "value": 1.2,
+            "formula": "来源=drawing；图上标注值 1.2",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pitch_x 横向间距",
+            "value": 2.2,
+            "formula": "来源=drawing；图上标注值 2.2",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "dim.pitch_y 纵向间距",
+            "value": 1.7,
+            "formula": "来源=drawing；图上标注值 1.7",
+            "source": "用户口径 2026-09-29：图上标注具体值 → 取标注值本身（`3.2±0.1` 取 3.2，不加上偏差）"
+          },
+          {
+            "item": "padstack.name",
+            "value": "R1D4X1D2",
+            "formula": "R(1D4)X(1D2)",
+            "source": "[规范 二] 焊盘命名 r长x宽"
+          },
+          {
+            "item": "padstack.layers[1]",
+            "value": [
+              1.5,
+              1.3
+            ],
+            "formula": "TOP + 2×0.05",
+            "source": "[规范 三] 阻焊开窗单边 +0.05"
+          },
+          {
+            "item": "padstack.layers[2]",
+            "value": [
+              1.4,
+              1.2
+            ],
+            "formula": "= TOP",
+            "source": "[规范 三] 钢网与焊盘等大"
+          },
+          {
+            "item": "pins.order",
+            "value": "2×2 逆时针，起点 bottom-left",
+            "formula": "左下→右下→右上→左上",
+            "source": "规格书 p5 CONNECTION DIAGRAM (TOP VIEW)：#1左下/#2右下/#3右上/#4左上"
+          },
+          {
+            "item": "pins.coords",
+            "value": "4 个",
+            "formula": "x=±pitch_x×(cols-1)/2=1.1，y=±pitch_y×(rows-1)/2=0.85",
+            "source": "[规范 四] 原点在封装中心"
+          },
+          {
+            "item": "body(assembly)",
+            "value": [
+              3.2,
+              2.5
+            ],
+            "formula": "本体 3.2×2.5（图上标注值）",
+            "source": "[规范 三] Assembly 与本体一致 ±0.05；[规范 一] 命名用中值 / 画实体按用户口径：图上标注→取标注值；查表→取 MAX"
+          },
+          {
+            "item": "place_bound.expand",
+            "value": 0.35,
+            "formula": "ic_expand_mm",
+            "source": "[规范 三] 本体 + 单边外扩（ic 0.35 / chip 0.15 / connector 0.85）"
+          },
+          {
+            "item": "place_bound.size",
+            "value": [
+              3.9,
+              3.2
+            ],
+            "formula": "3.2+2×0.35 × 2.5+2×0.35",
+            "source": "基准=本体（图上标注值）；金标准 5.2 实测 3.9×3.2 同此口径"
+          },
+          {
+            "item": "pad_array.bbox(含阻焊)",
+            "value": [
+              3.7,
+              3.0
+            ],
+            "formula": "pitch×(2-1)+pad+2×0.05 等",
+            "source": "用于丝印避让 / Place_Bound 覆盖校验"
+          },
+          {
+            "item": "silk.outline",
+            "value": "2 段残段",
+            "formula": "本体 4 条边 −「焊盘(含阻焊) 外扩 0.2」冲突区间",
+            "source": "[规范 四] 丝印不得进入阻焊开窗区；★ 形态由金标准在线反解（本体轮廓 + 逐边裁剪）"
+          },
+          {
+            "item": "silk.edge_bottom",
+            "value": "保留 1 段（被 2 个焊盘挡）",
+            "formula": "x 方向区间裁剪 @ -1.25",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.edge_top",
+            "value": "保留 1 段（被 2 个焊盘挡）",
+            "formula": "x 方向区间裁剪 @ 1.25",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.edge_left",
+            "value": "保留 0 段（被 2 个焊盘挡）",
+            "formula": "y 方向区间裁剪 @ -1.6",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.edge_right",
+            "value": "保留 0 段（被 2 个焊盘挡）",
+            "formula": "y 方向区间裁剪 @ 1.6",
+            "source": "[金标] 金标准只留了上下两条短横线、左右整条被挖光"
+          },
+          {
+            "item": "silk.pin1_mark",
+            "value": "三角形 @ bottom-left",
+            "formula": "apex=[-1.1, -1.6]，base=[[-1.4, -1.9], [-0.8, -1.9]]（0.6×0.3）",
+            "source": "[规范 四] 1 脚标识必须清晰、唯一；★ 形态/尺寸由金标准在线反解（apex 朝器件、贴 1 脚焊盘外缘外移 0.10、底宽 0.60 高 0.30）"
+          },
+          {
+            "item": "refdes.pos",
+            "value": [
+              -0.15,
+              0.04
+            ],
+            "formula": "本体中心(0.0, 0.0) + 偏移(-0.15, 0.04)",
+            "source": "人工模板库口径：位号居中于本体（14/14 模板实测）"
+          },
+          {
+            "item": "refdes.layer",
+            "value": [
+              "refdes_assembly"
+            ],
+            "formula": "REF DES/ASSEMBLY_TOP",
+            "source": "人工模板库口径：14/14 模板位号都在装配层 （Data/footprint/*/*.dra 实测）"
+          },
+          {
+            "item": "refdes.text",
+            "value": "#REF",
+            "formula": "#REF",
+            "source": "人工模板库口径（Cadence 占位符写法）"
+          },
+          {
+            "item": "symbol_name",
+            "value": "NB_XTAL4_3D2X2D5X0D7",
+            "formula": "NB_XTAL4_3D2X2D5X0D7",
+            "source": "[规范 一] <前缀><类型><引脚数>_<长>X<宽>[X<高>]；命名用中值"
+          }
+        ],
+        "warnings": [
+          "整条被挖光的边：left、right（[金标] 金标准同样如此 —— 该件左右边整条压在焊盘上）。",
+          "⚠️ 1 脚标识（x -1.40~-0.80，y -1.90~-1.60）伸出 Place_Bound（x ±1.95 / y ±1.6）—— [金标] 人工金标准那份**同样伸出**，属该件既有做法；若要求丝印不出 PB，请调小 pin1_mark_width / pin1_mark_height / pin1_mark_clearance。"
+        ],
+        "error": null
+      },
+      "derive": {
+        "padstack": {
+          "name": "R1D4X1D2",
+          "layers": [
+            {
+              "layer": "TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                1.4,
+                1.2
+              ]
+            },
+            {
+              "layer": "SOLDERMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                1.5,
+                1.3
+              ]
+            },
+            {
+              "layer": "PASTEMASK_TOP",
+              "figure": "RECTANGLE",
+              "size": [
+                1.4,
+                1.2
+              ]
+            }
+          ],
+          "drill": null
+        },
+        "extra_padstacks": [],
+        "pins_override": [
+          {
+            "number": "1",
+            "x": -1.1,
+            "y": -0.85
+          },
+          {
+            "number": "2",
+            "x": 1.1,
+            "y": -0.85
+          },
+          {
+            "number": "3",
+            "x": 1.1,
+            "y": 0.85
+          },
+          {
+            "number": "4",
+            "x": -1.1,
+            "y": 0.85
+          }
+        ],
+        "notes": {
+          "conventions": [],
+          "tht_layers": []
+        }
+      }
+    }
+  }
+}

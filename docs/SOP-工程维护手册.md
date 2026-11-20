@@ -410,7 +410,7 @@ python eval\suites\behavior\check_behavior.py              # S1/S2/S4 硬规则 
 python eval\suites\geometry_regression\check_geometry_regression.py
 ```
 
-★ `eval/check_eval.py` 只做**跑全 + 计数 + 汇总**，判据仍在各自套件里（A1–A10 / C1–C6 / B1–B5 / S1–S8 / G1–G6 + R1–R4）；
+★ `eval/check_eval.py` 只做**跑全 + 计数 + 汇总**，判据仍在各自套件里（A1–A10 / C1–C6 / B1–B5 / S1–S8 / G1–G6 + R1–R5）；
 它自己的元判据是 E1（五套都要跑到，缺依赖记 ERROR）、E2（看退出码，不解析人话）、E3（`--json` 解析失败也算 ERROR）、
 E4（实跑行数必须等于计划行数）。**汇总漏一行却不报错，就是把闸门拆了一角。**
 

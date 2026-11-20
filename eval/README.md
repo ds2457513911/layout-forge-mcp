@@ -1,6 +1,9 @@
 # eval/ —— L5 度量与评测层（准确率 / 回归 / 基线）
 
-> 最后更新：2026-10-15（★ 补两条编码纪律：**非 ASCII 标记要自己 reconfigure UTF-8** —— GBK 控制台下
+> 最后更新：2026-11-20（票 #16：`suites/geometry_regression/` 新增 **R5 决策入口对拍** ——
+> `check_derive.py` 守「padstack 形态决策入口只依赖纯模块、可离线调用」+ 8 份 `knowledge/specs` 的
+> 求解输出与派生输出与 `baselines/padstack_derive.json` 逐字段相等（模块纯净性 1 + 调用方 warnings 口径 1 + 通孔补层分支 1 + 8×2 = **19 项**）；
+> 同轮把 R3 的 35→**39** 与基线对齐（888c031 加 `selfcheck_conventions` [C] 段后一直没重冻，属既有断点）。此前：2026-10-15（★ 补两条编码纪律：**非 ASCII 标记要自己 reconfigure UTF-8** —— GBK 控制台下
 > `print("✓")` 抛 `UnicodeEncodeError` 让「五套全绿」反而 exit 1，六个入口都加了 `_force_utf8_stdout()`；
 > **汇总入口与各套件必须能单独手跑**。Phase 4（票 #10 / D4）：`suites/behavior/` 新增 **B6** —— 守 `services/channel_guard.py` 的通道锁与建图租约（撞锁报 `CHANNEL_BUSY` + 持有人、同进程第二线程按超时返回、`taskkill /F` 后锁自动回收、租约撞上只报告不排队），夹具 **6/6 通过**。此前：Phase 3：`suites/behavior/` 新增 **B5** —— 守 `orchestration/playbook.json` 的硬约定（25 条 `rule_id` + 13 条 `G-*` 门禁，每条都带「检测方式 + 后果类别」）与 `orchestration/pipeline.py` 状态机的放行/拦停；夹具 **5/5 通过**。此前：Phase 2-d：新增统一入口 **`check_eval.py`** —— 五套断言一条命令跑完，输出总表；缺依赖记 ERROR 而**不静默跳过**，每套以退出码为准、JSON 解析失败也记 ERROR（E1–E4）；同日接入 `docs/SOP-工程维护手册.md` 发布检查。此前：Phase 2-c：`suites/behavior/` 四个行为夹具落地 —— 把 SKILL 的 S1/S2/S4 硬规则变成可执行断言，B1–B4 全绿；同日把 `orchestration/preflight.py` 的噪声规则从「AUTOSAVE / 备份后缀」扩到「Allegro 运行痕迹 + 历史检查报告」并公开 `is_noise()` —— 扩展后 `geometry_regression` 的 **G4 先转红、当日清理后复绿**（原形 **145 个**噪声文件：110 个 `*.log` + 9 个 `checklist_report_*.json` + 26 个运行痕迹 `allegro.jrl` / `master.tag` / `padstack_editor.jrl`）；清理走 `.trash/`，噪声名单与判据一个字没放宽。此前：Phase 2-b `suites/spec_reading/` 落地 + 10 例真值签字 + S8「定位器不撒谎」）
 
@@ -20,7 +23,7 @@
 
 | 套件 | 守什么 | 判定方式 | 阶段 |
 |--|--|--|--|
-| `suites/geometry_regression/` | L1 确定性几何不退化 | **G1–G6 + R1–R4**：包住 **239** 项几何自检 + **222** 项 SKILL 语法自检 + **35** 项约定自检 + **253** 件金标准对拍，分数==基线；**G6 = 被调方探针**（extracta 四路取数健康，被沙箱掐住时会在这里红，而不是让 R4 悄悄假红）；基线 `baselines/geometry_regression.json` | **Phase 2-a ✅ 已就位** |
+| `suites/geometry_regression/` | L1 确定性几何不退化 | **G1–G6 + R1–R5**：包住 **239** 项几何自检 + **222** 项 SKILL 语法自检 + **39** 项约定自检 + **253** 件金标准对拍 + **19** 项决策入口对拍，分数==基线；**G6 = 被调方探针**（extracta 四路取数健康，被沙箱掐住时会在这里红，而不是让 R4 悄悄假红）；**R5 = 票 #16 的 `check_derive.py`**（决策入口只依赖纯模块 + 8 份 spec 的求解/派生输出逐字段对拍，基线 `baselines/padstack_derive.json`）；基线 `baselines/geometry_regression.json` | **Phase 2-a ✅ 已就位 / R5 ✅ 票 #16** |
 | `suites/spec_reading/` | **读规格书准确率** | canonical **8 字段**（= `knowledge/specs` 的 `fingerprint` 键，不另造 schema）+ **S1–S8**：每字段四分类 correct / wrong / missing / spurious，容差 body·pad ±0.05 mm、pitch ±0.02 mm；★ **S2 真值必须人工签字**（AI 自签 = 循环论证）、S3 真值绑 PDF 哈希、S5 非 null 真值必须带页码、**S8 定位器不撒谎**（`--with-locate`）；基线 `baselines/spec_reading.json` | **✅ 2026-10-15：10 例真值已签字、正式 92.5%、基线已冻结**（80 字段：correct 74 / wrong 3 / spurious 3） |
 | `suites/behavior/` | L3 规则真的可执行 | **B1–B6 行为夹具**（把 SKILL 的 S 系硬规则 + L3 状态机造成可控临时目录，逼工具层表态）：B1 目录多份 `.dra`/PDF → 必须 `ambiguous` + `confirm` + 候选列全；B2 只有历史 `checklist_report_*.json` → 不算证据、判缺料 `stop`；B3 `AUTOSAVE.dra` → 剔除且不算候选；B4 **先探通道** → `connected=False` 时 `error` 必须非空（禁把没通道说成「没工具」）；**B5 L3 状态机 + `playbook.json` 硬约定** → 每条规则都带检测方式与后果类别、`pipeline.run()` 放行/拦停正确（歧义必须 `confirm` 且**停在 preflight 不许继续取数**、通道不可用必须 `stop` + `CHANNEL_NOT_READY`）、`stale_rule_ids`（已删除的 `6.5`）必须被单独点名。**无基线**（是断言套件，像 architecture） | **Phase 2-c ✅ 4 条 / Phase 3 ✅ B5 / Phase 4 ✅ B6 D4 通道锁（6/6 通过）** |
 | `suites/tool_contract/` | L2 工具契约不破 | **C1–C8 静态断言**：工具数量 / 名字集合（改名=破坏）= 基线、每个工具有 docstring、每个参数名写进 docstring、遥测字段口径、`server.py` 是否挂了 `TelemetryMiddleware`、**C7 每个工具都在 `knowledge/tool_groups.json` 里有分组**、**C8 生成的 `docs/tools-catalog.md` 与代码一致（不陈旧）**；基线 `baselines/tool_contract.json` | **Phase 1 ✅ 已就位** |
@@ -37,7 +40,7 @@ python eval/check_eval.py --list     # 只列套件
 python eval/check_eval.py --show-fail  # 红了就附打该套件输出尾部
 ```
 
-`eval/check_eval.py` **不是又一个真源**：判据仍写在各自套件里（A1–A10 / C1–C6 / B1–B6 / S1–S8 / G1–G6 + R1–R4），
+`eval/check_eval.py` **不是又一个真源**：判据仍写在各自套件里（A1–A10 / C1–C6 / B1–B6 / S1–S8 / G1–G6 + R1–R5），
 它只负责**跑全 + 计数 + 汇总**，不复制任何阈值。自己的元判据：
 
 | 号 | 判据 |
@@ -85,7 +88,7 @@ python eval/suites/geometry_regression/check_geometry_regression.py
 python eval/suites/geometry_regression/check_geometry_regression.py --skip-benchmark   # 冒烟：不跑 253 件
 python eval/suites/geometry_regression/check_geometry_regression.py --update           # 重新冻结基线
 python eval/suites/geometry_regression/check_geometry_regression.py --reuse-benchmark Tools/log/golden_benchmark/stdout_*.txt
-#   G1–G6 盘点（件数/目录数/specs/cases/噪声 + extracta 被调方探针）+ R1–R4 跑分（239 / 222 / 35 / 253 件对拍）
+#   G1–G6 盘点（件数/目录数/specs/cases/噪声 + extracta 被调方探针）+ R1–R5 跑分（239 / 222 / 39 / 253 件对拍 / 19 项决策对比）
 #   R4 的计数只认 benchmark_summary.csv（控制台把「空结论」与「提取失败」混成一个数），语义是「不比基线差」
 
 # 读图准确率（Phase 2-b；打分器纯 stdlib，起草期用 --allow-unsigned）
@@ -114,10 +117,10 @@ python eval/suites/behavior/check_behavior.py --python <带 skillbridge 的解�
 | `python eval/suites/tool_contract/check_tool_contract.py` | **ERROR 0 项 / WARN 0 项，全绿**（数量与名字对照冻结基线 `baselines/tool_contract.json`；分组真源 `knowledge/tool_groups.json` 由 C7 守、人读目录 `docs/tools-catalog.md` 由 C8 守） | 0 |
 | `python eval/suites/behavior/check_behavior.py` | **夹具 5/5 通过；ERROR 0 项**（B4 实测 `connected=False` 且 `error` 非空 → 通道未连如实上报；B5 实测歧义 `confirm` 且停在 preflight、无通道 `stop` + `CHANNEL_NOT_READY`）；耗时约 1 s（B4 用工作区外解释器）。**2026-11-19 追加**：B6 接入后 **6/6 通过、ERROR 0 项**，B6 实测 18 项断言全过（同线程 0.51 s 报 BUSY、跨进程 0.61 s、`taskkill /F` 后 0.00 s 重取、撞租约 0.008 s 返回 `drawing=NB_XTAL`） | 0 |
 | `python eval/suites/spec_reading/check_spec_reading.py` | **总准确率 92.5%**（80 字段：correct 74 / wrong 3 / spurious 3），S1–S8 通过；基线 `baselines/spec_reading.json` | 0 |
-| `python eval/suites/geometry_regression/check_geometry_regression.py` | **ERROR 0 项 / WARN 0 项，全绿**（噪声 0 —— 2026-10-15 噪声名单扩展后曾现形 145 个、当日全部隔离清理；253 / 14 目录 / specs 5 / cases 10；239/239、222/222、35/35；extracta 四路由产出；对拍 253 件 PASS 7 / FAIL 81 / 例外 231 / 提取失败 17 / exact 0） | 0 |
+| `python eval/suites/geometry_regression/check_geometry_regression.py` | **ERROR 0 项 / WARN 0 项，全绿**（噪声 0 —— 2026-10-15 噪声名单扩展后曾现形 145 个、当日全部隔离清理；253 / 14 目录 / specs 5 / cases 10；239/239、222/222、39/39、派生 19/19；extracta 四路由产出；对拍 253 件 PASS 7 / FAIL 81 / 例外 231 / 提取失败 17 / exact 0） | 0 |
 | `python Tools/selfcheck_geometry.py` | **239/239 全部通过 ✓** | 0 |
 | `python Tools/selfcheck_skill_syntax.py` | **222/222 通过, 0 失败** | 0 |
-| `python Tools/selfcheck_conventions.py` | **35/35 全部通过 ✓** | 0 |
+| `python Tools/selfcheck_conventions.py` | **39/39 全部通过 ✓**（2026-11-20 重冻：C0–C3 四项此前已加但基线未跟） | 0 |
 | `python -m observability.stats` | 遥测 **run 1 / 事件 3 / 坏行 0**；规则报告 5 份 85 条（最常 FAIL `5.2`） | 0 |
 
 ★ **G4 那次红是真发现，不是误报（2026-10-15 当日已清理复绿）**：这些噪声文件长期躺在三个库里（`allegro.jrl` / `master.tag` / `nb_*.log` / `checklist_report_*.json`），

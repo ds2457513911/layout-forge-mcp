@@ -34,6 +34,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 from services import channel_guard
 from services import paths as P
 from services import skill_snippets as S
+from services.padstack_derive import derive_padstacks, reading_from_output
 from services.skillbridge_writer import (
     AllegroSession,
     SkillCallError,
@@ -752,43 +753,8 @@ def _convert_sequence_mm_to_design(values: Sequence[float], unit: str) -> List[f
 
 
 # ============================================================
-# 单个动作：建 padstack
+# 单个动作：建 padstack（实例化；「该长什么样」的决策见 services/padstack_derive.py）
 # ============================================================
-def ensure_tht_padstack_layers(ps_dict: Optional[Dict[str, Any]]) -> List[str]:
-    """
-    TH padstack 层兜底（2026-10-12 LYDPJ 事故新增）：有 drill = 通孔件，
-    必须双面铜箔（TOP+BOTTOM）+ 双面阻焊。spec 只写 TOP 系时自动镜像补齐。
-
-    :return: 补层说明列表（空 = 无需补或非 TH）
-    """
-    fixed: List[str] = []
-    if not ps_dict or not ps_dict.get("drill"):
-        return fixed
-    ls = ps_dict.setdefault("layers", [])
-
-    def _find(layer: str) -> Optional[Dict[str, Any]]:
-        for _ld in ls:
-            if str(_ld.get("layer", "")).upper() == layer:
-                return _ld
-        return None
-
-    top = _find("TOP")
-    smt = _find("SOLDERMASK_TOP")
-    if top is not None and _find("BOTTOM") is None:
-        bot = dict(top)
-        bot["layer"] = "BOTTOM"
-        bot["size"] = list(top.get("size", [0, 0]))
-        ls.append(bot)
-        fixed.append(f"{ps_dict.get('name')}: 补 BOTTOM(镜像 TOP)")
-    if smt is not None and _find("SOLDERMASK_BOTTOM") is None:
-        smb = dict(smt)
-        smb["layer"] = "SOLDERMASK_BOTTOM"
-        smb["size"] = list(smt.get("size", [0, 0]))
-        ls.append(smb)
-        fixed.append(f"{ps_dict.get('name')}: 补 SOLDERMASK_BOTTOM(镜像 TOP)")
-    return fixed
-
-
 def create_padstack(
     name: str,
     layers: Sequence[Dict[str, Any]],
@@ -3664,44 +3630,38 @@ def build_footprint(
                 f"放 pin 可能报 SPMHA1-70，但不阻断流程。"
             )
 
-    # ---- 1a) 构造约定符合化（2026-10-13 第 0 层落地）----
-    # 知识真源 knowledge/conventions.json（253 金标准挖掘 + 裁定）。
-    # TH oblong：按约定重建 padstack 本地字典（OBLONG_Y 竖孔、环宽/mask/
-    # paste/命名全按约定派生），pin 补 rotation=90（本地竖孔→板面横槽）。
-    # spec 里手写的构造字典自此不再是真源——只声明孔位/尺寸即可。
-    try:
-        from services.convention_engine import apply_conventions
-        _pseudo = {
-            "mount": "tht",
-            "padstack": padstack,
-            "extra_padstacks": list(extra_padstacks or []),
-            "pins_override": list(pins),
-            # ★ paste_bottom 必须是 **per-padstack 键**（2026-10-14）：
-            #   约定引擎按每个 padstack 自身的 paste_bottom 决定是否派生
-            #   PASTEMASK_BOTTOM（LYDPJ 金标准：主 padstack 带、extra 不带）。
-            #   这里不能设 spec 级全局键——否则 extras 也被挂上 BPM。
-            #   幂等性由 engine 派生结果回填 paste_bottom 键保证。
-        }
-        _ps2, _conv_notes = apply_conventions(_pseudo)
-        if _conv_notes:
-            warnings.extend("约定引擎: " + n for n in _conv_notes)
-        padstack = _ps2["padstack"]
-        extra_padstacks = _ps2.get("extra_padstacks") or extra_padstacks
-        pins = _ps2.get("pins_override") or pins
-    except Exception as _ce:  # noqa: BLE001
+    # ---- 1a) padstack 形态决策（约定符合化 + 通孔层兜底；票 #16 从本函数拆出）----
+    # 决策与实例化已分成两个入口：
+    #   services/padstack_derive.py::derive_padstacks   决定「这颗 padstack 该长什么样」
+    #   services/footprint_builder.py::create_padstack  把它实例化成宿主能建的对象（往下几行）
+    # 决策入口是纯函数、不连 Allegro，所以「本该长什么样」可以离线对拍（8 份参数档）。
+    # 知识真源仍是 knowledge/conventions.json（TH oblong：OBLONG_Y 竖孔、环宽/mask/paste/
+    # 命名全按约定派生，pin 补 rotation=90；约定引擎失败则原样继续 = fail-open，同改造前）。
+    # ★ mount 仍固定 "tht"：约定引擎自 2026-10-13 第 0 层落地起就按这个口径工作
+    #   （SMD 件因此也进 TH 分支，但因无 drill 而不被改）。改成读真实 mount 会改变
+    #   SMD 产出 —— 那属于 #17 起的规则迁移，本票只拆结构、不改行为。
+    # ★ paste_bottom 必须是 **per-padstack 键**（2026-10-14）：约定引擎按每个 padstack
+    #   自身的 paste_bottom 决定是否派生 PASTEMASK_BOTTOM（LYDPJ 金标准：主 padstack 带、
+    #   extra 不带）。不许设 spec 级全局键 —— 否则 extras 也被挂上 BPM。
+    #   幂等性由 engine 派生结果回填 paste_bottom 键保证。
+    _derive = derive_padstacks(reading_from_output(
+        {"padstack": padstack, "extra_padstacks": extra_padstacks, "pins": pins}
+    ))
+    _notes = _derive["notes"]
+    for _ce in _notes["errors"]:
         logger.warning("convention_engine 预处理失败（原样继续）: %s", _ce)
-
+    if _notes["conventions"]:
+        warnings.extend("约定引擎: " + n for n in _notes["conventions"])
+    padstack = _derive["padstack"]
+    extra_padstacks = _derive["extra_padstacks"]
+    pins = _derive["pins_override"]
     # ---- 1b) TH padstack 层兜底（2026-10-12 LYDPJ 事故新增）----
-    # padstack 带 drill = 通孔件：必须双面铜箔 + 双面阻焊。
-    # 实锤根因：AI 写 spec 只写了 TOP + SOLDERMASK_TOP（漏 BOTTOM），
-    # 建出来的 TH 件双面板底面无铜无开窗。这里按「有 drill 即 TH」
-    # 自动镜像补齐，spec 漏写也能兜底；补了什么写进 warnings 提示复核。
-    tht_fixed = ensure_tht_padstack_layers(padstack)
-    for _ep in (extra_padstacks or []):
-        tht_fixed += ensure_tht_padstack_layers(_ep)
-    if tht_fixed:
+    # 兜底动作已由 derive_padstacks 做完（有 drill 即 TH，缺 BOTTOM 就镜像 TOP 补齐），
+    # 本函数只负责把「补了什么」按改造前的原话写进 warnings 提示复核。
+    # 保留这段报告义务是刻意的：拆结构不许让「漏 BOTTOM 被自动补了」这件事从报告里消失。
+    if _notes["tht_layers"]:
         warnings.append(
-            "TH padstack 自动补层（spec 漏 BOTTOM，已镜像 TOP 兜底）: " + "; ".join(tht_fixed)
+            "TH padstack 自动补层（spec 漏 BOTTOM，已镜像 TOP 兜底）: " + "; ".join(_notes["tht_layers"])
         )
 
     # ---- 2) padstack ----
