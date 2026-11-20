@@ -13,7 +13,9 @@
   （spec 只声明孔位/pin），checker 规则 2.7b/2.8/2.9/2.10 按它校验，
   出厂自检 `verify_built_footprint` 按它放行。人读版 `docs/conventions_report.md`；
   逐件事实 `Tools/log/conventions_padstacks.json`（reaggregate 可秒级重算；
-  原始 dump 归档 `Tools/log/conventions_raw/`）。
+  原始 dump 归档 `Tools/log/conventions_raw/`）。**升级流程**（收割/聚合/裁定/接线/
+  三层对拍、裁定只改常量）见 `docs/conventions-evolution.md`，常量与库的一致性由
+  `Tools/selfcheck_conventions.py` 的 [C] 段断言。
   ★ **列守卫**（2026-10-13）：`column_guard` 块记录 pads.txt 27 列普查结果，
   "未消费且未豁免"的非空列必须显名——新字段/schema 漂移不可能静默丢失；
   `th_*.drill_char` 为 report-only（设计级钻头表字符，随图纸变，不强制）。

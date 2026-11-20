@@ -1,6 +1,6 @@
 # docs/ —— 项目文档
 
-> 最近更新：2026-11-19（新增边界契约、根术语表与三条文档断言 A8/A9/A10）
+> 最近更新：2026-11-20（新增 `conventions-evolution.md`：构造约定的升级流程）
 
 ## 本目录是干什么的
 
@@ -20,6 +20,7 @@
 | `规格书读取-读数配额与接口上限.md` | 读数配额与接口上限的实测结论（单边 8192 硬上限、长边压 1600、焦点区 ≥600 dpi、150 dpi 定位与 200 dpi 误差实测）。`边界契约.md` 里「读数规则」一行的参数出处；`规格书读取方案.md` 正文只从这里取数 |
 | `通道并发-实现事实核对.md` | 通道并发的证据笔记（2026-11-19）：Workspace 缓存、帧无请求 ID、`verify_request` 拒连、fastmcp 线程池真并发。只钉代码事实，不讨论方案 |
 | `conventions_report.md` | 构造规约挖掘报告（2026-10-13，语料 253 件 `.dra`）：按 smd / th_circle 等分类列约定与支持度。机器真源是 `knowledge/conventions.json`，本文件是那轮挖掘的可读产物 |
+| `conventions-evolution.md` | ★ **构造约定的升级流程**：收割 → 聚合 → 裁定 → 接线 → 三层对拍；写明「为什么不能边用边学」、每条命令与产物、常见错误。裁定只改 `Tools/mine_conventions.py` 的 `ADJUDICATED` 常量；常量与库的一致性由 `Tools/selfcheck_conventions.py` 的 [C] 段断言 |
 | `NAS网页服务化-任务企划.md` | 【方案，待评估】把封装检测/创建做成 NAS 网页服务的三段式架构（NAS 大脑 + Windows 工位 + 人工闸门）。含按 Linux 可移植性分 A/B/C 三段（写作时工具数快照）、分阶段实施计划、9 条实测坑、4 个待拍板决策。**未落地任何代码** |
 
 ## 关键约定与坑
@@ -30,6 +31,7 @@
 
 ## 最近一次更新
 
+2026-11-20：新增 `conventions-evolution.md`（约定库升级五步 + `selfcheck_conventions.py` [C] 段断言）。
 2026-11-19：新增 `边界契约.md`（五类事实各一处真源）与根目录 `GLOSSARY.md`；
 `通道并发-实现事实核对.md`、`规格书读取-读数配额与接口上限.md`、`conventions_report.md` 补登记；
 `check_architecture.py` 新增 A8（docs 顶层 .md 必须登记）、A9（契约权威路径必须存在）、A10（契约指针义务，投影文件必须能搜到那句指针）。

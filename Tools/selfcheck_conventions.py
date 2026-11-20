@@ -19,12 +19,21 @@ selfcheck_conventions.py —— 约定链路完整性自检（第 0 层防回归
         B1 conventions.json 的受管键不得脱离清单（新键必须先登记再接线）
         B2 清单里每条 [文件, 正则] 必须真实命中
 
+  [C] 裁定常量 ↔ 约定库一致性 —— 改约定必须走裁定流程
+      背景：conventions.json 的 adjudicated 块由 Tools/mine_conventions.py
+      的 ADJUDICATED 常量聚合生成。手改 json（绕过裁定）或改了常量忘了
+      重新聚合，都会让「库里的值」与「判定的值」分叉，而且两侧都能跑，
+      直到某次构建按错误约定造出封装。
+      做法：用 ast 取常量字面量（不 import 脚本，避免副作用），与
+      conventions.json 的 adjudicated 块按键路径、逐值比对。
+
 用法：
     ./.venv/Scripts/python.exe Tools/selfcheck_conventions.py
 退出码：0=全过 / 1=有失败
 """
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -280,11 +289,75 @@ def section_b(r: R) -> None:
 
 
 # ============================================================
+# [C] 裁定常量 ↔ 约定库一致性
+# ============================================================
+# 约定库的 adjudicated 块由 miner 的 ADJUDICATED 常量聚合生成，两处不能
+# 各说各话：手改 json 等于绕过裁定，只改常量不重新聚合等于库还没更新。
+# 这里用 ast 读常量（不 import，避开 miner 的副作用），与 json 逐键逐值比对。
+MINER = os.path.join(_HERE, "mine_conventions.py")
+
+
+def _load_adjudicated_constant():
+    tree = ast.parse(open(MINER, encoding="utf-8").read())
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for tgt in node.targets:
+                if isinstance(tgt, ast.Name) and tgt.id == "ADJUDICATED":
+                    return ast.literal_eval(node.value)
+    raise RuntimeError("Tools/mine_conventions.py 里找不到 ADJUDICATED 字面量")
+
+
+def _flatten(obj, prefix=""):
+    out = {}
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            out.update(_flatten(v, f"{prefix}.{k}" if prefix else str(k)))
+    elif isinstance(obj, list):
+        out[prefix] = json.dumps(obj, ensure_ascii=False, sort_keys=True)
+    else:
+        out[prefix] = obj
+    return out
+
+
+def section_c(r: R) -> None:
+    print("[C] 裁定常量与约定库一致性（改约定必须走裁定流程）")
+    try:
+        conv = json.load(open(os.path.join(_ROOT, "knowledge", "conventions.json"),
+                              encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        r.check(False, "C0 约定库可读", f"{type(e).__name__}: {e}")
+        return
+    lib = conv.get("adjudicated") or {}
+    try:
+        const = _load_adjudicated_constant()
+    except Exception as e:  # noqa: BLE001 —— 常量被改成表达式时给出原因
+        r.check(False, "C0 ADJUDICATED 常量可解析", f"{type(e).__name__}: {e}")
+        return
+    r.check(isinstance(const, dict) and bool(const),
+            "C0 ADJUDICATED 是字面量 dict", f"实际={type(const).__name__}")
+    r.check(bool(lib), "C1 约定库含 adjudicated 块",
+            "adjudicated 缺失或为空——先跑 --reaggregate")
+
+    left, right = _flatten(const), _flatten(lib)
+    only_lib = sorted(set(right) - set(left))
+    only_const = sorted(set(left) - set(right))
+    r.check(not only_lib and not only_const,
+            "C2 ADJUDICATED 与约定库键路径一致",
+            f"仅库有={only_lib[:6]} 仅常量有={only_const[:6]}")
+
+    diffs = [k for k in sorted(set(left) & set(right)) if left[k] != right[k]]
+    r.check(not diffs, "C3 ADJUDICATED 与约定库值逐项一致",
+            "; ".join(f"{k}: 常量={left[k]!r} 库={right[k]!r}" for k in diffs[:5]))
+
+
+# ============================================================
 def main() -> int:
     r = R()
     section_a(r)
     print()
     section_b(r)
+    print()
+    section_c(r)
     total = r.n_pass + len(r.fails)
     print("=" * 60)
     if r.fails:
