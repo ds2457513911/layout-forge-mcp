@@ -60,6 +60,8 @@ CORE_MODULES = [
     "services/convention_engine.py",
     # 票 #16：padstack 形态决策入口（与执行器 footprint_builder 分开后必须能离线调用）
     "services/padstack_derive.py",
+    # 票 #17：规则库加载器 + 判定/派生纯函数入口（吃知识库 JSON，零 I/O 外部依赖）
+    "services/rule_engine.py",
     "services/spec_library.py",
     "services/case_library.py",
     "services/json_utils.py",
@@ -110,7 +112,7 @@ REGISTERED_DIRS = [
 DOC_EXEMPT_DIRS = {
     "eval/suites/architecture": "断言套件本身，规则见本文件 docstring + eval/README.md 五套件表",
     "eval/suites/tool_contract": "同 architecture：由 eval/README.md 的五套件表覆盖（判据写在脚本 docstring）",
-    "eval/suites/geometry_regression": "同 architecture：把 253 件对拍、三套既有自检与票 #16 的决策入口对拍变成分数，判据（G1–G6/R1–R5）写在脚本 docstring + eval/README.md",
+    "eval/suites/geometry_regression": "同 architecture：把 253 件对拍、三套既有自检与票 #16 的决策入口对拍变成分数，判据（G1–G6/R1–R6）写在脚本 docstring + eval/README.md",
 }
 
 #: A6：代码根（只在这几个子树里找「未登记的代码目录」，避免扫 1,242 个日志文件）

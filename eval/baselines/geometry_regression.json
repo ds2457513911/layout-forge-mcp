@@ -1,7 +1,7 @@
 {
-  "frozen_at": "2026-11-20T18:01:56",
+  "frozen_at": "2026-11-20T18:22:53",
   "schema_version": 2,
-  "interpreter": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\.venv\\Scripts\\python.exe",
+  "interpreter": "C:/Users/ds245/Documents/Work_Bmorn/Layout/layout-forge-mcp/.venv/Scripts/python.exe",
   "inventory": {
     "golden_dra": 253,
     "golden_dir": "Data/PCB_Footprint",
@@ -15,7 +15,7 @@
   "runs": {
     "geometry": {
       "rc": 0,
-      "seconds": 0.2,
+      "seconds": 0.1,
       "timeout": false,
       "passed": 239,
       "total": 239,
@@ -49,10 +49,19 @@
       "failed": 0,
       "tail": "  ok    R5.3 派生输出不变 nb_lmbr140et1g_2p.json\n  ok    R5.2 求解输出不变 nb_lydpj_5p_12x6.json\n  ok    R5.3 派生输出不变 nb_lydpj_5p_12x6.json\n  ok    R5.2 求解输出不变 nb_mos8_3d15x3d1x0d85_0d65.json\n  ok    R5.3 派生输出不变 nb_mos8_3d15x3d1x0d85_0d65.json\n  ok    R5.2 求解输出不变 nb_sot23-6_3d02x1d7x1d5_1d05.json\n  ok    R5.3 派生输出不变 nb_sot23-6_3d02x1d7x1d5_1d05.json\n  ok    R5.2 求解输出不变 nb_typec24p_p2g.json\n  ok    R5.3 派生输出不变 nb_typec24p_p2g.json\n  ok    R5.2 求解输出不变 nb_xtal4_3d2x2d5x0d7.json\n  ok    R5.3 派生输出不变 nb_xtal4_3d2x2d5x0d7.json\n结果: 19/19"
     },
+    "rule_engine": {
+      "rc": 0,
+      "seconds": 0.2,
+      "timeout": false,
+      "passed": 53,
+      "total": 53,
+      "failed": 0,
+      "tail": "  ok    R6.5 nb_conn75_23d9x8d3x2d55_0d5.dra 形态归属一致\n  ok    R6.5 nb_dc_jack5_10d5x6d5x4d78.dra 2.2 状态一致（旧 PASS）\n  ok    R6.5 nb_dc_jack5_10d5x6d5x4d78.dra 形态归属一致\n  ok    R6.5 nb_ddr4_std260_73d9x25d7x4d5_0d5.dra 2.2 状态一致（旧 WARN）\n  ok    R6.5 nb_ddr4_std260_73d9x25d7x4d5_0d5.dra 形态归属一致\n  ok    R6.5 nb_hdmi19_15x12d5x5d55_1.dra 2.2 状态一致（旧 PASS）\n  ok    R6.5 nb_hdmi19_15x12d5x5d55_1.dra 形态归属一致\n  ok    R6.5 gap-close-pwr-se.dra 2.2 状态一致（旧 NA）\n  ok    R6.5 gap-close-pwr-se.dra 形态归属一致\n  ok    R6.6 旧阈值文件只读（sha256 未变）\n  ok    R6.6 引擎模块纯净（不碰宿主/网络/进程）\n结果: 53/53"
+    },
     "extracta": {
       "ok": true,
       "sample": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\3S48000163\\nb_xtal4_3d2x2d5x0d7.dra",
-      "cwd": "C:\\Users\\ds245\\AppData\\Local\\Temp\\extracta_probe_i90udy9a",
+      "cwd": "C:\\Users\\ds245\\AppData\\Local\\Temp\\extracta_probe_luq4f9yc",
       "cdsroot": "C:\\Software\\Cadence\\Cadence_SPB_17.2-2016",
       "extracta": "C:\\Software\\Cadence\\Cadence_SPB_17.2-2016\\tools\\bin\\extracta.exe",
       "seconds": 0.2,
@@ -89,7 +98,7 @@
     },
     "benchmark": {
       "rc": 2,
-      "seconds": 49.5,
+      "seconds": 48.9,
       "timeout": false,
       "passed": null,
       "total": null,

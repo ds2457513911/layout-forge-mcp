@@ -1,0 +1,26 @@
+{
+  "schema": "layout-forge/rules/rules@1",
+  "_meta": "规则：id + use（本形态下取哪个参数）+ assert + severity + source。派生规则（derive）留给 #18/#20。",
+  "items": [
+    {
+      "id": "RULE-MASK-EXPAND",
+      "name": "阻焊开窗外扩",
+      "summary": "阻焊开窗相对铜箔的单边外扩必须落在放行区间内",
+      "display": "单边外扩 [0.05, 0.13]mm（按形态典型值：TH长圆 0.05 / TH圆 0.05 / SMD 0.08）",
+      "use": [
+        "PARAM-MASK-EXPAND-TH-OBLONG",
+        "PARAM-MASK-EXPAND-TH-CIRCLE",
+        "PARAM-MASK-EXPAND-SMD"
+      ],
+      "assert": [
+        {
+          "kind": "allowed"
+        }
+      ],
+      "severity": "SEV-MASK-DEVIATION",
+      "source": "SRC-ADR-0002",
+      "since": "2.2",
+      "note": "旧 2.2 只有 PASS/WARN/NA，无 FAIL；本规则沿用同一结论口径"
+    }
+  ]
+}

@@ -31,6 +31,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from services import paths as P
+from services import rule_engine
 
 logger = logging.getLogger("layout-forge")
 
@@ -452,6 +453,35 @@ def _get_pad_by_layer(pin: Dict, layer: str) -> Optional[Dict]:
     return None
 
 
+def _pin_rule_subject(pin: Dict) -> Dict[str, Any]:
+    """把 pin 读数压成规则引擎要的事实（票 #17：形态判定的输入）。
+
+    事实来源全部是读数本身，缺失就是缺失：
+      - mount：有 ~DRILL 层 → tht，否则 smd（extracta 的 SMD pad 不带 DRILL）
+      - drill.shape：DRILL 行的 hole_type（"OVAL SLOT" / "CIRCLE_DRILL"）
+      - layers：pin 上出现过的层名（保持读数顺序）
+      - name / pad_count：pin 名字与焊盘个数
+    """
+    layers: List[str] = []
+    drill_shape = None
+    for pad in pin.get("pads") or []:
+        layer = pad.get("layer")
+        if isinstance(layer, str) and layer not in layers:
+            layers.append(layer)
+        if layer == "DRILL":
+            shape = pad.get("hole_type")
+            if shape:
+                drill_shape = shape
+    return {
+        "id": str(pin.get("number", "")),
+        "mount": "tht" if "DRILL" in layers else "smd",
+        "layers": layers,
+        "drill": {"shape": drill_shape} if drill_shape else None,
+        "name": pin.get("name", ""),
+        "pad_count": len(pin.get("pads") or []),
+    }
+
+
 def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List[Dict]:
     items = []
     cfg = rules.get("pad", {})
@@ -528,8 +558,18 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
     ))
 
     # ---------- 2.2 阻焊开窗外扩 ----------
-    sm_expand_rule = cfg.get("soldermask_expand_mm", 0.05)
-    sm_results = []
+    # 票 #17：判定改走 knowledge/rules 的规则库（RULE-MASK-EXPAND）。
+    #   - 参数按形态分组（TH 长圆 / TH 圆 / SMD），allowed 与旧阈值文件同一口径
+    #     （[0.05, 0.13]、eps 0.005），故状态与旧 2.2 一致；
+    #   - finding 带 rule_id / 形态 / 出处 / 支持件数 / 整库哈希，便于溯源；
+    #   - 规则库不合法 → load_library 直接抛错，绝不带病判定。
+    lib = rule_engine.load_library()
+    mask_rule = lib.rules_by_id.get("RULE-MASK-EXPAND") or {}
+    sm_statuses = []
+    sm_forms = []
+    sm_skips = []
+    sm_bad = []
+    sample_ex = sample_ey = None
     for pin in pins:
         etch = _get_etch_pad(pin)
         sm = _get_pad_by_layer(pin, "PIN/SOLDERMASK_TOP")
@@ -539,35 +579,84 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
         sw, sh = sm["size"]
         if ew == 0 or eh == 0:
             continue
-        sm_results.append(((sw - ew) / 2, (sh - eh) / 2))
-
-    if sm_results:
-        # 2026-10-12 金标准校准：惯例外扩 0.08mm（195/246），历史件散布
-        # 0.05~0.12 —— 用范围判定代替等值判定
-        sm_min = float(cfg.get("soldermask_expand_min_mm", 0.05))
-        sm_max = float(cfg.get("soldermask_expand_max_mm", 0.13))
-        sm_typ = float(cfg.get("soldermask_expand_typical_mm", 0.08))
-        eps = 0.005    # 边界浮点擦边（0.05 恰好压线时不能误 WARN）
-        ok = all(
-            sm_min - eps <= ex <= sm_max + eps and sm_min - eps <= ey <= sm_max + eps
-            for ex, ey in sm_results
+        ex, ey = (sw - ew) / 2, (sh - eh) / 2
+        if sample_ex is None:
+            sample_ex, sample_ey = ex, ey
+        verdict = rule_engine.judge(
+            lib, "RULE-MASK-EXPAND", _pin_rule_subject(pin),
+            {"expand_x": ex, "expand_y": ey},
         )
-        sample_ex, sample_ey = sm_results[0]
-        items.append(_item(
-            "2.2", "阻焊开窗外扩",
-            "PASS" if ok else "WARN",
-            value={"单边x": _round(sample_ex), "单边y": _round(sample_ey)},
-            rule=f"单边外扩 [{sm_min}, {sm_max}]mm（惯例 {sm_typ}）",
-            detail="",
-            expected=f"单边 [{sm_min}, {sm_max}]",
-            source="default",
-        ))
-    else:
+        status = verdict.get("status")
+        sm_statuses.append(status)
+        form_id = verdict.get("form")
+        if form_id and form_id not in sm_forms:
+            sm_forms.append(form_id)
+        if status == "SKIP":
+            sm_skips.append(str(verdict.get("detail") or ""))
+        elif status != "PASS":
+            sm_bad.append(f"pin{verdict.get('subject')} {verdict.get('detail')}")
+
+    allowed_pairs = sorted({
+        tuple(lib.parameters_by_id[pid].get("allowed") or [])
+        for pid in mask_rule.get("use", [])
+        if pid in lib.parameters_by_id
+    })
+    allowed_lo, allowed_hi = (
+        (allowed_pairs[0][0], allowed_pairs[0][1]) if len(allowed_pairs) == 1
+        else (min(p[0] for p in allowed_pairs), max(p[1] for p in allowed_pairs))
+    ) if allowed_pairs else (0.05, 0.13)
+    rule_display = mask_rule.get("display") or "阻焊开窗外扩"
+
+    if not sm_statuses:
         items.append(_item(
             "2.2", "阻焊开窗外扩", "NA",
             detail="无 SOLDERMASK_TOP 数据",
             expected=None, source=None,
         ))
+        items[-1].update({
+            "rule_id": "RULE-MASK-EXPAND",
+            "forms": [],
+            "support": None,
+            "rule_set_hash": lib.fingerprint,
+        })
+    else:
+        if sm_bad:
+            sm_status = "WARN"
+            sm_detail = "；".join(sm_bad[:3])
+        elif sm_skips:
+            sm_status = "NA"
+            sm_detail = f"{len(sm_skips)} 个 pin 无法判定：" + "；".join(sm_skips[:3])
+        else:
+            sm_status = "PASS"
+            sm_detail = ""
+        support = None
+        for pid in mask_rule.get("use", []):
+            par = lib.parameters_by_id.get(pid)
+            if par and par.get("form") in sm_forms:
+                support = par.get("support")
+                break
+        source_ref = None
+        for pid in mask_rule.get("use", []):
+            par = lib.parameters_by_id.get(pid)
+            if par and par.get("form") in sm_forms:
+                source_ref = par.get("source")
+                break
+        items.append(_item(
+            "2.2", "阻焊开窗外扩",
+            sm_status,
+            value={"单边x": _round(sample_ex), "单边y": _round(sample_ey)},
+            rule=rule_display,
+            detail=sm_detail,
+            expected=f"单边 [{allowed_lo}, {allowed_hi}]",
+            source="default",
+        ))
+        items[-1].update({
+            "rule_id": "RULE-MASK-EXPAND",
+            "forms": sm_forms,
+            "source_ref": source_ref,
+            "support": support,
+            "rule_set_hash": lib.fingerprint,
+        })
 
     # ---------- 2.3 钢网与焊盘等大 ----------
     if cfg.get("pastemask_equal_pad", True):

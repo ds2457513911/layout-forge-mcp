@@ -1,6 +1,6 @@
 # services/ —— 生成侧核心（编译器 + 执行器 + 读取层）
 
-> 最后更新：2026-11-20（票 #16 / ADR-0002：新增 `padstack_derive.py` —— padstack 形态**决策**入口，从 `footprint_builder.build_footprint` 的 1a/1b 段搬出，与 `create_padstack` 的实例化彻底分开，判定口径一字未改）。此前：2026-11-19（新增 `channel_guard.py`：通道锁 + 建图租约，撞锁报 `CHANNEL_BUSY`；此前同一日新增 `pdf_reading.py` / `pdf_geometry.py` 与读数配额三件套 MCP 工具；`pdf_service.render_region` 的 dpi 改按单边 8192 反解。此前：2026-10-14 `pdf_locate.py` 重写为「文本 + 结构」双证据定位；`pdf_renderer.safe_stem()` 修尾空格坑；实测更正与 `layout-check-mcp` 的共享文件清单（只剩 4 件相同）。此前：Phase 0 登记 L3/L4/L5 目录常量、补齐漏登记的 4 个模块）
+> 最后更新：2026-11-20（票 #17 / ADR-0002：新增 `rule_engine.py` —— 规则库加载器 + 判定入口；2.2 阻焊判定改走 `knowledge/rules/` 新四类库，finding 带规则 id / 出处 / 支持件数 / 整库哈希，旧 `checker_rules.json` 对该条冻结只读。此前：2026-11-20（票 #16 / ADR-0002：新增 `padstack_derive.py` —— padstack 形态**决策**入口，从 `footprint_builder.build_footprint` 的 1a/1b 段搬出，与 `create_padstack` 的实例化彻底分开，判定口径一字未改）。此前：2026-11-19（新增 `channel_guard.py`：通道锁 + 建图租约，撞锁报 `CHANNEL_BUSY`；此前同一日新增 `pdf_reading.py` / `pdf_geometry.py` 与读数配额三件套 MCP 工具；`pdf_service.render_region` 的 dpi 改按单边 8192 反解。此前：2026-10-14 `pdf_locate.py` 重写为「文本 + 结构」双证据定位；`pdf_renderer.safe_stem()` 修尾空格坑；实测更正与 `layout-check-mcp` 的共享文件清单（只剩 4 件相同）。此前：Phase 0 登记 L3/L4/L5 目录常量、补齐漏登记的 4 个模块）
 
 ## 这个目录是干什么的
 
@@ -24,6 +24,7 @@
 | `paths.py` | ★ **目录约定的单一真源**（`PROJECT_ROOT` / `TOOLS_DIR` / `TEST_DIR` / `LOG_DIR` / `TRASH_DIR`；2026-10-14 增 `ORCHESTRATION_DIR` / `OBSERVABILITY_DIR` / `EVAL_DIR` / `RUNS_DIR` / `BASELINE_DIR`）+ 运行痕迹归集 `collect_run_logs()` | **几乎所有模块都 import 它**；改目录结构先改这里 |
 | `geometry_solver.py` | ★ **尺寸求解器**。含 `resolve_dim()`（尺寸来源口径：图上标注→取标注值 / 查表→取 MAX）、`solve_padstack/pins/outlines/silkscreen/refdes`、`solve()` 总入口、`to_build_args()`、`SPEC_3S48000163` 金标准样例 | 纯函数，7 条 doctest；**改它必须同步 `Tools/selfcheck_geometry.py`** |
 | `padstack_derive.py` | ★ **padstack 形态决策入口**（2026-11-20 票 #16 / ADR-0002 D5·D8）：`derive_padstacks(reading)` 吃一份 spec 形读数（mount / padstack / extra_padstacks / pins_override），吐纯数据计划（`padstack` / `extra_padstacks` / `pins_override` + `notes.conventions/tht_layers/errors`）；`ensure_tht_padstack_layers()` 通孔层兜底由本文件从执行器搬来。<br>★ 与 `create_padstack()` 的分工：**这里只决定形状，实例化归执行器** —— 拆开是为了让规则引擎（#17 起）能整体替换决策而不碰实例化 | 纯模块，登记在 `CORE_MODULES`（A3）：不 import 执行器 / SkillBridge / 通道，可离线调用；对拍基线 `eval/baselines/padstack_derive.json` + `eval/suites/geometry_regression/check_derive.py`（R5） |
+| `rule_engine.py` | ★ **规则库加载器 + 判定入口**（2026-11-20 票 #17 / ADR-0002 D1–D3·D9）：`load_library()` 一次读 `knowledge/rules/` 的四类对象（form / parameter / rule / source，外加 `_severity.json`）并做引用完整性校验 —— 未知谓词、缺出处、参数/形态/严重度引用不存在、库里有未登记的 `*.json`，一律抛 `RuleLibraryError`（带 file/path/message，**不降级、不猜**）；`judge(lib, rule_id, subject, observed)` 出三态 finding（PASS / 违反=WARN / SKIP 且写明缺什么），finding 自带 rule_id / 出处 / 支持件数 / 整库哈希；`match_form()` 决定一条规则按哪个 form 取参数 | 纯模块，登记在 `CORE_MODULES`（A3）：零 Allegro、零网络；行为基线 `eval/baselines/rule_engine.json` + `eval/suites/geometry_regression/check_rule_engine.py`（R6）；环境变量 `LAYOUT_FORGE_RULES_DIR` 可整体替换规则库 |
 | `footprint_builder.py` | ★ **执行器 + 顶层接口**。`new_symbol_drawing()`（含切 mm / 工作目录断言 / 污染校验）、`build_footprint()`、`export_psm()`（**磁盘证据制成功判据**）、`add_*()` 单步动作、`_quarantine_file()` 隔离。<br>★ `_compute_auto_extents()` / `_outline_xy_points()`：**绘图范围必须覆盖全部将画的几何**（引脚+丝印+本体+Place_Bound）—— 越界的图元会被 Allegro **静默丢弃**（返回 nil 不报错）。<br>★ `change_extents()`：**先精确设定，失败才并集**（空图纸的 `->bBox` 是"模板页框"不是内容框） | **最大文件**；在线建封装的唯一入口 |
 | `skill_snippets.py` | SKILL 表达式构造器：`build_text` / `build_text_orientation` / `build_polyline` / `build_rect_polyline` / `build_change_units` / `build_extent_set` / `build_zoom_points` / `build_zoom_bbox` … | 只拼字符串；`Tools/selfcheck_skill_syntax.py` 对它做 212 项离线自检 |
 | `skillbridge_writer.py` | SkillBridge 通道客户端：`AllegroSession`、`eval_skill()`、`units()`、`MIL_TO_MM` | ✅ 需要 Allegro 在跑；通道错位时看它 |
@@ -32,7 +33,7 @@
 | `skillbridge_reader.py` | SkillBridge 版读取（保底路径） | ✅ 需要 Allegro；与 extracta 输出结构**必须一致** |
 | `footprint_extractor.py` | 读取**分发器**：extracta 优先 → SkillBridge 回退；`_extracta_gaps()` 显式上报缺口 | 缺口**不阻断**几何判据（缺位号回退也白搭） |
 | `library_install.py` | ★ **影子库落位**：把产物按约定拷进 `..\Data\footprint\<PN>\`；`verify_colocation()` 同目录守卫；自动扫 .pad 时**按 .dra 实际引用过滤**（`_pad_referenced_by_dra`，2026-10-12 加，XTAL/FPC 误卷根治） | `overwrite` **默认 False**（库里可能是人工金标准！）；**不碰 padpath** |
-| `rule_checker.py` | 19 项封装规则复核（从 layout-check 继承） | ★ 阈值外置 `knowledge/rules/checker_rules.json`（改数字立即生效）；判定逻辑仍在本文件 |
+| `rule_checker.py` | 19 项封装规则复核（从 layout-check 继承） | ★ 其余阈值的数字仍外置 `knowledge/rules/checker_rules.json`（改数字立即生效）；**2.2 阻焊已改走 `knowledge/rules/` 新四类库**（形态/参数/规则/出处，见 `rule_engine.py`），旧阈值文件对 2.2 冻结只读 |
 | `case_library.py` | ★ **检测案例库**（2026-10-12 新增）：save/load/find/list_cases，指纹复用 spec_library | 检查前 `find_case` 同族预警；裁定一次全族受益 |
 | `report_renderer.py` | 把检查结果渲染成报告 | 只读输入，不写 `.dra` |
 | `cdsroot_locator.py` | 定位 Cadence `CDSROOT` / `extracta.exe` | extracta 与 Allegro 都要它 |

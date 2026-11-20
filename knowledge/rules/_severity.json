@@ -1,0 +1,13 @@
+{
+  "schema": "layout-forge/rules/severity@1",
+  "_meta": "severity = f(consequence, evidence) 的映射表（ADR D10）。规则只引用 id，不直接写状态。",
+  "items": [
+    {
+      "id": "SEV-MASK-DEVIATION",
+      "severity": "WARN",
+      "consequence": "silent",
+      "evidence": "value",
+      "note": "工艺偏差、非功能失效：与旧 2.2 一致，越界报 WARN 不升级 FAIL"
+    }
+  ]
+}

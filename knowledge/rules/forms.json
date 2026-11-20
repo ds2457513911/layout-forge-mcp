@@ -1,0 +1,57 @@
+{
+  "schema": "layout-forge/rules/forms@1",
+  "_meta": "形态定义：谓词白名单组合，按本文件顺序匹配（第一个命中即归属）。",
+  "items": [
+    {
+      "id": "FORM-MASK-TH-OBLONG",
+      "name": "通孔长圆孔（槽孔）",
+      "desc": "带 ~DRILL 的引脚，孔形为 OVAL SLOT（extracta 里只有 OVAL SLOT 才是真槽孔，OBLONG_DRILL 会被回落成圆孔）",
+      "when": {
+        "all": [
+          {
+            "predicate": "mount",
+            "equals": "tht"
+          },
+          {
+            "predicate": "hole_shape",
+            "in": [
+              "OVAL SLOT"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "FORM-MASK-TH-CIRCLE",
+      "name": "通孔圆孔",
+      "desc": "带 ~DRILL 的引脚，孔形为 CIRCLE_DRILL",
+      "when": {
+        "all": [
+          {
+            "predicate": "mount",
+            "equals": "tht"
+          },
+          {
+            "predicate": "hole_shape",
+            "in": [
+              "CIRCLE_DRILL"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "FORM-MASK-SMD",
+      "name": "SMD 表面贴装",
+      "desc": "没有 ~DRILL 层的引脚（extracta 的 SMD pad 行不带 DRILL）",
+      "when": {
+        "all": [
+          {
+            "predicate": "mount",
+            "equals": "smd"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -206,20 +206,27 @@
         "value",
         "detail",
         "expected",
-        "source"
+        "source",
+        "rule_id",
+        "forms",
+        "source_ref",
+        "support",
+        "rule_set_hash"
       ],
       "cases": [
         "golden-conv-2_2-mask-expand"
       ],
       "variants": [
         {
-          "line": 556,
-          "rule": "f\"单边外扩 [{sm_min}, {sm_max}]mm（惯例 {sm_typ}）\"",
-          "source": "default"
+          "line": 648,
+          "rule": "（来自 knowledge/rules/rules.json 的 display）单边外扩 [0.05, 0.13]mm（按形态典型值：TH长圆 0.05 / TH圆 0.05 / SMD 0.08）",
+          "source": "default",
+          "rule_id": "RULE-MASK-EXPAND"
         },
         {
-          "line": 566,
-          "status": "NA"
+          "line": 613,
+          "status": "NA",
+          "detail": "无 SOLDERMASK_TOP 数据"
         }
       ]
     },

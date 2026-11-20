@@ -1,0 +1,30 @@
+{
+  "schema": "layout-forge/rules/sources@1",
+  "_meta": "出处：每条参数/规则都必须指到这里的某个 id；缺出处即加载失败。",
+  "items": [
+    {
+      "id": "SRC-CONV-ADJUDICATED",
+      "kind": "case",
+      "ref": "knowledge/conventions.json",
+      "note": "adjudicated 块：th_oblong_plated / th_circle_plated 的 mask_expand_side_mm 及其 support"
+    },
+    {
+      "id": "SRC-GOLDEN-2_2",
+      "kind": "case",
+      "ref": "knowledge/cases/golden-conv-2_2-mask-expand.json",
+      "note": "253 件阻焊单边实测裁定（0.05~0.13 外保留 WARN 不升级）"
+    },
+    {
+      "id": "SRC-LEGACY-RULES",
+      "kind": "config",
+      "ref": "knowledge/rules/checker_rules.json",
+      "note": "旧阈值文件（冻结只读）：soldermask_expand_typical/min/max 三个值"
+    },
+    {
+      "id": "SRC-ADR-0002",
+      "kind": "doc",
+      "ref": "docs/adr/0002-建封装知识收成规则集.md",
+      "note": "D1 四类对象、D3 三态、D4 阻焊参数按 form 分组"
+    }
+  ]
+}

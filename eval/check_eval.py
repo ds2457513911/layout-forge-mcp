@@ -7,7 +7,7 @@ spec_reading / geometry_regression）。漏跑一条没有任何人会知道 —
 本项目最恨的那类失败：**静默**。本脚本把五套断言收成一条命令，输出一张总表，
 任何一套有 ERROR 就以非零码退出。
 
-它不是"又一个真源"：判据仍然写在各自套件里（A1–A10 / C1–C6 / B1–B4 / S1–S8 / G1–G6 + R1–R5），
+它不是"又一个真源"：判据仍然写在各自套件里（A1–A10 / C1–C6 / B1–B4 / S1–S8 / G1–G6 + R1–R6），
 本脚本只负责**跑全 + 计数 + 汇总**，不复制任何阈值。
 
 ## 元判据（本脚本自己的判据）
@@ -190,7 +190,7 @@ SUITES: tuple[Suite, ...] = (
     Suite("spec_reading", "eval/suites/spec_reading/check_spec_reading.py",
           "10 例读图准确率 + 定位不撒谎（S1–S8）", (), ()),
     Suite("geometry_regression", "eval/suites/geometry_regression/check_geometry_regression.py",
-          "239/222/39 自检 + 253 件对拍 + 取数探针（G1–G6/R1–R5）", ("skillbridge",), ()),
+          "239/222/39 自检 + 253 件对拍 + 取数探针（G1–G6/R1–R6）", ("skillbridge",), ()),
 )
 
 
