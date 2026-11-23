@@ -141,68 +141,13 @@ def th_oblong_params() -> Dict[str, Any]:
 
 
 # ------------------------------------------------------------------
-# 命名语法（与 Tools/mine_conventions.py 同源逻辑；此处为消费侧真源）
+# 命名语法（与 Tools/mine_conventions.py 同源逻辑；消费侧真源已收进
+# services/padstack_naming.py —— 票 #20：求解器与派生侧共用同一份实现）
 # ------------------------------------------------------------------
-def _dnum(s: str) -> float:
-    return float(s.replace("D", "."))
-
-
-def naming_match_th(name: str, hole_board: Tuple[float, float],
-                    pad_board: Tuple[float, float], shape: str,
-                    plated: bool) -> str:
-    """
-    判定 padstack 名是否符合库命名语法（数值比对，格式变体鲁棒）。
-    hole_board/pad_board 均为板面帧 (长, 短)。
-    返回标签：主语法 / NP:主语法 / NP:{孔OB}(盘省略) / other
-    """
-    base = re.sub(r"OS[XY][0-9D.]+$", "", (name or "").upper())
-    hole = sorted([round(v, 2) for v in hole_board if v], reverse=True)
-    pad = sorted([round(v, 2) for v in pad_board if v], reverse=True)
-    if not hole or not pad:
-        return "other"
-
-    def eq(a: float, b: float) -> bool:
-        return abs(a - b) <= 0.011
-
-    if shape == "oblong":
-        m = re.fullmatch(
-            r"(NP)?P?(?:OB)?([0-9D]+)X([0-9D]+)H(?:OB|O)?([0-9D]+)X([0-9D]+)", base)
-        if m:
-            flag, hw, hh, pw, ph = m.groups()
-            if (eq(_dnum(hw), hole[0]) and eq(_dnum(hh), hole[1])
-                    and eq(_dnum(pw), pad[0]) and eq(_dnum(ph), pad[1])):
-                tag = "P{孔OB}H{盘OB}"
-                return tag if plated else "NP:" + tag
-            return "other"
-        m = re.fullmatch(r"(NP)?P?(?:OB)?([0-9D]+)X([0-9D]+)", base)
-        if m:
-            flag, hw, hh = m.groups()
-            if eq(_dnum(hw), hole[0]) and eq(_dnum(hh), hole[1]):
-                return "NP:{孔OB}(盘省略)" if not plated else "other"
-        return "other"
-    if shape == "circle":
-        m = re.fullmatch(r"(NP)?P?C([0-9D]+)H(?:OB|C)?([0-9D]+)", base)
-        if m:
-            flag, h, p = m.groups()
-            if eq(_dnum(h), hole[0]) and eq(_dnum(p), pad[0]):
-                tag = "PC{孔}HC{盘}"
-                return tag if plated else "NP:" + tag
-        return "other"
-    return "other"
-
-
-def derive_th_name(hole_board: Tuple[float, float],
-                   pad_board: Tuple[float, float], plated: bool = True) -> str:
-    """按主语法派生 padstack 名（板面帧，长轴在前，1 位小数去尾零）"""
-
-    def enc(v: float) -> str:
-        s = f"{v:.2f}".rstrip("0").rstrip(".")
-        return s.replace(".", "D")
-
-    hl, hs = sorted([round(v, 2) for v in hole_board], reverse=True)
-    pl, ps = sorted([round(v, 2) for v in pad_board], reverse=True)
-    name = f"POB{enc(hl)}X{enc(hs)}HOB{enc(pl)}X{enc(ps)}"
-    return name if plated else f"NP{name}"
+from services.padstack_naming import (          # noqa: E402  （保持原模块段落位置）
+    th_oblong_name as derive_th_name,
+    th_oblong_naming_match as naming_match_th,
+)
 
 
 # ------------------------------------------------------------------

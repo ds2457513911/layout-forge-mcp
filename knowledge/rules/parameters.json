@@ -1,6 +1,6 @@
 {
   "schema": "layout-forge/rules/parameters@2",
-  "_meta": "一个参数一处定义：参数级字段（keys/allowed/eps/unit/field）对所有形态组共用，groups 只给每个形态自己的典型值、支撑件数与出处。改 allowed 一处 → 所有形态的判定同步变；改某组 value → 该形态的派生同步变。",
+  "_meta": "一个参数一处定义：参数级字段（keys/allowed/eps/unit/field）对所有形态组共用，groups 只给每个形态自己的典型值与建库口径、支撑件数与出处。value 是语料典型值（判定侧展示的「惯例」），derive_value 是派生侧真正填进 padstack 的建库口径；不写 derive_value 时回落到 value。改 allowed 一处 → 所有形态的判定同步变；改某组 value / derive_value → 该形态的判定展示 / 派生同步变。",
   "items": [
     {
       "id": "PARAM-MASK-EXPAND",
@@ -19,6 +19,7 @@
         {
           "form": "FORM-MASK-TH-OBLONG",
           "value": 0.05,
+          "derive_value": 0.05,
           "support": 22,
           "source": "SRC-CONV-ADJUDICATED",
           "note": "通孔长圆孔 22/26 件阻焊单边 0.05；与旧 2.2 的 min/max 同一口径"
@@ -26,6 +27,7 @@
         {
           "form": "FORM-MASK-TH-CIRCLE",
           "value": 0.05,
+          "derive_value": 0.05,
           "support": 9,
           "source": "SRC-CONV-ADJUDICATED",
           "note": "通孔圆孔 9 件阻焊单边 0.05"
@@ -33,9 +35,10 @@
         {
           "form": "FORM-MASK-SMD",
           "value": 0.08,
+          "derive_value": 0.05,
           "support": 195,
           "source": "SRC-LEGACY-RULES",
-          "note": "SMD 惯例值 0.08（全量 195/246 个焊盘）；出处是旧阈值文件的 soldermask_expand_typical_mm"
+          "note": "SMD 语料典型值 0.08（全量 195/246 个焊盘，出处是旧阈值文件的 soldermask_expand_typical_mm）；建库口径 derive_value 仍是 0.05（改造不改变已建封装形状，票 #20）"
         }
       ],
       "note": "阻焊开窗单边外扩。票 #19 把 PARAM-MASK-EXPAND-TH-OBLONG / -TH-CIRCLE / -SMD 三条独立参数合并到这里；旧 id 与回滚配方见 knowledge/migrations/rules_v1.json"

@@ -304,70 +304,18 @@ def _centers(count: int, pitch: float, *, top_to_bottom: bool = False) -> List[f
 # ============================================================
 # 1. 命名：数字 ↔ 规范写法
 # ============================================================
-# [规范 一] "小数点用字母 d 代替"
-#   1.4 -> "1D4"   3.2 -> "3D2"   0.7 -> "0D7"   0.85 -> "0D85"   0.4 -> "0D4"
-#   整数原样：      2.0 -> "2"     8.0 -> "8"        （规范例 NB_BGA64_8X8X1_1）
-def name_num(v: float) -> str:
-    """
-    [规范 一] 数值 → 命名段：小数点换成 `D`，整数不带小数部分。
-
-    >>> name_num(1.4), name_num(0.85), name_num(0.4), name_num(2.0)
-    ('1D4', '0D85', '0D4', '2')
-    """
-    f = _r4(v)
-    if abs(f - round(f)) < 1e-9:
-        return str(int(round(f)))
-    s = f"{f:.4f}".rstrip("0").rstrip(".")
-    int_part, frac = s.split(".")
-    return f"{int(int_part)}D{frac}"
-
-
-def parse_name_num(s: str) -> float:
-    """
-    命名段 → 数值（`name_num` 的逆）。与 rule_checker 2.1 的反解同源。
-
-    >>> parse_name_num("1D4"), parse_name_num("0D85"), parse_name_num("2")
-    (1.4, 0.85, 2.0)
-    """
-    s = str(s).strip()
-    m = _re_fullmatch_num(s)
-    if not m:
-        raise ValueError(f"非法命名数值段: {s!r}")
-    head, frac = m.group(1), m.group(2)
-    return float(f"{head}.{frac}") if frac else float(head)
-
-
-def _re_fullmatch_num(s: str):
-    import re
-    return re.fullmatch(r"(\d+)(?:[Dd](\d+))?", s)
-
-
-# 形状 → 命名首字符 + Allegro figure 名
-#   [规范 二] r长x宽（Rectangle）、c直径（Circle）、sq边长（Square）、ob…（Oblong）
-_SHAPE = {
-    "rect": ("R", "RECTANGLE"), "rectangle": ("R", "RECTANGLE"),
-    "circle": ("C", "CIRCLE"), "round": ("C", "CIRCLE"),
-    "square": ("SQ", "SQUARE"), "sq": ("SQ", "SQUARE"),
-    "oblong": ("OB", "OBLONG"), "oval": ("OB", "OBLONG"), "ob": ("OB", "OBLONG"),
-}
-
-
-def solve_padstack_name(size: Sequence[float], shape: str = "rect") -> str:
-    """
-    [规范 二] 焊盘命名。
-
-    [1.4, 1.2] rect   -> "R1D4X1D2"   （与金标准 .pad 名一致）
-    [0.85, 0.85] circle -> "C0D85"
-    [0.4, 0.3] oblong -> "OB0D4X0D3"
-    """
-    key = str(shape).lower()
-    if key not in _SHAPE:
-        raise ValueError(f"未知焊盘形状: {shape!r}（可选 {sorted(_SHAPE)}）")
-    ch, _fig = _SHAPE[key]
-    dims = [float(v) for v in size]
-    if ch in ("C", "SQ"):                     # 单一尺寸
-        return f"{ch}{name_num(dims[0])}"
-    return f"{ch}{name_num(dims[0])}X{name_num(dims[1])}"
+# [规范 一] "小数点用字母 d 代替"；[规范 二] 焊盘命名 r长x宽 / c直径 / sq边长 / ob…
+# 票 #20：实现搬到 services/padstack_naming.py（纯函数、零 services 依赖），本模块
+# 保留同名导出，历史调用方（rule_checker / Tools / 判据）不受影响。
+from services.padstack_naming import (          # noqa: E402  （沿用原文档段落位置）
+    SHAPE_CODES as _SHAPE,
+    name_num,
+    padstack_name as solve_padstack_name,
+    parse_name_num,
+)
+from services import rule_engine              # noqa: E402  （票 #20：provisional 值取自规则库）
+# 孔形归一口径与派生入口共用一处实现（services/padstack_derive.py 也用它）
+from services.padstack_derive import hole_shape_of   # noqa: E402
 
 
 def solve_symbol_name(
@@ -419,18 +367,72 @@ def solve_symbol_name(
 # ============================================================
 # 2. 求解器：padstack
 # ============================================================
+_TH_MOUNTS = ("tht", "through", "through_hole", "pth")
+
+
+def padstack_form_id(
+    spec: Dict[str, Any], pad: Dict[str, Any],
+) -> Tuple[str, rule_engine.RuleLibrary]:
+    """读数（mount + 孔形）→ 规则库形态 id（与派生入口 facts 同一口径）。
+
+    只用来决定「provisional 值从哪一组参数取」；真正的派生（层集/命名/旋转）
+    在 services/padstack_derive.py 由规则库完成。读数不匹配任何形态 → 报错，
+    不猜一个值。
+    """
+    mount = str(spec.get("mount", "smd")).lower()
+    if mount in _TH_MOUNTS:
+        shape = (hole_shape_of(pad.get("drill_type", ""))
+                 if pad.get("drill_size") else "CIRCLE_DRILL")
+    else:
+        mount, shape = "smd", ""
+    lib = rule_engine.load_library()
+    form = rule_engine.match_form(lib, {"mount": mount, "drill": {"shape": shape}})
+    if not form:
+        raise ValueError(
+            f"读数（mount={mount}, 孔形={shape or '-'}）不匹配规则库任何形态")
+    return str(form["id"]), lib
+
+
+def mask_expand_for_spec(spec: Dict[str, Any]) -> float:
+    """读数 → 形态 → 规则库的阻焊单边值（丝印 / 焊盘矩形避让也用它，不再自带默认值）。"""
+    pad = spec.get("pad")
+    if not pad:
+        raise ValueError("读数缺 pad，无法判形态（阻焊值无出处可查）")
+    form_id, lib = padstack_form_id(spec, pad)
+    return _derive_param_value(lib, "PARAM-MASK-EXPAND", form_id)
+
+
+def _derive_param_value(lib: rule_engine.RuleLibrary, param_id: str, form_id: str,
+                        key: str = "derive_value") -> float:
+    """取某形态下参数的派生口径值（缺参数 / 缺形态组 → 报错，不回落字面值）。"""
+    param = lib.parameters_by_id.get(param_id)
+    if param is None:
+        raise ValueError(f"规则库缺参数 {param_id}")
+    view = rule_engine.resolve_parameter(param, form_id)
+    if view is None:
+        raise ValueError(f"规则库参数 {param_id} 没有形态 {form_id} 的值")
+    return float(view[key])
+
+
 def solve_padstack(
     spec: Dict[str, Any], rules: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """
     参数 → padstack 定义（含阻焊 / 钢网层）。
 
-    [规范 三] 常规焊盘阻焊开窗单边比焊盘大 0.05~0.1mm → 取规则表值 0.05
-    [规范 三] 常规 Chip 元件钢网开窗与焊盘等大       → PASTEMASK = TOP
+    [规范 三] 常规焊盘阻焊开窗单边比焊盘大 0.05~0.1mm → 取规则库 PARAM-MASK-EXPAND
+    [规范 三] 常规 Chip 元件钢网开窗与焊盘等大       → PASTEMASK = TOP（PARAM-PASTE-TOP-PRESENT）
     [规范 三] 散热焊盘（GND Pad）需为 NP Pad         → spec["pad"]["non_plated"]
+
+    票 #20：本函数只把「读数 + 规则库参数」实例化成宿主对象；
+    rules 参数留作历史入参（旧调用方仍传），不再从这里读约定值。
     """
     rules = rules or DEFAULT_RULES
     pad = spec["pad"]
+    mount = str(spec.get("mount", "smd")).lower()
+    # 票 #20：阻焊 / 钢网口径来自规则库（同一读数同一形态，派生入口也用这一份）；
+    # 求解器不再自带 0.05 / pastemask_equal_pad 这类约定值。
+    form_id, lib = padstack_form_id(spec, pad)
     shape = str(pad.get("shape", "rect")).lower()
     if shape not in _SHAPE:
         raise ValueError(f"未知焊盘形状: {shape!r}（可选 {sorted(_SHAPE)}）")
@@ -443,21 +445,25 @@ def solve_padstack(
     if len(size) < 2:
         size = [size[0], size[0]]
 
-    sm = float(rules["pad"].get("soldermask_expand_mm", 0.05))
+    sm = _derive_param_value(lib, "PARAM-MASK-EXPAND", form_id)
+    # 顶面钢网存在性：参数级 value（该参数只有一条扁平定义，不按形态分组）
+    _paste = lib.parameters_by_id.get("PARAM-PASTE-TOP-PRESENT")
+    if _paste is None:
+        raise ValueError("规则库缺参数 PARAM-PASTE-TOP-PRESENT")
+    paste_present = bool(float(_paste["value"]))
 
     layers: List[Dict[str, Any]] = [
         {"layer": "TOP", "figure": fig, "size": [_r4(size[0]), _r4(size[1])]},
         {"layer": "SOLDERMASK_TOP", "figure": fig,
          "size": [_r4(size[0] + 2 * sm), _r4(size[1] + 2 * sm)]},
     ]
-    if rules["pad"].get("pastemask_equal_pad", True):
+    if paste_present:
         layers.append({"layer": "PASTEMASK_TOP", "figure": fig,
                        "size": [_r4(size[0]), _r4(size[1])]})
 
     # 通孔：内层 pad = 钻孔 + 0.6（[规范 二] 螺丝孔设计）
     drill = None
-    mount = str(spec.get("mount", "smd")).lower()
-    if mount in ("tht", "through", "through_hole", "pth"):
+    if mount in _TH_MOUNTS:
         # ★ 槽孔（异形孔）通孔件：焊盘尺寸由规格书直接给出，
         #   不能再用 drill+料环 那个"圆形螺丝孔"估算式 —— 那个式子只会产出圆盘。
         #   给了 `pad["drill_size"]` 就走这一支：焊盘沿用自身 figure/size，
@@ -497,7 +503,7 @@ def solve_padstack(
          "source": "[规范 二] 焊盘命名 r长x宽"},
         {"item": "padstack.layers[1]", "value": [size[0] + 2 * sm, size[1] + 2 * sm],
          "formula": f"TOP + 2×{sm}",
-         "source": "[规范 三] 阻焊开窗单边 +0.05"},
+         "source": f"[规范 三] 阻焊开窗单边 +{sm}"},
         {"item": "padstack.layers[2]", "value": [size[0], size[1]],
          "formula": "= TOP",
          "source": "[规范 三] 钢网与焊盘等大"},
@@ -771,7 +777,7 @@ def solve_outlines(
                 _resolved(spec, "pad.y", float(spec["pad"]["size"][-1]))]
     if len(pad_size) < 2:
         pad_size = [pad_size[0], pad_size[0]]
-    sm = float(rules["pad"].get("soldermask_expand_mm", 0.05))
+    sm = mask_expand_for_spec(spec)
     span_x = float(arr.get("pitch_x", 0)) * (int(arr.get("cols", 2)) - 1) + pad_size[0] + 2 * sm
     span_y = float(arr.get("pitch_y", 0)) * (int(arr.get("rows", 2)) - 1) + pad_size[1] + 2 * sm
     pad_bbox = {"span": [_r4(span_x), _r4(span_y)],
@@ -839,7 +845,7 @@ def solve_pad_rects(
     rot = float(spec["pad"].get("rotation", 0) or 0) % 180.0
     if abs(rot - 90.0) < 1e-9:
         ps = [ps[1], ps[0]]
-    sm = float(rules["pad"].get("soldermask_expand_mm", 0.05))
+    sm = mask_expand_for_spec(spec)
     hx, hy = ps[0] / 2.0 + sm, ps[1] / 2.0 + sm
     rects: List[Dict[str, Any]] = []
     for p in pins:

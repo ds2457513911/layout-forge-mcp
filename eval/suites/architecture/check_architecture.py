@@ -64,6 +64,8 @@ CORE_MODULES = [
     "services/padstack_derive.py",
     # 票 #17：规则库加载器 + 判定/派生纯函数入口（吃知识库 JSON，零 I/O 外部依赖）
     "services/rule_engine.py",
+    # 票 #20：焊盘命名纯函数（求解器与派生侧共用；模板在规则库，格式化在代码）
+    "services/padstack_naming.py",
     "services/spec_library.py",
     "services/case_library.py",
     "services/json_utils.py",

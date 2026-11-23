@@ -445,7 +445,9 @@ def _library_without_issue18(td: Path) -> None:
     """复制规则库并删掉本票新增的规则/参数，模拟「撤掉新库」。"""
     drop_rules = {"RULE-ANNULAR-RING", "RULE-PADSTACK-NAMING",
                   "RULE-PASTE-TOP-PRESENT", "RULE-PASTE-TOP-EQ-PAD",
-                  "RULE-PASTE-BOTTOM-ABSENT"}
+                  "RULE-PASTE-BOTTOM-ABSENT",
+                  # 票 #20 的派生规则引用上面被删的参数，必须一起撤
+                  "RULE-DERIVE-TH-OBLONG", "RULE-DERIVE-SMD"}
     drop_params = {"PARAM-ANNULAR-RING", "PARAM-NAMING-TH-OBLONG",
                    "PARAM-NAMING-TH-CIRCLE", "PARAM-PASTE-TOP-PRESENT",
                    "PARAM-PASTE-TOP-DIFF", "PARAM-PASTE-BOTTOM-PRESENT"}

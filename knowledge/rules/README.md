@@ -1,6 +1,6 @@
 # knowledge/rules/ —— 封装规则集（唯一真源）
 
-> 建立：2026-10-12 ｜ 最后更新：2026-11-23（票 #18：2.8/2.9/2.10 三条判定也迁到本目录；命名走尺寸反推，环宽有 warn 带，规则可声明 report_id / exempt。票 #21：规则集版本 + 覆盖率进报告；票 #19：三形态收成一个参数组）
+> 建立：2026-10-12 ｜ 最后更新：2026-11-23（票 #20：派生侧接入——规则里可写 `derive`，引擎正向产出 padstack 的层集/各层尺寸/命名/旋转，逐值带决策记录，无派生规则报 SKIP；求解器不再内联阻焊/钢网/命名的约定值。票 #18：2.8/2.9/2.10 三条判定也迁到本目录；命名走尺寸反推，环宽有 warn 带，规则可声明 report_id / exempt。票 #21：规则集版本 + 覆盖率进报告；票 #19：三形态收成一个参数组）
 > 维护者：`services/rule_engine.py`（加载 + 判定入口）
 
 ## 这个目录是什么
@@ -10,8 +10,8 @@
 | 文件 | 对象 | 一个对象回答什么 | 必填字段 |
 |--|--|--|--|
 | `forms.json` | form（形态） | 「哪些输入算同一类封装」——由谓词白名单组合（安装方式 / 孔形 / 层存在 / 层集包含 / 名字族 / 焊盘数） | `id`、`name`、`when` |
-| `parameters.json` | parameter（参数） | 「这一类封装的某尺寸该是多少」——参数级写 `keys`/`allowed`/`eps`（所有形态共用），形态差异进 `groups[]`（每条 `form`/`value`/`support`/`source`），一个参数只在**一处**定义；数值参数可带 `warn`（警告带），命名参数用 `kind: naming` + `grammar` + `tol` | 分组形状：`id`、`keys`、`allowed`、`groups`；单形态也可写扁平形状 `id`、`form`、`value`、`support`、`source`；命名参数是扁平形状特例（无 value/allowed）。两种形状二选一，同 `(field, form)` 不许第二份拷贝 |
-| `rules.json` | rule（规则） | 「拿哪个参数、比哪一侧、违反了算什么」——`when` 选 form、`use` 选参数、`assert` 选判法 | `id`、`name`、`use`、`assert`、`severity`、`source`、`since`；可带 `report_id`（历史报告编号）与 `exempt`（整类豁免） |
+| `parameters.json` | parameter（参数） | 「这一类封装的某尺寸该是多少」——参数级写 `keys`/`allowed`/`eps`（所有形态共用），形态差异进 `groups[]`（每条 `form`/`value`/`support`/`source`，可选 `derive_value` = 派生口径值，缺省回落 `value`），一个参数只在**一处**定义；参数级 `value` 是挖掘出的语料典型值（展示/支撑口径），`derive_value` 才是派生侧真正乘进去的数（ADR-0002 D4）；数值参数可带 `warn`（警告带），命名参数用 `kind: naming` + `grammar` + `tol` | 分组形状：`id`、`keys`、`allowed`、`groups`；单形态也可写扁平形状 `id`、`form`、`value`、`support`、`source`；命名参数是扁平形状特例（无 value/allowed）。两种形状二选一，同 `(field, form)` 不许第二份拷贝 |
+| `rules.json` | rule（规则） | 「拿哪个参数、比哪一侧、违反了算什么」——`when` 选 form、`use` 选参数、`assert` 选判法；反向/正向两侧：`derive` 用参数把读数展开成 padstack 定义（层集/各层尺寸/命名/旋转） | `id`、`name`、`use`、`severity`、`source`、`since`，且 `assert` 与 `derive` **至少一侧**（只有 assert 的规则在派生模式报 SKIP「缺派生规则」）；可带 `report_id`（历史报告编号）与 `exempt`（整类豁免） |
 | `sources.json` | source（出处） | 这个数字/这条规则**凭什么**——裁定记录、金标准对拍、ADR | `id`、`kind`、`ref` |
 | `library.json` | 规则集元信息 | 「这一整库是哪一版」——语义版本 + 发布日期；改任何对象都应升版本 | `schema`、`version`、`released_at` |
 | `_severity.json` | severity 映射 | 违反之后报多重 —— `severity = f(consequence, evidence)`，映射表单独一份，不散在代码里 | `id`、`severity`、`consequence`、`evidence` |
@@ -59,7 +59,7 @@ finding 里带 `rule_set_hash` 与 `rule_set_version`，报告首屏同时打印
 |--|--|--|
 | 内容 | 判定规则（形态怎么切、参数多少、违反算什么） | **构造约定**的裁定值（TH 环宽/钢网/命名语法/drill figure，带支持度） |
 | 来源 | ADR-0002 + 253 件金标准对拍 + 裁定记录 | 2026-10-13 第 0 层挖掘 + 裁定 |
-| 消费 | `rule_engine`（判定）→ `rule_checker` 2.2/2.8/2.9/2.10；后续派生侧 | `convention_engine`（builder 派生 + 出厂自检）；2.8/2.9/2.10 的检查路径已改走 `rules/`，旧函数只在回滚开关下使用 |
+| 消费 | `rule_engine` 两侧：判定（assert）→ `rule_checker` 2.2/2.8/2.9/2.10；派生（derive）→ `padstack_derive`（建封装前产出 padstack 计划）+ `geometry_solver`（中间态取阻焊/钢网值） | `convention_engine`（出厂自检 + 口径注释）；2.8/2.9/2.10 的检查路径已改走 `rules/`，旧函数只在回滚开关下使用；票 #20 起 `padstack_derive` 不再从它取数 |
 
 TH 构造类数值仍以 `conventions.json` 为准；四类库里凡引用它的参数把 `SRC-CONV-ADJUDICATED` 记在 `source` 上——**同一份约定不许有两个数字**。
 
@@ -68,15 +68,53 @@ TH 构造类数值仍以 `conventions.json` 为准；四类库里凡引用它的
 `PARAM-MASK-EXPAND` 是阻焊开窗单边外扩的**唯一参数定义**：
 
 - 参数级：`field=mask_expand_side`、`keys=[expand_x, expand_y]`、`allowed=[0.05, 0.13]`、`eps=0.005`——三个形态**共用同一个允许区间**；
-- 分组：`FORM-MASK-TH-OBLONG` 0.05（support 22）/ `FORM-MASK-TH-CIRCLE` 0.05（support 9）/ `FORM-MASK-SMD` 0.08（support 195），各带 `source`。
+- 分组：`FORM-MASK-TH-OBLONG` 0.05（support 22）/ `FORM-MASK-TH-CIRCLE` 0.05（support 9）/ `FORM-MASK-SMD` 0.08（support 195），各带 `source`；三组各自另有 `derive_value: 0.05`（票 #20）。
 
-两侧现在读同一份数据：判定侧 `rule_checker` 的 2.2 走 `judge(lib, "RULE-MASK-EXPAND", …)`；派生侧
-`convention_engine.th_oblong_params()` 通过 `rule_engine.resolve_parameter(param, form)` 取 TH 长圆孔那组的 `value`。
-改 `allowed` → 两侧的允许区间同时变；改某组的 `value` → 该形态的派生尺寸同时变；**改一个值只改一处**。
+两个数不是一回事，别混读（ADR-0002 D4）：
+
+| 字段 | 回答什么 | 谁在消费 |
+|--|--|--|
+| `value` | 挖掘时语料里**最常见的取值**（展示与 `support` 的口径） | 覆盖率报告、`convention_engine.th_oblong_params()` 的兼容视图、R6.11 |
+| `derive_value` | **建库时该乘进去的单值**；缺省回落 `value` | 派生侧（`rule_engine.resolve_derive`）与求解器的中间态（`geometry_solver.mask_expand_for_spec`） |
+
+SMD 的 0.08 是语料典型值、0.05 是建库口径——改造前已建封装按 0.05 建，票 #20 的验收要求「派生输出与改造前逐字段相等」，
+所以派生侧取 `derive_value`（0.05），`value` 保持 0.08 不动。**改前先确认改的是哪一个**：改 `value` 只影响展示/兼容视图，改 `derive_value` 才改派生尺寸。
+
 `conventions.json` 的 `adjudicated.th_oblong_plated.mask_expand_side_mm` 只作为出处记录保留，代码不再从它取值。
+`geometry_solver.solve_padstack()` 的 `sm` 已改由 `mask_expand_for_spec()` 从本库取（按读数判形态 → `resolve_parameter`），
+不再是 `rules["pad"]["soldermask_expand_mm"]` 的旧字面；`rules` 参数保留只为兼容历史调用方。
 
-> `geometry_solver.py` 里 SMD 派生仍用旧字面 0.05（不是 0.08），是为「改造不改变已建封装形状」；
-> 已在迁移映射表里登记为 legacy，接线留给票 #20。
+## 派生方向（票 #20）
+
+规则里的 `derive` 是**正向**：拿读数（事实）+ 参数，展开成一颗 padstack 的定义。
+入口是 `rule_engine.resolve_derive(lib, rule, form_id, facts)`，消费方是
+`services/padstack_derive.py`（`derive_padstacks(reading)`）。
+
+- **输入是事实，不是 `.dra`**（ADR-0002 D13）：`padstack_derive` 先从读数归一出一份 facts
+  （`pad_x/pad_y`、`hole_x/hole_y`、`hole_long/hole_short`、`pad_long/pad_short`、
+  `plated`、`offset_x/offset_y`、`paste_bottom`、`shape`、`figure`），再 `match_form` 选形态。
+- **`derive` 对象的字段**（加载时校验，见 `_check_derive_object`）：
+  `values`（名 → 表达式，可引用 facts / 参数键 / 之前声明的 values）、
+  `layers[]`（`layer` / `figure`（字符串或 `{"from_fact": 名字}`）/ `size` 两个表达式 / 可选 `when: {fact, equals}`）、
+  `drill`（`size` 两表达式、`drill_type`、`figure`、可选 `plated_from` / `offset`）、
+  `name`（`{"style": "th_oblong", "template": "POB{孔}X{孔}HOB{盘}X{盘}"}` 或
+  `{"style": "padstack_name", "shape": ..., "dims": [...]}`）、`rotation`、`notes[]`。
+- **表达式白名单**：数字、fact/参数名、四则运算与括号；禁函数调用、属性、下标、比较、布尔、条件。
+  判断在加载期一次做完，坏库整体拒绝。
+- **命名模板在数据，格式化在代码**（ADR-0002 D6）：`services/padstack_naming.py::format_derive_name`
+  才把模板渲染成名字；判定侧（2.9）仍用尺寸反推，不解析模板。
+- **逐值决策记录**：`resolve_derive` 对每个 `values` / 层尺寸 / 钻孔尺寸产出一条
+  `decisions`（`item` / `value` / `expression` / `rule_id` / `source` / `form` / `parameters[{id,key,value,source}]`），
+  出问题能追到「哪条规则、哪个表达式、乘了哪个参数」。
+- **形态命中但没有派生规则 → SKIP，不许静默产出**（ADR-0002 D2/D3）：当前
+  `FORM-MASK-TH-OBLONG`（`RULE-DERIVE-TH-OBLONG`）与 `FORM-MASK-SMD`（`RULE-DERIVE-SMD`）有派生规则；
+  `FORM-MASK-TH-CIRCLE`、`FORM-TH-DRILL-OTHER` 只有判定侧，派生时进 `skips` 并写明
+  「形态 X 尚无派生规则（缺派生规则）」。连形态都匹配不上的写「缺 form」。
+- **层集 / 尺寸 / 命名 / 旋转归 derive**；pin 坐标、阵列、原点、本体、Place_Bound、丝印、位号仍归
+  `geometry_solver`（ADR-0002 D5）。旋转由 derive 决定（TH 长圆 90°：本地竖孔 → 板面横槽），
+  施加在求解器/执行器；判定读实际值。
+- 每次派生结果里的 `decisions` / `skips` 是**纯数据**，可离线对拍（R5 基线与
+  `eval/baselines/padstack_derive.json`）。
 
 ## 已迁移的判定（票 #18）
 
@@ -115,8 +153,10 @@ TH 构造类数值仍以 `conventions.json` 为准；四类库里凡引用它的
   所以改 JSON 必须重渲染，改文档等于没改。
 - 回滚配方：JSON 顶层的 `rollback_recipe` 可执行——把 `PARAM-MASK-EXPAND` 反向展开回三个扁平参数并把
   `RULE-MASK-EXPAND.use` 改回旧 id。R6.14 会真跑一遍，确认回滚后三形态视图与合并库逐字段相等、
-  基线夹具的 2.2 状态逐件相同。代码侧配套步骤（convention_engine 回读 `conventions.json`）不在配方里，
-  完整回滚 = 执行配方 + `git revert` 票 #19 的提交，写在该条 `note` 里。
+  基线夹具的 2.2 状态逐件相同。票 #20 的两条 `RULE-DERIVE-*` 也引用这个合并参数，**回滚时必须一并删除**
+  （配方里已登记；否则参数展开后规则指向不存在的参数，整库被拒）。代码侧配套步骤
+  （convention_engine 回读 `conventions.json`）不在配方里，
+  完整回滚 = 执行配方 + `git revert` 票 #19 / #20 的提交，写在该条 `note` 里。
 
 ## 加一个对象的手续
 

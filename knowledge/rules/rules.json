@@ -128,6 +128,174 @@
         "reason": "非金属化机械孔，钢网豁免"
       },
       "note": "旧 2.10 的第三条：底面有钢网 WARN"
+    },
+    {
+      "id": "RULE-DERIVE-TH-OBLONG",
+      "name": "通孔长圆孔 padstack 派生",
+      "form": "FORM-MASK-TH-OBLONG",
+      "summary": "按孔与环宽派生六层长圆 padstack：层集、各层尺寸、命名与本地帧旋转一次算清",
+      "display": "层集 TOP/DEFAULT_INTERNAL/BOTTOM/SOLDERMASK_TOP/SOLDERMASK_BOTTOM/PASTEMASK_TOP；盘=孔+2×环宽；阻焊=盘+2×外扩；名 POB{孔长}X{孔短}HOB{盘长}X{盘短}；本地竖孔，建图时旋转 90°",
+      "use": [
+        "PARAM-ANNULAR-RING",
+        "PARAM-MASK-EXPAND"
+      ],
+      "severity": "SEV-NAMING-DEVIATION",
+      "source": "SRC-ADR-0002",
+      "since": "2.9",
+      "derive": {
+        "values": {
+          "pad_out_long": "hole_long + 2 * ring_y",
+          "pad_out_short": "hole_short + 2 * ring_x",
+          "mask_long": "pad_out_long + 2 * expand_y",
+          "mask_short": "pad_out_short + 2 * expand_x"
+        },
+        "layers": [
+          {
+            "layer": "TOP",
+            "figure": "OBLONG_X",
+            "size": [
+              "pad_out_short",
+              "pad_out_long"
+            ]
+          },
+          {
+            "layer": "DEFAULT_INTERNAL",
+            "figure": "OBLONG_X",
+            "size": [
+              "pad_out_short",
+              "pad_out_long"
+            ]
+          },
+          {
+            "layer": "BOTTOM",
+            "figure": "OBLONG_X",
+            "size": [
+              "pad_out_short",
+              "pad_out_long"
+            ]
+          },
+          {
+            "layer": "SOLDERMASK_TOP",
+            "figure": "OBLONG_X",
+            "size": [
+              "mask_short",
+              "mask_long"
+            ]
+          },
+          {
+            "layer": "SOLDERMASK_BOTTOM",
+            "figure": "OBLONG_X",
+            "size": [
+              "mask_short",
+              "mask_long"
+            ]
+          },
+          {
+            "layer": "PASTEMASK_TOP",
+            "figure": "OBLONG_X",
+            "size": [
+              "pad_out_short",
+              "pad_out_long"
+            ]
+          },
+          {
+            "layer": "PASTEMASK_BOTTOM",
+            "figure": "OBLONG_X",
+            "size": [
+              "pad_out_short",
+              "pad_out_long"
+            ],
+            "when": {
+              "fact": "paste_bottom",
+              "equals": true
+            }
+          }
+        ],
+        "drill": {
+          "size": [
+            "hole_short",
+            "hole_long"
+          ],
+          "drill_type": "OVAL_SLOT",
+          "figure": "OBLONG_Y",
+          "plated_from": "plated",
+          "offset": [
+            "offset_x",
+            "offset_y"
+          ]
+        },
+        "name": {
+          "style": "th_oblong",
+          "template": "POB{hole_long}X{hole_short}HOB{pad_out_long}X{pad_out_short}"
+        },
+        "rotation": 90,
+        "notes": [
+          "焊盘按标准环宽 {ring_x} 派生：{pad_out_long}x{pad_out_short}"
+        ]
+      },
+      "note": "票 #20：把 convention_engine 里写死的长圆层模板、环宽/阻焊外扩与命名搬进数据；层集不是固定六层（ADR D5），改参数即时生效"
+    },
+    {
+      "id": "RULE-DERIVE-SMD",
+      "name": "SMD 矩形焊盘 padstack 派生",
+      "form": "FORM-MASK-SMD",
+      "summary": "按实测焊盘派生三层 SMD padstack：阻焊外扩、顶面钢网等大与命名",
+      "display": "层集 TOP/SOLDERMASK_TOP/PASTEMASK_TOP；阻焊=盘+2×外扩；顶面钢网=盘；名 {形状}{长}X{宽}",
+      "use": [
+        "PARAM-MASK-EXPAND"
+      ],
+      "severity": "SEV-MASK-DEVIATION",
+      "source": "SRC-ADR-0002",
+      "since": "2.2",
+      "derive": {
+        "values": {
+          "mask_x": "pad_x + 2 * expand_x",
+          "mask_y": "pad_y + 2 * expand_y"
+        },
+        "layers": [
+          {
+            "layer": "TOP",
+            "figure": {
+              "from_fact": "figure"
+            },
+            "size": [
+              "pad_x",
+              "pad_y"
+            ]
+          },
+          {
+            "layer": "SOLDERMASK_TOP",
+            "figure": {
+              "from_fact": "figure"
+            },
+            "size": [
+              "mask_x",
+              "mask_y"
+            ]
+          },
+          {
+            "layer": "PASTEMASK_TOP",
+            "figure": {
+              "from_fact": "figure"
+            },
+            "size": [
+              "pad_x",
+              "pad_y"
+            ]
+          }
+        ],
+        "drill": null,
+        "name": {
+          "style": "padstack_name",
+          "shape": "shape",
+          "dims": [
+            "pad_x",
+            "pad_y"
+          ]
+        },
+        "notes": []
+      },
+      "note": "票 #20：SMD 阻焊走 PARAM-MASK-EXPAND 的 derive_value（建库口径 0.05），与语料典型值 0.08 分开；钢网与焊盘等大由尺寸表达式表达，不写成代码常量"
     }
   ]
 }

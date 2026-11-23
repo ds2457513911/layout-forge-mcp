@@ -408,6 +408,9 @@ def check_wired_to_new_library(c: Checker, RE) -> None:
                 obj["allowed"] = [0.2, 0.3]
                 for grp in obj.get("groups") or []:
                     grp["value"] = 0.25
+                    # 票 #20：建库口径也要跟着走，否则 0.05 落在新 allowed 外（库校验拒绝）
+                    if "derive_value" in grp:
+                        grp["derive_value"] = 0.25
         _dump_json(p, data)
         os.environ["LAYOUT_FORGE_RULES_DIR"] = str(tmp)
         RE.reset_cache()
@@ -507,12 +510,17 @@ def check_coverage(c: Checker, RE, lib) -> None:
     c.check(other.get("hits") == 1 and other.get("status") == "uncovered",
             "R6.7 未覆盖形态在覆盖率里可见（hits 1 / status uncovered）",
             json.dumps(other, ensure_ascii=False)[:240])
-    # 当前规则只有 assert 方向（derive 留给后续票），所以有判定规则的形态是 assert_only
-    c.check(forms.get("FORM-MASK-SMD", {}).get("status") == "assert_only",
+    # 票 #20：SMD 已有派生规则 → covered；TH 圆孔只有判定规则 → assert_only
+    c.check(forms.get("FORM-MASK-SMD", {}).get("status") == "covered"
+            and forms.get("FORM-MASK-TH-OBLONG", {}).get("status") == "covered",
+            "R6.7 判定 + 派生都有的形态 status=covered",
+            f"SMD={forms.get('FORM-MASK-SMD', {}).get('status')} / "
+            f"TH-OBLONG={forms.get('FORM-MASK-TH-OBLONG', {}).get('status')}")
+    c.check(forms.get("FORM-MASK-TH-CIRCLE", {}).get("status") == "assert_only",
             "R6.7 只有判定规则的形态 status=assert_only",
-            str(forms.get("FORM-MASK-SMD", {}).get("status")))
+            str(forms.get("FORM-MASK-TH-CIRCLE", {}).get("status")))
     c.check("forms_without_derive_rule" not in cov["gaps"],
-            "R6.7 缺口只列规格要求的两类（派生侧留到 #20，不混进缺口）",
+            "R6.7 缺口只列规格要求的两类（派生缺口由派生入口 skips 记录，不混进缺口）",
             json.dumps(sorted(cov["gaps"])))
     wo = cov["gaps"]["inputs_without_form"]
     c.check(len(wo) == 1 and "TRIANGLE_DRILL" in json.dumps(wo, ensure_ascii=False),
@@ -829,6 +837,9 @@ def check_single_change_two_sides(c, RE) -> None:
                 grp["value"] = {"FORM-MASK-TH-OBLONG": 0.06,
                                 "FORM-MASK-TH-CIRCLE": 0.06,
                                 "FORM-MASK-SMD": 0.065}[grp["form"]]
+                # 票 #20：建库口径同步收窄，否则原 0.05 落在新 allowed 外
+                if "derive_value" in grp:
+                    grp["derive_value"] = grp["value"]
         _dump_json(p, data)
 
         # 旧阈值文件里那份 mask 值故意改成 0.09（迁移前是 0.05）：派生必须无视它
@@ -1048,6 +1059,10 @@ def check_rollback_drill(c, RE, base) -> None:
                      if o["id"] == (rewrite.get("rule") or "RULE-MASK-EXPAND")), None)
         if rule is not None:
             rule["use"] = list(rewrite.get("use") or [])
+        # 票 #20：派生规则也引用该合并参数，参数展开后必须先删掉它们才能加载
+        # （派生侧回滚本来就等于连带 revert 票 #20 的那两条规则）
+        rdata["items"] = [o for o in rdata["items"]
+                          if not (set(o.get("use") or []) & {MASK_PARAM})]
         _dump_json(rp, rdata)
 
         merged_lib = RE.load_library(RULES_DIR)

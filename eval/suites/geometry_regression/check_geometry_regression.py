@@ -272,9 +272,13 @@ _RE_SUMMARY_NUM = re.compile(r"结果[:：]\s*(\d+)\s*/\s*(\d+)")
 def _run(py: str, script: Path, timeout: int) -> dict:
     t0 = time.time()
     try:
+        # 子进程自己也必须用 UTF-8 写 stdout：中文 Windows 的管道默认 GBK，
+        # selfcheck_* 打印 ↔ / ✓ 会 UnicodeEncodeError，把「全过」变成解析不到汇总行。
+        # 不能只靠调用方（check_eval 会注，单跑本套件不会）。
+        _env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
         r = subprocess.run([py, str(script)], capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=timeout,
-                           cwd=str(ROOT))
+                           cwd=str(ROOT), env=_env)
         out, rc = (r.stdout or "") + (r.stderr or ""), r.returncode
     except subprocess.TimeoutExpired:
         return {"rc": None, "seconds": round(time.time() - t0, 1), "timeout": True,

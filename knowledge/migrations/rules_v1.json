@@ -290,7 +290,7 @@
         "path": "groups[].value"
       },
       "status": "migrated",
-      "note": "旧键是单值 0.08（SMD 惯例值）；迁移后按形态分组各存一份典型值：TH 长圆 0.05 / TH 圆 0.05 / SMD 0.08。",
+      "note": "旧键是单值 0.08（SMD 惯例值）；迁移后按形态分组各存一份典型值：TH 长圆 0.05 / TH 圆 0.05 / SMD 0.08。票 #20 起每组另有 derive_value=0.05（建库口径）：SMD 派生仍按 0.05，与改造前已建封装形状逐字段一致。",
       "rollback": "已由规则库对象替代；回滚按 rollback_recipe 展开成旧三参数形态。"
     },
     {
@@ -818,7 +818,9 @@
     "id": "ROLLBACK-MASK-EXPAND",
     "applies_to": [
       "PARAM-MASK-EXPAND",
-      "RULE-MASK-EXPAND"
+      "RULE-MASK-EXPAND",
+      "RULE-DERIVE-TH-OBLONG",
+      "RULE-DERIVE-SMD"
     ],
     "steps": [
       {
@@ -851,6 +853,6 @@
     ],
     "expanded_parameter_shape": "每个展开参数用扁平单形态形状：参数级 field/keys/allowed/eps/unit 原样保留，再加上该形态组的 form/value/support/source",
     "expect": "按配方展开后，同一批夹具的判定结果（status/form/support/source_ref）与合并后逐件相等；2.2 端到端汇总仍为 files 253 / judged 235 / diff 0。",
-    "note": "数据侧回滚只做上面两步；派生侧回滚=git revert 票 #19 的提交（convention_engine 重新从 conventions.json 取 mask_expand_side_mm）。"
+    "note": "数据侧回滚只做上面两步；派生侧回滚=git revert 票 #19 的提交（convention_engine 重新从 conventions.json 取 mask_expand_side_mm）。票 #20 的派生规则（RULE-DERIVE-TH-OBLONG / RULE-DERIVE-SMD）也引用该合并参数，回滚时须一并删除（派生侧回滚同样等于 revert 票 #20 的提交）。"
   }
 }

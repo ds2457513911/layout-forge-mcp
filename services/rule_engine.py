@@ -81,7 +81,7 @@ KNOWN_FIELDS: Dict[str, set] = {
     "forms": {"id", "name", "when", "desc"},
     "parameters": {"id", "form", "keys", "value", "allowed", "warn", "eps",
                    "support", "source", "field", "unit", "note", "groups",
-                   "kind", "grammar", "tol"},
+                   "kind", "grammar", "tol", "derive_value"},
     "rules": {"id", "name", "use", "assert", "severity", "source", "since",
               "derive", "form", "when", "display", "summary", "note",
               "report_id", "exempt"},
@@ -125,13 +125,32 @@ NAMING_KEYS: Dict[str, Tuple[str, ...]] = {
     "TH-CIRCLE": ("name", "hole_dia", "pad_dia"),
 }
 
-# 参数形态组允许出现的字段：组只给「这个形态的典型值/支撑/出处」，
+# 参数形态组允许出现的字段：组只给「这个形态的值/支撑/出处」，
 # 区间与观测键属于参数本身（一处定义，所有形态共用）。
-GROUP_FIELDS = frozenset({"form", "value", "support", "source", "note"})
+# derive_value（票 #20）：同一参数的「建库口径」与「语料典型值」是两个概念 ——
+# value 是语料统计出的典型值（判定侧展示/支撑），derive_value 是派生时该用的
+# 单值（ADR D4：value 是派生用的单值；本票把历史 0.05 建库口径显式写进数据）。
+# 未写 derive_value 时回落该组的 value（R6.12 的临时库只改 value 仍生效）。
+GROUP_FIELDS = frozenset({"form", "value", "derive_value", "support", "source", "note"})
 
 DEFAULT_EPS = 0.005    # 边界浮点擦边，与旧 2.2 同口径
 
-# 派生表达式里允许出现的名字（参数键 / 层名 / 四则运算）；派生实现留给 #18
+# 派生方向允许读取的事实（ADR D5/D7）：只有这些名字能出现在 derive 表达式里，
+# 事实缺失时派生报 SKIP（UNKNOWN），不许拿默认值静默填。
+DERIVE_FACTS = frozenset({
+    "pad_x", "pad_y", "hole_x", "hole_y", "hole_long", "hole_short",
+    "pad_long", "pad_short", "plated", "offset_x", "offset_y",
+    "paste_bottom", "shape", "figure",
+})
+
+# 派生对象允许出现的字段：层集 / 各层尺寸 / 钻孔 / 命名 / 旋转 / 说明。
+# 不管 pin 坐标、阵列、原点、本体、Place_Bound、丝印、位号（ADR D5，仍归 solver）。
+DERIVE_FIELDS = frozenset({"values", "layers", "drill", "name", "rotation", "notes"})
+DERIVE_LAYER_FIELDS = frozenset({"layer", "figure", "size", "when"})
+DERIVE_DRILL_FIELDS = frozenset({"size", "drill_type", "figure", "plated_from", "offset"})
+DERIVE_NAME_STYLES: Tuple[str, ...] = ("th_oblong", "padstack_name")
+
+# 派生表达式里允许的运算：数字 / 名字 / 一元正负 / 四则（AST 白名单，禁函数调用）
 
 
 class RuleLibraryError(Exception):
@@ -280,7 +299,7 @@ def _check_predicate(errors: List[Dict[str, str]], file: str, path: str,
 
 def _check_derive_expr(errors: List[Dict[str, str]], file: str, path: str,
                        expr: Any, allowed_names: Iterable[str]) -> None:
-    """派生表达式只允许：数字 / 参数键 / 层名占位符 / 四则运算。"""
+    """派生表达式只允许：数字 / 事实名 / 参数键 / 一元正负 / 四则运算（AST 白名单）。"""
     if not isinstance(expr, str) or not expr.strip():
         _err(errors, file, path, "派生表达式应为非空字符串")
         return
@@ -291,16 +310,238 @@ def _check_derive_expr(errors: List[Dict[str, str]], file: str, path: str,
         return
     allowed = set(allowed_names)
     for node in ast.walk(tree):
-        if isinstance(node, ast.Name):
+        if isinstance(node, (ast.Expression, ast.operator, ast.unaryop,
+                            ast.expr_context)):
+            continue
+        if isinstance(node, ast.Constant):
+            if not isinstance(node.value, (int, float)) or isinstance(node.value, bool):
+                _err(errors, file, path, "派生表达式只许数字常量")
+                return
+        elif isinstance(node, ast.Name):
             if node.id not in allowed:
                 _err(errors, file, path,
-                     f"派生表达式引用了不允许的名字 {node.id!r}（只许参数键/层名）")
+                     f"派生表达式引用了不允许的名字 {node.id!r}"
+                     "（只许事实/参数键/先声明的 values）")
                 return
-        elif isinstance(node, (ast.Call, ast.Attribute, ast.Subscript, ast.Lambda,
-                               ast.ListComp, ast.DictComp, ast.SetComp, ast.GeneratorExp,
-                               ast.Compare, ast.BoolOp, ast.IfExp, ast.JoinedStr)):
+        elif isinstance(node, ast.UnaryOp):
+            if not isinstance(node.op, (ast.UAdd, ast.USub)):
+                _err(errors, file, path,
+                     f"派生表达式含非法一元运算 {type(node.op).__name__}")
+                return
+        elif isinstance(node, ast.BinOp):
+            if not isinstance(node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div)):
+                _err(errors, file, path,
+                     f"派生表达式含非法运算 {type(node.op).__name__}")
+                return
+        else:
             _err(errors, file, path, f"派生表达式含非法语法 {type(node).__name__}")
             return
+
+
+def _template_placeholders(template: str) -> List[str]:
+    """模板里的占位符名（{name}）；带格式说明符/转换的视为非法，返回 [] 由调用方报错。"""
+    from string import Formatter
+    out: List[str] = []
+    for _literal, field, spec, conv in Formatter().parse(template):
+        if field is None:
+            continue
+        if spec or conv or not str(field).isidentifier():
+            return []
+        out.append(str(field))
+    return out
+
+
+def _check_template(errors: List[Dict[str, str]], file: str, path: str,
+                    template: Any, allowed_names: Iterable[str], what: str) -> None:
+    if not isinstance(template, str) or not template.strip():
+        _err(errors, file, path, f"{what}应为非空字符串")
+        return
+    names = _template_placeholders(template)
+    if not names:
+        _err(errors, file, path, f"{what}里的占位符不合法（只许 {{名字}}）")
+        return
+    allowed = set(allowed_names)
+    for name in names:
+        if name not in allowed:
+            _err(errors, file, path,
+                 f"{what}引用了不允许的名字 {name!r}（只许事实/参数键/values）")
+            return
+
+
+def _check_derive_object(errors: List[Dict[str, str]], file: str, path: str,
+                         derive: Any, rule: Dict[str, Any],
+                         params: List[Dict[str, Any]]) -> None:
+    """校验一份 derive 定义（ADR D5/D7）：层集 / 尺寸 / 钻孔 / 命名 / 旋转 / 说明。"""
+    if not isinstance(derive, dict):
+        _err(errors, file, path, "derive 必须是对象")
+        return
+    extra = set(derive) - DERIVE_FIELDS
+    if extra:
+        _err(errors, file, f"{path}.{sorted(extra)[0]}",
+             f"derive 不认识的字段 {sorted(extra)}（只许 {'/'.join(sorted(DERIVE_FIELDS))}）")
+    if not derive:
+        _err(errors, file, path, "derive 不能为空对象")
+        return
+
+    names = set(DERIVE_FACTS)
+    for pid in rule.get("use") or []:
+        for q in params:
+            if q.get("id") == pid:
+                names.update(q.get("keys") or [])
+
+    values = derive.get("values", {})
+    if not isinstance(values, dict):
+        _err(errors, file, f"{path}.values", "values 必须是对象（名 → 表达式）")
+        values = {}
+    declared: List[str] = []
+    for key, expr in values.items():
+        vp = f"{path}.values.{key}"
+        if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+            _err(errors, file, f"{path}.values", f"values 名 {key!r} 不是合法标识符")
+            continue
+        if key in names:
+            _err(errors, file, vp,
+                 f"values 名 {key!r} 与事实/参数键同名（会盖掉读数，禁止）")
+            continue
+        _check_derive_expr(errors, file, vp, expr, names | set(declared))
+        declared.append(key)
+    usable = names | set(declared)
+
+    layers = derive.get("layers")
+    if not isinstance(layers, list) or not layers:
+        _err(errors, file, f"{path}.layers", "layers 应为非空数组")
+    else:
+        for j, lay in enumerate(layers):
+            lp = f"{path}.layers[{j}]"
+            if not isinstance(lay, dict):
+                _err(errors, file, lp, "层定义必须是对象")
+                continue
+            extra = set(lay) - DERIVE_LAYER_FIELDS
+            if extra:
+                _err(errors, file, f"{lp}.{sorted(extra)[0]}",
+                     f"层定义不认识的字段 {sorted(extra)}")
+                continue
+            for key in ("layer", "figure", "size"):
+                _require(errors, file, lp, lay, key,
+                         str if key == "layer" else (list if key == "size" else object))
+            if not isinstance(lay.get("layer"), str) or not lay.get("layer"):
+                _err(errors, file, f"{lp}.layer", "层名应为非空字符串")
+            fig = lay.get("figure")
+            if isinstance(fig, dict):
+                extra = set(fig) - {"from_fact"}
+                if extra or not isinstance(fig.get("from_fact"), str):
+                    _err(errors, file, f"{lp}.figure",
+                         "figure 只能是字符串（层图形名）或 {\"from_fact\": 名字}")
+                elif fig["from_fact"] not in usable:
+                    _err(errors, file, f"{lp}.figure",
+                         f"figure 引用了不允许的名字 {fig['from_fact']!r}")
+            elif not isinstance(fig, str) or not fig:
+                _err(errors, file, f"{lp}.figure", "figure 应为非空字符串或 {from_fact}")
+            size = lay.get("size")
+            if isinstance(size, list):
+                if len(size) != 2:
+                    _err(errors, file, f"{lp}.size", "size 应为 [宽, 高] 两个表达式")
+                else:
+                    for k, expr in enumerate(size):
+                        _check_derive_expr(errors, file, f"{lp}.size[{k}]", expr, usable)
+            when = lay.get("when")
+            if when is not None:
+                # 条件层（票 #20：底面钢网只在读数声明 paste_bottom 时进层集）
+                if not isinstance(when, dict):
+                    _err(errors, file, f"{lp}.when", "when 必须是对象或省略")
+                else:
+                    extra = set(when) - {"fact", "equals"}
+                    if extra:
+                        _err(errors, file, f"{lp}.when.{sorted(extra)[0]}",
+                             f"when 不认识的字段 {sorted(extra)}（只许 fact/equals）")
+                    fact = when.get("fact")
+                    if fact not in DERIVE_FACTS:
+                        _err(errors, file, f"{lp}.when.fact",
+                             f"when.fact 必须是事实名（白名单：{'/'.join(sorted(DERIVE_FACTS))}）")
+                    if not isinstance(when.get("equals"), bool):
+                        _err(errors, file, f"{lp}.when.equals", "when.equals 必须是 true/false")
+
+    drill = derive.get("drill", None)
+    if drill is not None:
+        if not isinstance(drill, dict):
+            _err(errors, file, f"{path}.drill", "drill 必须是对象或 null")
+        else:
+            extra = set(drill) - DERIVE_DRILL_FIELDS
+            if extra:
+                _err(errors, file, f"{path}.drill.{sorted(extra)[0]}",
+                     f"drill 不认识的字段 {sorted(extra)}")
+            for key in ("size", "drill_type", "figure"):
+                _require(errors, file, f"{path}.drill", drill, key,
+                         str if key != "size" else list)
+            size = drill.get("size")
+            if isinstance(size, list):
+                if len(size) != 2:
+                    _err(errors, file, f"{path}.drill.size",
+                         "drill.size 应为 [宽, 长] 两个表达式")
+                else:
+                    for k, expr in enumerate(size):
+                        _check_derive_expr(errors, file, f"{path}.drill.size[{k}]", expr, usable)
+            for key in ("drill_type", "figure"):
+                if not isinstance(drill.get(key), str) or not drill.get(key):
+                    _err(errors, file, f"{path}.drill.{key}", f"drill.{key} 应为非空字符串")
+            pfrom = drill.get("plated_from")
+            if pfrom is not None and pfrom not in usable:
+                _err(errors, file, f"{path}.drill.plated_from",
+                     f"plated_from 引用了不允许的名字 {pfrom!r}")
+            off = drill.get("offset")
+            if off is not None:
+                if (not isinstance(off, list) or len(off) != 2
+                        or not all(isinstance(x, str) for x in off)):
+                    _err(errors, file, f"{path}.drill.offset",
+                         "offset 应为 [x 名字, y 名字]（读数有偏移才写到产物）")
+                else:
+                    for x in off:
+                        if x not in usable:
+                            _err(errors, file, f"{path}.drill.offset",
+                                 f"offset 引用了不允许的名字 {x!r}")
+
+    name_def = derive.get("name")
+    if not isinstance(name_def, dict):
+        _err(errors, file, f"{path}.name", "name 必须是对象（style + 模板/尺寸）")
+    else:
+        style = name_def.get("style")
+        if style not in DERIVE_NAME_STYLES:
+            _err(errors, file, f"{path}.name.style",
+                 f"未知命名风格 {style!r}（白名单：{'/'.join(DERIVE_NAME_STYLES)}）")
+        elif style == "th_oblong":
+            extra = set(name_def) - {"style", "template"}
+            if extra:
+                _err(errors, file, f"{path}.name.{sorted(extra)[0]}",
+                     f"th_oblong 命名不认识的字段 {sorted(extra)}")
+            _check_template(errors, file, f"{path}.name.template",
+                            name_def.get("template"), usable, "th_oblong 命名模板")
+        else:
+            extra = set(name_def) - {"style", "shape", "dims"}
+            if extra:
+                _err(errors, file, f"{path}.name.{sorted(extra)[0]}",
+                     f"padstack_name 命名不认识的字段 {sorted(extra)}")
+            shape = name_def.get("shape")
+            if not isinstance(shape, str) or shape not in usable:
+                _err(errors, file, f"{path}.name.shape",
+                     f"shape 引用了不允许的名字 {shape!r}")
+            dims = name_def.get("dims")
+            if (not isinstance(dims, list) or not dims
+                    or not all(isinstance(x, str) and x in usable for x in dims)):
+                _err(errors, file, f"{path}.name.dims",
+                     "dims 应为尺寸名字数组（全部在事实/参数键/values 里）")
+
+    rotation = derive.get("rotation")
+    if rotation is not None and (not isinstance(rotation, (int, float))
+                                 or isinstance(rotation, bool)):
+        _err(errors, file, f"{path}.rotation", "rotation 应为数字（度）或省略")
+
+    notes = derive.get("notes", [])
+    if not isinstance(notes, list):
+        _err(errors, file, f"{path}.notes", "notes 应为字符串数组")
+    else:
+        for j, note in enumerate(notes):
+            _check_template(errors, file, f"{path}.notes[{j}]", note, usable,
+                            f"notes[{j}] 说明")
 
 
 def _read_meta_file(directory: Path, errors: List[Dict[str, str]]) -> Tuple[Dict[str, Any], Dict[str, str]]:
@@ -503,6 +744,13 @@ def _validate_parameters(params: List[Dict[str, Any]], forms: List[Dict[str, Any
             if allowed_ok and not _range_ok(allowed, val):
                 _err(errors, name, f"{p}.value",
                      f"value {val} 不在 allowed {allowed} 内（参数 {who}）")
+            dval = par.get("derive_value")
+            if dval is not None:
+                if not isinstance(dval, (int, float)) or isinstance(dval, bool):
+                    _err(errors, name, f"{p}.derive_value", "derive_value 应为数字")
+                elif allowed_ok and not _range_ok(allowed, dval):
+                    _err(errors, name, f"{p}.derive_value",
+                         f"derive_value {dval} 不在 allowed {allowed} 内（参数 {who}）")
         else:
             groups = par.get("groups")
             if not isinstance(groups, list) or not groups:
@@ -541,6 +789,14 @@ def _validate_parameters(params: List[Dict[str, Any]], forms: List[Dict[str, Any
                 if allowed_ok and not _range_ok(allowed, val):
                     _err(errors, name, f"{gp}.value",
                          f"value {val} 不在 allowed {allowed} 内（参数 {who}，形态 {form}）")
+                dval = grp.get("derive_value")
+                if dval is not None:
+                    if not isinstance(dval, (int, float)) or isinstance(dval, bool):
+                        _err(errors, name, f"{gp}.derive_value", "derive_value 应为数字")
+                    elif allowed_ok and not _range_ok(allowed, dval):
+                        _err(errors, name, f"{gp}.derive_value",
+                             f"derive_value {dval} 不在 allowed {allowed} 内"
+                             f"（参数 {who}，形态 {form}）")
 
 
 def _check_field_form_unique(params: List[Dict[str, Any]],
@@ -580,8 +836,11 @@ def _validate_rules(rules: List[Dict[str, Any]], forms: List[Dict[str, Any]],
     sev_ids = {s.get("id") for s in severity}
     for i, rule in enumerate(rules):
         p = f"items[{i}]"
-        for key in ("name", "use", "assert", "severity", "source", "since"):
-            _require(errors, name, p, rule, key, str if key != "use" and key != "assert" else list)
+        # 票 #20：assert 与 derive 至少一侧（ADR D2：规则可以只有一侧）。
+        for key in ("name", "use", "severity", "source", "since"):
+            _require(errors, name, p, rule, key, str if key != "use" else list)
+        if "assert" not in rule and "derive" not in rule:
+            _err(errors, name, p, "规则至少要有 assert 或 derive 一侧")
         use = rule.get("use")
         if isinstance(use, list):
             if not use:
@@ -622,12 +881,7 @@ def _validate_rules(rules: List[Dict[str, Any]], forms: List[Dict[str, Any]],
             _err(errors, name, f"{p}.source", f"引用了不存在的出处 {src!r}")
         derive = rule.get("derive")
         if derive is not None:
-            names = set()
-            for pid in (use or []):
-                for q in params:
-                    if q.get("id") == pid:
-                        names.update(q.get("keys") or [])
-            _check_derive_expr(errors, name, f"{p}.derive", derive, names)
+            _check_derive_object(errors, name, f"{p}.derive", derive, rule, params)
         form = rule.get("form")
         if form is not None and form not in {f.get("id") for f in forms}:
             _err(errors, name, f"{p}.form", f"引用了不存在的形态 {form!r}")
@@ -838,11 +1092,16 @@ def rule_directions(rule: Dict[str, Any]) -> Dict[str, bool]:
 
 
 def rule_forms(lib: RuleLibrary, rule: Dict[str, Any]) -> List[str]:
-    """规则作用于哪些形态：显式 form 优先，否则由 use → 参数的 form 推出来。"""
-    out: List[str] = []
+    """规则作用于哪些形态：显式 form 优先，否则由 use → 参数的 form 推出来。
+
+    显式 form 是「这条规则只服务这个形态」的强声明（票 #20：派生规则必须写
+    显式 form，否则会借 use 里的多形态参数漂到别的形态去）。没有显式 form 的
+    规则（2.2/2.8/2.9/2.10 的判定侧）继续按参数组推形态，覆盖率口径不变。
+    """
     form = rule.get("form")
-    if isinstance(form, str) and form not in out:
-        out.append(form)
+    if isinstance(form, str):
+        return [form]
+    out: List[str] = []
     for pid in rule.get("use") or []:
         par = lib.parameters_by_id.get(pid) or {}
         for grp in parameter_groups(par):
@@ -1173,10 +1432,13 @@ def parameter_groups(param: Dict[str, Any]) -> List[Dict[str, Any]]:
     if isinstance(groups, list):
         return [g for g in groups if isinstance(g, dict)]
     if "form" in param:
-        return [{"form": param.get("form"),
-                 "value": param.get("value"),
-                 "support": param.get("support"),
-                 "source": param.get("source")}]
+        grp = {"form": param.get("form"),
+               "value": param.get("value"),
+               "support": param.get("support"),
+               "source": param.get("source")}
+        if param.get("derive_value") is not None:
+            grp["derive_value"] = param.get("derive_value")
+        return [grp]
     return []
 
 
@@ -1201,17 +1463,294 @@ def resolve_parameter(param: Dict[str, Any],
         if grp.get("form") != form_id:
             continue
         view = dict(param)
-        for key in ("groups", "form", "value", "support", "source"):
+        for key in ("groups", "form", "value", "derive_value", "support", "source"):
             view.pop(key, None)
         view["id"] = param.get("id")
         view["form"] = form_id
         view["value"] = grp.get("value")
+        # 建库口径：派生侧用 derive_value（没声明就回落到典型值 value）。
+        # 典型值 value 仍是语料事实（SMD 组 0.08），两者语义不同（票 #20）。
+        _dv = grp.get("derive_value")
+        view["derive_value"] = _dv if _dv is not None else grp.get("value")
         view["support"] = grp.get("support")
         view["source"] = grp.get("source")
         if grp.get("note"):
             view["group_note"] = grp.get("note")
         return view
     return None
+
+
+# ============================================================
+# 派生（derive）求值（票 #20；ADR-0002 D2 / D5 / D6 / D7）
+# ============================================================
+class DeriveError(Exception):
+    """派生求值失败：缺 form / 缺参数组 / 缺事实 / 表达式不合法。
+
+    message 是给人看的短句（进 SKIP 的 reason），rule_id / form 用于追规则。
+    """
+
+    def __init__(self, message: str, rule_id: Optional[str] = None,
+                 form: Optional[str] = None, kind: str = "derive"):
+        super().__init__(message)
+        self.message = message
+        self.rule_id = rule_id
+        self.form = form
+        self.kind = kind
+
+
+def expr_names(expr: Any) -> List[str]:
+    """表达式里引用到的名字（给决策记录算依赖、给缺事实报错用）。"""
+    try:
+        tree = ast.parse(str(expr), mode="eval")
+    except SyntaxError:
+        return []
+    return sorted({n.id for n in ast.walk(tree) if isinstance(n, ast.Name)})
+
+
+def eval_expr(expr: Any, env: Dict[str, Any]) -> float:
+    """求一个派生表达式：数字 / 名字 / 四则运算，返回数字。
+
+    白名单与加载校验（_check_derive_expr）一致；这里额外拒绝非数字名字
+    （布尔不是数字，避免 plated 被当尺寸算）。
+    """
+    text = str(expr)
+    try:
+        tree = ast.parse(text, mode="eval")
+    except SyntaxError as exc:
+        raise DeriveError(f"派生表达式语法错误 {text!r}: {exc.msg}") from exc
+    return _eval_derive_node(tree.body, env, text)
+
+
+def _eval_derive_node(node: ast.AST, env: Dict[str, Any], text: str) -> float:
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) \
+            and not isinstance(node.value, bool):
+        return node.value  # type: ignore[return-value]
+    if isinstance(node, ast.Name):
+        if node.id not in env:
+            raise DeriveError(f"派生表达式 {text!r} 引用了没有的名字 {node.id!r}")
+        val = env[node.id]
+        if isinstance(val, bool) or not isinstance(val, (int, float)):
+            raise DeriveError(f"派生表达式 {text!r} 引用的 {node.id!r} 不是数字（{val!r}）")
+        return val
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        val = _eval_derive_node(node.operand, env, text)
+        return val if isinstance(node.op, ast.UAdd) else -val
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div)):
+        left = _eval_derive_node(node.left, env, text)
+        right = _eval_derive_node(node.right, env, text)
+        if isinstance(node.op, ast.Add):
+            return left + right
+        if isinstance(node.op, ast.Sub):
+            return left - right
+        if isinstance(node.op, ast.Mult):
+            return left * right
+        if right == 0:
+            raise DeriveError(f"派生表达式 {text!r} 除以零")
+        return left / right
+    raise DeriveError(f"派生表达式 {text!r} 含不允许的写法（只许数字/名字/四则运算）")
+
+
+class _EnvMap(dict):
+    """{占位符} 渲染：只做字符串替换，不是 format 迷你语言（ADR D6）。"""
+
+    def __missing__(self, key: str) -> str:
+        return "{" + key + "}"
+
+
+def render_note(template: str, env: Dict[str, Any]) -> str:
+    """把备注模板里的 {名字} 换成人能读的字符串（数字用 Python 原样 repr）。"""
+    view = _EnvMap()
+    for key, val in env.items():
+        if val is None:
+            continue
+        view[key] = str(val)
+    return str(template).format_map(view)
+
+
+def _decision(item: str, value: Any, expression: Optional[str],
+              rule: Dict[str, Any], form_id: Optional[str],
+              param_index: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    """一条派生决策记录：算出什么、用什么表达式、依据哪条规则与哪些参数。"""
+    used = []
+    for name in expr_names(expression) if expression is not None else []:
+        ref = param_index.get(name)
+        if ref is not None and ref not in used:
+            used.append(ref)
+    return {
+        "item": item,
+        "value": value,
+        "expression": expression,
+        "rule_id": rule.get("id"),
+        "source": rule.get("source"),
+        "form": form_id,
+        "parameters": used,
+    }
+
+
+def _require_names(expr: Any, env: Dict[str, Any], what: str,
+                   rule_id: Optional[str], form_id: Optional[str]) -> None:
+    missing = [n for n in expr_names(expr) if n not in env]
+    if missing:
+        raise DeriveError(f"{what} 缺事实/参数 {'/'.join(missing)}",
+                          rule_id=rule_id, form=form_id)
+
+
+def resolve_derive(lib: RuleLibrary, rule: Dict[str, Any], form_id: Optional[str],
+                   facts: Dict[str, Any]) -> Dict[str, Any]:
+    """把一条派生规则在给定事实下展开成 padstack 定义（纯函数）。
+
+    返回 dict：
+      values      计算出来的中间量（规则声明顺序）
+      layers      [{layer, figure, size}]（尺寸已 round 4）
+      drill       None 或 {size, drill_type, figure, plated?, offset?}
+      name        命名规格（模板与占位符值；格式化在代码侧，ADR D6）
+      rotation    旋转角度（度）或 None
+      notes       渲染好的备注
+      parameters  这条规则用到的参数（id/值/出处）
+      decisions   逐项决策记录（规则 id + 参数值 + 出处）
+
+    失败抛 DeriveError（缺 form / 缺参数组 / 缺事实 / 表达式不合法）。
+    """
+    rid = rule.get("id")
+    derive = rule.get("derive")
+    if not isinstance(derive, dict):
+        raise DeriveError("该规则只有 assert，没有 derive 一侧", rule_id=rid, form=form_id)
+    if form_id is None:
+        raise DeriveError("缺 form：读数不匹配任何形态", rule_id=rid)
+
+    env: Dict[str, Any] = {}
+    for key, val in (facts or {}).items():
+        if val is not None:
+            env[key] = val
+
+    parameters: List[Dict[str, Any]] = []
+    param_index: Dict[str, Dict[str, Any]] = {}
+    for pid in rule.get("use") or []:
+        par = lib.parameters_by_id.get(pid)
+        if par is None:
+            raise DeriveError(f"引用了不存在的参数 {pid}", rule_id=rid, form=form_id)
+        if par.get("kind") == "naming":
+            continue  # 名字由规则里的模板决定；命名参数只服务判定侧反推
+        view = resolve_parameter(par, form_id)
+        if view is None:
+            raise DeriveError(f"参数 {pid} 没给形态 {form_id} 的值",
+                              rule_id=rid, form=form_id)
+        value = view.get("derive_value")
+        parameters.append({"id": pid, "value": value, "source": view.get("source"),
+                           "form": form_id})
+        for key in par.get("keys") or []:
+            env[key] = value
+            param_index[key] = {"id": pid, "key": key, "value": value,
+                                "source": view.get("source")}
+
+    decisions: List[Dict[str, Any]] = []
+
+    values: Dict[str, Any] = {}
+    for name, expr in (derive.get("values") or {}).items():
+        _require_names(expr, env, f"派生值 {name}", rid, form_id)
+        val = eval_expr(expr, env)
+        values[name] = val
+        env[name] = val
+        decisions.append(_decision(f"values.{name}", val, str(expr), rule, form_id,
+                                   param_index))
+
+    layers: List[Dict[str, Any]] = []
+    for i, layer in enumerate(derive.get("layers") or []):
+        when = layer.get("when")
+        if isinstance(when, dict):
+            # 条件层：事实缺省按 False 处理（读数没声明 = 不要这层）
+            actual = bool(env.get(when.get("fact")))
+            if actual != bool(when.get("equals")):
+                continue
+        label = layer.get("layer") or i
+        sizes: List[Any] = []
+        for j, expr in enumerate(layer.get("size") or []):
+            _require_names(expr, env, f"层 {label} 尺寸", rid, form_id)
+            val = round(eval_expr(expr, env), 4)
+            sizes.append(val)
+            decisions.append(_decision(f"layers[{i}].size[{j}]", val, str(expr), rule,
+                                       form_id, param_index))
+        figure = layer.get("figure")
+        if isinstance(figure, dict):
+            fname = figure.get("from_fact")
+            if fname not in env:
+                raise DeriveError(f"层的 figure 引用了没有的事实 {fname!r}",
+                                  rule_id=rid, form=form_id)
+            figure = env[fname]
+            decisions.append(_decision(f"layers[{i}].figure", figure, None, rule,
+                                       form_id, param_index))
+        layers.append({"layer": layer.get("layer"), "figure": figure, "size": sizes})
+
+    drill = derive.get("drill")
+    out_drill: Optional[Dict[str, Any]] = None
+    if drill is not None:
+        dsz: List[Any] = []
+        for j, expr in enumerate(drill.get("size") or []):
+            _require_names(expr, env, "钻孔尺寸", rid, form_id)
+            val = round(eval_expr(expr, env), 4)
+            dsz.append(val)
+            decisions.append(_decision(f"drill.size[{j}]", val, str(expr), rule,
+                                       form_id, param_index))
+        out_drill = {"size": dsz,
+                     "drill_type": drill.get("drill_type"),
+                     "figure": drill.get("figure")}
+        plated_from = drill.get("plated_from")
+        if plated_from is not None:
+            if plated_from not in env:
+                raise DeriveError(f"plated 引用了没有的事实 {plated_from!r}",
+                                  rule_id=rid, form=form_id)
+            out_drill["plated"] = bool(env[plated_from])
+            decisions.append(_decision("drill.plated", out_drill["plated"], None, rule,
+                                       form_id, param_index))
+        offset = drill.get("offset")
+        if offset:
+            ox, oy = offset
+            if ox in env and oy in env:
+                out_drill["offset"] = [env[ox], env[oy]]
+                decisions.append(_decision("drill.offset", out_drill["offset"], None,
+                                           rule, form_id, param_index))
+
+    name_rule = derive.get("name") or {}
+    style = name_rule.get("style")
+    name_spec: Dict[str, Any] = {"style": style}
+    if style == "th_oblong":
+        template = str(name_rule.get("template") or "")
+        holders = _template_placeholders(template)
+        missing = [h for h in holders if h not in env]
+        if missing:
+            raise DeriveError(f"命名模板缺少 {missing}", rule_id=rid, form=form_id)
+        name_spec["template"] = template
+        name_spec["values"] = {h: env[h] for h in holders}
+    elif style == "padstack_name":
+        shape_name = name_rule.get("shape")
+        if shape_name not in env:
+            raise DeriveError(f"命名缺少事实 {shape_name!r}", rule_id=rid, form=form_id)
+        dims = []
+        for d in name_rule.get("dims") or []:
+            if d not in env:
+                raise DeriveError(f"命名缺少事实 {d!r}", rule_id=rid, form=form_id)
+            dims.append(env[d])
+        name_spec["shape"] = env[shape_name]
+        name_spec["dims"] = dims
+    else:
+        raise DeriveError(f"未知命名方式 {style!r}", rule_id=rid, form=form_id)
+
+    rotation = derive.get("rotation")
+    if rotation is not None:
+        decisions.append(_decision("rotation", rotation, None, rule, form_id, param_index))
+
+    notes = [render_note(t, env) for t in (derive.get("notes") or [])]
+
+    return {
+        "values": values,
+        "layers": layers,
+        "drill": out_drill,
+        "name": name_spec,
+        "rotation": rotation,
+        "notes": notes,
+        "parameters": parameters,
+        "decisions": decisions,
+    }
 
 
 def judge(lib: RuleLibrary, rule_id: str, subject: Dict[str, Any],
