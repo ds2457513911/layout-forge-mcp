@@ -3664,6 +3664,23 @@ def build_footprint(
             "TH padstack 自动补层（spec 漏 BOTTOM，已镜像 TOP 兜底）: " + "; ".join(_notes["tht_layers"])
         )
 
+    # ---- 1c) 派生决策与 SKIP 进报告（票 #20）----
+    # decisions 逐项记「算出什么、依据哪条规则、用了哪些参数」，skips 记「读数命中了
+    # 形态但该形态没有派生规则」。ADR-0002 D2/D3 要求 SKIP 写明缺什么、不许静默产出，
+    # 所以两条都写进 build 报告的 warnings，而不是只留在 derive 的返回值里。
+    _skips = _derive.get("skips") or []
+    for _sk in _skips:
+        warnings.append(
+            f"派生 SKIP（{_sk.get('padstack')}）：{_sk.get('reason')}"
+        )
+    _decisions = _derive.get("decisions") or []
+    if _decisions:
+        _rule_ids = sorted({str(_d.get("rule_id")) for _d in _decisions if _d.get("rule_id")})
+        warnings.append(
+            f"派生决策 {len(_decisions)} 项（规则 {'、'.join(_rule_ids) or '-'}）："
+            "逐项记录（规则 / 参数值 / 出处）见 derive_padstacks() 返回的 decisions"
+        )
+
     # ---- 2) padstack ----
     ps = create_padstack(
         name=str(padstack.get("name", "")),

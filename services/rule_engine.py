@@ -51,6 +51,8 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from services import padstack_naming
+
 SCHEMA_VERSION = "layout-forge/rules@1"
 
 # 规则集版本文件（library.json）是唯一不是 {"items": [...]} 形状的库文件。
@@ -1734,6 +1736,29 @@ def resolve_derive(lib: RuleLibrary, rule: Dict[str, Any], form_id: Optional[str
         name_spec["dims"] = dims
     else:
         raise DeriveError(f"未知命名方式 {style!r}", rule_id=rid, form=form_id)
+
+    # 命名也是派生值（ADR D5 的四件事之一）：记下它由哪条规则、经哪些派生值、
+    # 最终落到哪些参数。name 决策的 parameters 是「命名引用到的派生值」所用参数的并集，
+    # 这样从名字能一路追回参数（values.X 的决策里就有参数）。
+    refs: List[str] = []
+    if style == "th_oblong":
+        refs = list(name_spec.get("values") or {})
+    else:
+        refs = [str(name_spec.get("shape"))] + [str(d) for d in name_spec.get("dims") or []]
+    name_params: List[Dict[str, Any]] = []
+    for ref in refs:
+        for dec in decisions:
+            if dec.get("item") != f"values.{ref}":
+                continue
+            for prm in dec.get("parameters") or []:
+                if prm not in name_params:
+                    name_params.append(prm)
+    name_value = (name_spec.get("template") if style == "th_oblong"
+                  else padstack_naming.padstack_name(name_spec.get("dims") or [],
+                                                     name_spec.get("shape") or "rect"))
+    name_dec = _decision("name", name_value, None, rule, form_id, param_index)
+    name_dec["parameters"] = name_params
+    decisions.append(name_dec)
 
     rotation = derive.get("rotation")
     if rotation is not None:

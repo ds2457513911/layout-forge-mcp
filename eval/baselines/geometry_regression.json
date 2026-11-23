@@ -1,5 +1,5 @@
 {
-  "frozen_at": "2026-11-23T11:21:17",
+  "frozen_at": "2026-11-23T11:53:17",
   "schema_version": 2,
   "interpreter": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\.venv\\Scripts\\python.exe",
   "inventory": {
@@ -15,7 +15,7 @@
   "runs": {
     "geometry": {
       "rc": 0,
-      "seconds": 0.2,
+      "seconds": 0.3,
       "timeout": false,
       "passed": 239,
       "total": 239,
@@ -42,16 +42,16 @@
     },
     "derive": {
       "rc": 0,
-      "seconds": 0.1,
+      "seconds": 0.2,
       "timeout": false,
-      "passed": 19,
-      "total": 19,
+      "passed": 21,
+      "total": 21,
       "failed": 0,
-      "tail": "  ok    R5.3 派生输出不变 nb_lmbr140et1g_2p.json\n  ok    R5.2 求解输出不变 nb_lydpj_5p_12x6.json\n  ok    R5.3 派生输出不变 nb_lydpj_5p_12x6.json\n  ok    R5.2 求解输出不变 nb_mos8_3d15x3d1x0d85_0d65.json\n  ok    R5.3 派生输出不变 nb_mos8_3d15x3d1x0d85_0d65.json\n  ok    R5.2 求解输出不变 nb_sot23-6_3d02x1d7x1d5_1d05.json\n  ok    R5.3 派生输出不变 nb_sot23-6_3d02x1d7x1d5_1d05.json\n  ok    R5.2 求解输出不变 nb_typec24p_p2g.json\n  ok    R5.3 派生输出不变 nb_typec24p_p2g.json\n  ok    R5.2 求解输出不变 nb_xtal4_3d2x2d5x0d7.json\n  ok    R5.3 派生输出不变 nb_xtal4_3d2x2d5x0d7.json\n结果: 19/19"
+      "tail": "  ok    R5.3 派生输出不变 nb_lmbr140et1g_2p.json\n  ok    R5.2 求解输出不变 nb_lydpj_5p_12x6.json\n  ok    R5.3 派生输出不变 nb_lydpj_5p_12x6.json\n  ok    R5.2 求解输出不变 nb_mos8_3d15x3d1x0d85_0d65.json\n  ok    R5.3 派生输出不变 nb_mos8_3d15x3d1x0d85_0d65.json\n  ok    R5.2 求解输出不变 nb_sot23-6_3d02x1d7x1d5_1d05.json\n  ok    R5.3 派生输出不变 nb_sot23-6_3d02x1d7x1d5_1d05.json\n  ok    R5.2 求解输出不变 nb_typec24p_p2g.json\n  ok    R5.3 派生输出不变 nb_typec24p_p2g.json\n  ok    R5.2 求解输出不变 nb_xtal4_3d2x2d5x0d7.json\n  ok    R5.3 派生输出不变 nb_xtal4_3d2x2d5x0d7.json\n结果: 21/21"
     },
     "rule_engine": {
       "rc": 0,
-      "seconds": 0.6,
+      "seconds": 0.7,
       "timeout": false,
       "passed": 151,
       "total": 151,
@@ -70,7 +70,7 @@
     "extracta": {
       "ok": true,
       "sample": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\3S48000163\\nb_xtal4_3d2x2d5x0d7.dra",
-      "cwd": "C:\\Users\\ds245\\AppData\\Local\\Temp\\extracta_probe_yapu460a",
+      "cwd": "C:\\Users\\ds245\\AppData\\Local\\Temp\\extracta_probe_w7i2fi86",
       "cdsroot": "C:\\Software\\Cadence\\Cadence_SPB_17.2-2016",
       "extracta": "C:\\Software\\Cadence\\Cadence_SPB_17.2-2016\\tools\\bin\\extracta.exe",
       "seconds": 0.2,
@@ -107,12 +107,12 @@
     },
     "benchmark": {
       "rc": 2,
-      "seconds": 52.4,
+      "seconds": 55.3,
       "timeout": false,
       "passed": null,
       "total": null,
       "failed": null,
-      "tail": "  [250/253] tvs_1x0d6x0d53_esd54231n.dra                 REVIEW_REQUIRED  P12/F0/W1/NA3  none\n  [251/253] tvs_1x0d6x0d5_esd5411n.dra                   FAIL  P11/F1/W1/NA3  none\n  [252/253] xtal2_3d2x1d5x0d9.dra                        REVIEW_REQUIRED  P14/F0/W1/NA2  none\n  [253/253] y_4p_smd3225.dra                             REVIEW_REQUIRED  P15/F0/W1/NA1  none\n\n================================================================\n  完成：253 件，用时 52s\n  PASS 7 ｜ WARN 0 ｜ FAIL 81 ｜ 其他/提取失败 183\n  例外件（有 FAIL/WARN 项）：230 件 → exceptions/（第 2 层 AI 复核输入）\n  指纹 exact 命中：0/253\n  报告：C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\Tools\\log\\golden_benchmark\\benchmark_summary.csv\n================================================================",
+      "tail": "  [250/253] tvs_1x0d6x0d53_esd54231n.dra                 REVIEW_REQUIRED  P12/F0/W1/NA3  none\n  [251/253] tvs_1x0d6x0d5_esd5411n.dra                   FAIL  P11/F1/W1/NA3  none\n  [252/253] xtal2_3d2x1d5x0d9.dra                        REVIEW_REQUIRED  P14/F0/W1/NA2  none\n  [253/253] y_4p_smd3225.dra                             REVIEW_REQUIRED  P15/F0/W1/NA1  none\n\n================================================================\n  完成：253 件，用时 55s\n  PASS 7 ｜ WARN 0 ｜ FAIL 81 ｜ 其他/提取失败 183\n  例外件（有 FAIL/WARN 项）：230 件 → exceptions/（第 2 层 AI 复核输入）\n  指纹 exact 命中：0/253\n  报告：C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\Tools\\log\\golden_benchmark\\benchmark_summary.csv\n================================================================",
       "pieces": 253,
       "pass": 7,
       "warn": 0,

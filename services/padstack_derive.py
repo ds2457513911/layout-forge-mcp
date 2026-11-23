@@ -30,7 +30,7 @@ services/padstack_derive.py —— padstack 形态**决策**入口（规则驱�
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from services import padstack_naming, rule_engine
 
@@ -142,6 +142,145 @@ def hole_shape_of(drill_type: Any) -> str:
     if "CIRCLE" in raw or "ROUND" in raw:
         return "CIRCLE_DRILL"
     return raw
+
+
+# ---- 求解器的 provisional 口径：形态判定只在本模块做一次 ------------------
+# 票 #20 审查修正：求解器不再自己 import rule_engine / 调 match_form —— 那会把
+# 「读数 → 形态」复制成第二份，forms.json 的谓词一改两边就分叉。求解器只问本模块
+# 要「这一读数对应的派生口径值」与「provisional 定义」，层集/命名仍由派生规则产出。
+TH_MOUNTS = ("tht", "through", "through_hole", "pth")
+
+
+def _r4(v: Any) -> float:
+    """统一收敛到 4 位小数（与命名模块同口径）。"""
+    return round(float(v), 4)
+
+
+def padstack_form_id(spec: Dict[str, Any], pad: Optional[Dict[str, Any]] = None
+                     ) -> Tuple[str, Any]:
+    """读数（mount + 孔形）→ 规则库形态 id。不匹配任何形态 → 报错，不猜。"""
+    pad = pad if pad is not None else spec.get("pad")
+    if not isinstance(pad, dict):
+        raise ValueError("读数缺 pad，无法判形态（阻焊值无出处可查）")
+    mount = str(spec.get("mount", "smd")).lower()
+    if mount in TH_MOUNTS:
+        shape = (hole_shape_of(pad.get("drill_type", ""))
+                 if pad.get("drill_size") else "CIRCLE_DRILL")
+    else:
+        mount, shape = "smd", ""
+    lib = rule_engine.load_library()
+    form = rule_engine.match_form(lib, {"mount": mount, "drill": {"shape": shape}})
+    if form is None:
+        raise ValueError(
+            f"读数（mount={mount}, 孔形={shape or '-'}）不匹配规则库任何形态")
+    return str(form["id"]), lib
+
+
+def param_derive_value(lib: Any, param_id: str, form_id: str,
+                       key: str = "derive_value") -> float:
+    """某形态下参数的派生口径值（缺参数 / 缺形态组 → 报错，不回落字面值）。"""
+    param = lib.parameters_by_id.get(param_id)
+    if param is None:
+        raise ValueError(f"规则库缺参数 {param_id}")
+    view = rule_engine.resolve_parameter(param, form_id)
+    if view is None:
+        raise ValueError(f"规则库参数 {param_id} 没有形态 {form_id} 的值")
+    return float(view[key])
+
+
+def mask_expand_for_spec(spec: Dict[str, Any]) -> float:
+    """读数 → 形态 → 阻焊单边值（丝印 / 焊盘矩形避让也用它，不再自带默认值）。"""
+    form_id, lib = padstack_form_id(spec)
+    return param_derive_value(lib, "PARAM-MASK-EXPAND", form_id)
+
+
+def provisional_padstack(
+    spec: Dict[str, Any], size: Sequence[float],
+) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    """
+    读数 → **provisional** padstack 定义（派生前的中间态）+ 决策说明。
+
+    这就是 `solve()` 输出里的 padstack（如 TH 长圆 `OB1D2X2D2` 两层）；派生入口
+    `derive_padstacks` 再按规则把它展开成完整定义（层集 / 尺寸 / 命名 / 旋转）。
+    定义计算放在派生层、求解器只负责实例化与坐标，是 ADR-0002 D8 的分工。
+
+    阻焊单边取 PARAM-MASK-EXPAND 的 `derive_value`、顶面钢网存在性取
+    PARAM-PASTE-TOP-PRESENT 的参数级 `value`；求解器不再自带 0.05 / 等大 这类字面量。
+    """
+    pad = spec["pad"]
+    mount = str(spec.get("mount", "smd")).lower()
+    shape = str(pad.get("shape", "rect")).lower()
+    fig = padstack_naming.shape_figure(shape)
+
+    dims = [float(size[0]), float(size[-1])]
+    if fig in ("CIRCLE", "SQUARE"):          # 圆形/方形只有一个尺寸
+        dims = [dims[0], dims[0]]
+    if len(dims) < 2:
+        dims = [dims[0], dims[0]]
+
+    form_id, lib = padstack_form_id(spec, pad)
+    sm = param_derive_value(lib, "PARAM-MASK-EXPAND", form_id)
+    paste = lib.parameters_by_id.get("PARAM-PASTE-TOP-PRESENT")
+    if paste is None:
+        raise ValueError("规则库缺参数 PARAM-PASTE-TOP-PRESENT")
+    paste_present = bool(float(paste["value"]))
+
+    layers: List[Dict[str, Any]] = [
+        {"layer": "TOP", "figure": fig, "size": [_r4(dims[0]), _r4(dims[1])]},
+        {"layer": "SOLDERMASK_TOP", "figure": fig,
+         "size": [_r4(dims[0] + 2 * sm), _r4(dims[1] + 2 * sm)]},
+    ]
+    if paste_present:
+        layers.append({"layer": "PASTEMASK_TOP", "figure": fig,
+                       "size": [_r4(dims[0]), _r4(dims[1])]})
+
+    # 通孔：内层 pad = 钻孔 + 0.6（[规范 二] 螺丝孔设计）
+    drill: Optional[Dict[str, Any]] = None
+    if mount in TH_MOUNTS:
+        # ★ 槽孔（异形孔）通孔件：焊盘尺寸由规格书直接给出，
+        #   不能再用 drill+料环 那个"圆形螺丝孔"估算式 —— 那个式子只会产出圆盘。
+        #   给了 `pad["drill_size"]` 就走这一支：焊盘沿用自身 figure/size，
+        #   只加 SOLDERMASK，不加 PASTEMASK（通孔件不刷锡膏）。
+        dsz = pad.get("drill_size")
+        if dsz:
+            drill = {
+                "size": [_r4(float(dsz[0])), _r4(float(dsz[1]))],
+                "drill_type": str(pad.get("drill_type", "OBLONG_DRILL")),
+                "plated": not pad.get("non_plated", False),
+                "offset": [0, 0],
+            }
+            layers = [
+                {"layer": "TOP", "figure": fig,
+                 "size": [_r4(dims[0]), _r4(dims[1])]},
+                {"layer": "SOLDERMASK_TOP", "figure": fig,
+                 "size": [_r4(dims[0] + 2 * sm), _r4(dims[1] + 2 * sm)]},
+            ]
+        else:
+            d = float(spec.get("drill_diameter") or pad.get("drill") or 0.3)
+            ann = float(pad.get("annular_extra_mm", 0.6))
+            drill = {"diameter": _r4(d), "plated": not pad.get("non_plated", False)}
+            layers = [
+                {"layer": "TOP", "figure": fig, "size": [_r4(d + ann), _r4(d + ann)]},
+                {"layer": "SOLDERMASK_TOP", "figure": fig,
+                 "size": [_r4(d + ann + 2 * sm), _r4(d + ann + 2 * sm)]},
+            ]
+
+    name = padstack_naming.padstack_name(dims, shape)
+    pd: Dict[str, Any] = {"name": name, "layers": layers, "drill": drill}
+    deriv = [
+        {"item": "padstack.name", "value": name,
+         "formula": (f"{padstack_naming.shape_code(shape)}"
+                     f"({padstack_naming.name_num(dims[0])})"
+                     f"X({padstack_naming.name_num(dims[1])})"),
+         "source": "[规范 二] 焊盘命名 r长x宽"},
+        {"item": "padstack.layers[1]", "value": [dims[0] + 2 * sm, dims[1] + 2 * sm],
+         "formula": f"TOP + 2×{sm}",
+         "source": f"[规范 三] 阻焊开窗单边 +{sm}"},
+        {"item": "padstack.layers[2]", "value": [dims[0], dims[1]],
+         "formula": "= TOP",
+         "source": "[规范 三] 钢网与焊盘等大"},
+    ]
+    return pd, deriv
 
 
 def padstack_facts(ps_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -266,6 +405,11 @@ def _derive_one(ps_dict: Dict[str, Any], lib: Any, index: Dict[str, Any],
                 f"→ 改用 `{final_name}`")
         else:
             final_name = str(old_name)
+
+    # 命名决策记录**最终落地**的名字（规则给的是规格；落到当前这颗的实际名）
+    for dec in derived["decisions"]:
+        if dec.get("item") == "name":
+            dec["value"] = final_name
 
     for dec in derived["decisions"]:
         entry = dict(dec)

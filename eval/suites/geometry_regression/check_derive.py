@@ -189,6 +189,110 @@ def check_tht_topup(c: Checker) -> None:
             f"layers={layers} notes={notes}")
 
 
+def check_decisions_traceable(c: Checker) -> None:
+    """R5.6：派生结果带逐项决策记录，可追到规则与参数（票 #20 验收③）。
+
+    只验「记录能不能追」：每条决策要有 item / value / rule_id / source / form，
+    rule_id 必须真的在规则库里；parameters 里每个 id 必须在参数库里，且值与该参数
+    的某个口径（value / 任一形态组的 value 或 derive_value）对得上。命名也是一项
+    派生值（ADR D5 四件事之一），所以每颗派生成功的 padstack 都必须有 name 决策。
+    """
+    from services import geometry_solver as GS
+    from services import rule_engine as RE
+    from services.padstack_derive import derive_padstacks, reading_from_output
+
+    lib = RE.load_library()
+    checked = 0
+    named = 0
+    problems: List[str] = []
+
+    def _param_has_value(param: Dict[str, Any], value: Any) -> bool:
+        cands = [param.get("value")]
+        for grp in param.get("groups") or []:
+            cands.extend([grp.get("value"), grp.get("derive_value")])
+        for cand in cands:
+            try:
+                if cand is not None and abs(float(cand) - float(value)) <= 1e-9:
+                    return True
+            except (TypeError, ValueError):
+                continue
+        return False
+
+    for path in _spec_paths():
+        record = json.loads(path.read_text(encoding="utf-8"))
+        spec = record.get("spec")
+        if not isinstance(spec, dict):
+            continue
+        solved = GS.solve(copy.deepcopy(spec))
+        if not solved.get("success"):
+            continue
+        out = derive_padstacks(reading_from_output(solved))
+        decs = out.get("decisions") or []
+        if not decs:
+            problems.append(f"{path.name}: 派生成功却没有 decisions")
+            continue
+        checked += 1
+        if any(d.get("item") == "name" for d in decs):
+            named += 1
+        else:
+            problems.append(f"{path.name}: decisions 里没有 name 项")
+        for dec in decs:
+            for key in ("item", "value", "rule_id", "source", "form"):
+                if key not in dec:
+                    problems.append(f"{path.name}: 决策缺 {key}")
+            rid = dec.get("rule_id")
+            if rid not in lib.rules_by_id:
+                problems.append(f"{path.name}: 决策引用了不存在的规则 {rid!r}")
+            for prm in dec.get("parameters") or []:
+                param = lib.parameters_by_id.get(prm.get("id"))
+                if param is None:
+                    problems.append(f"{path.name}: 决策引用了不存在的参数 {prm.get('id')!r}")
+                    continue
+                if not _param_has_value(param, prm.get("value")):
+                    problems.append(
+                        f"{path.name}: 参数 {prm.get('id')} 的值 {prm.get('value')!r} "
+                        "不在参数库里（追不回出处）")
+    ok = checked >= 5 and named == checked and not problems
+    c.check(ok, "R5.6 派生决策可追规则与参数（逐项记录）",
+            f"checked={checked} named={named}；" + "；".join(problems[:6]))
+
+
+def check_skip_reported(c: Checker) -> None:
+    """R5.7：形态命中但无派生规则 → SKIP 并注明原因，不静默产出（票 #20 验收④）。
+
+    用一份合成的 TH 圆孔读数（CIRCLE_DRILL）：形态 FORM-MASK-TH-CIRCLE 在库里只有
+    assert 规则、没有 derive 规则。要求 derive_padstacks 把这一颗记进 skips，
+    原因写明缺派生规则，且 decisions 为空 —— 不能「悄悄产出」一个看似派生的结果。
+    """
+    from services.padstack_derive import derive_padstacks
+
+    synth = {
+        "padstack": {
+            "name": "R5SKIP",
+            "drill": {"size": 0.4, "drill_type": "CIRCLE_DRILL", "plated": True},
+            "layers": [
+                {"layer": "TOP", "figure": "CIRCLE", "size": [0.85, 0.85]},
+                {"layer": "SOLDERMASK_TOP", "figure": "CIRCLE", "size": [0.95, 0.95]},
+            ],
+        },
+        "extra_padstacks": [],
+        "pins_override": [],
+    }
+    out = derive_padstacks(synth)
+    skips = out.get("skips") or []
+    decs = out.get("decisions") or []
+    hit = skips[0] if skips else {}
+    ok = (
+        len(skips) == 1
+        and hit.get("padstack") == "R5SKIP"
+        and hit.get("form") == "FORM-MASK-TH-CIRCLE"
+        and "缺派生规则" in str(hit.get("reason"))
+        and not decs
+    )
+    c.check(ok, "R5.7 形态命中但无派生规则 → SKIP 并写明原因（合成 TH 圆孔）",
+            f"skips={skips} decisions={len(decs)}")
+
+
 def _spec_paths() -> List[Path]:
     return [Path(p) for p in sorted(glob.glob(str(SPECS_DIR / "*.json")))
             if not os.path.basename(p).startswith("_")]
@@ -227,6 +331,8 @@ def main() -> int:
     check_module_purity(c)
     check_caller_warnings(c)
     check_tht_topup(c)
+    check_decisions_traceable(c)
+    check_skip_reported(c)
 
     if not BASELINE.is_file():
         print(f"缺基线：{BASELINE}")
