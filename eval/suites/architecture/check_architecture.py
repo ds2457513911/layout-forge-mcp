@@ -58,6 +58,8 @@ CORE_MODULES = [
     "services/skill_snippets.py",
     "services/rule_checker.py",
     "services/convention_engine.py",
+    # 票 #18：旧判定回滚适配器（票 #22 删除）；只在回滚开关/规则缺失时被调用。
+    "services/legacy_judge.py",
     # 票 #16：padstack 形态决策入口（与执行器 footprint_builder 分开后必须能离线调用）
     "services/padstack_derive.py",
     # 票 #17：规则库加载器 + 判定/派生纯函数入口（吃知识库 JSON，零 I/O 外部依赖）

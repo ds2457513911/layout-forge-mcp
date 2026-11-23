@@ -35,10 +35,10 @@
       "rc": 0,
       "seconds": 0.1,
       "timeout": false,
-      "passed": 39,
-      "total": 39,
+      "passed": 42,
+      "total": 42,
       "failed": 0,
-      "tail": "  · 欠账（显式登记 KNOWN_UNWIRED，待接线）:\n    - adjudicated.smd\n    - adjudicated.th_circle_plated\n    - adjudicated.th_other\n    - smd\n    - th_circle\n    - th_oblong.drill_char\n    - th_other\n\n[C] 裁定常量与约定库一致性（改约定必须走裁定流程）\n============================================================\n  结果: 39/39 全部通过 ✓"
+      "tail": "  · 欠账（显式登记 KNOWN_UNWIRED，待接线）:\n    - adjudicated.smd\n    - adjudicated.th_circle_plated\n    - adjudicated.th_other\n    - smd\n    - th_circle\n    - th_oblong.drill_char\n    - th_other\n\n[C] 裁定常量与约定库一致性（改约定必须走裁定流程）\n============================================================\n  结果: 42/42 全部通过 ✓"
     },
     "derive": {
       "rc": 0,
@@ -147,6 +147,14 @@
         "exact_rows": 0,
         "match_none_rows": 235
       }
+    },
+    "rule_shift": {
+      "passed": 88,
+      "total": 88,
+      "failed": 0,
+      "rc": 0,
+      "tail": "  ok    R7.7 影子覆盖 253 件\n  ok    R7.7 rows 253 条且与 summary 一致\n  ok    R7.7 逐件 id+status 差异 0\n  ok    R7.7 summary/diffs/rows 三处差异数一致\n  ok    R7.7 每条可比记录的 old/new 序列相同\n  ok    R7.7 每件不可读都有 errors_detail 归属\n  ok    R7.7 errors_detail 每条带原因\n  ok    R7.7 judged 与可比记录数一致\n  ok    R7.7 影子哈希对应当前规则库\n  ok    R7.8 回滚夹具已撤掉本票新增规则\n  ok    R7.8 回滚演练：撤掉新规则后旧路径状态一致\n结果: 88/88",
+      "seconds": 0.2
     }
   }
 }

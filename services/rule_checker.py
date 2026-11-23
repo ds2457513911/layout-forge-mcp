@@ -482,6 +482,153 @@ def _pin_rule_subject(pin: Dict) -> Dict[str, Any]:
     }
 
 
+def _th_oblong_gate(pin: Dict) -> Optional[tuple]:
+    """旧 2.8/2.10 的入口条件：有 ETCH/TOP + DRILL，且孔形像长圆孔。
+
+    旧路径用 drill.figure_name 判断（不是 hole_type），这里保留同一口径，
+    以保证「holeType 非 OVAL SLOT」的 2.7 FAIL 仍能转播、且不误伤圆孔件。
+    """
+    etch = _get_etch_pad(pin)
+    drill = _get_pad_by_layer(pin, "DRILL")
+    if not etch or not drill:
+        return None
+    hole_fig = str(drill.get("figure_name") or "").upper()
+    name = str(pin.get("name") or "").upper()
+    if "OBLONG" not in hole_fig and "OB" not in name:
+        return None
+    return etch, drill
+
+
+def _th_oblong_violations(pin: Dict) -> List[str]:
+    """2.7 转播：旧约定引擎里属于 2.7 的 FAIL（孔零 / holeType 非槽孔）。"""
+    gate = _th_oblong_gate(pin)
+    if not gate:
+        return []
+    etch, drill = gate
+    name = str(pin.get("name") or "")
+    if name.upper().startswith("NP"):
+        return []
+    hw, hh = (drill.get("size") or [0, 0])[:2]
+    if hw <= 0 or hh <= 0:
+        return ["DRILL 实义为零（孔未钻/被静默零化）"]
+    ht = str(drill.get("hole_type") or "").upper().replace("_", " ")
+    if ht and "OVAL SLOT" not in ht:
+        return [f"oblong 孔 holeType={drill.get('hole_type')}——应建成 Slot"
+                "（OVAL_SLOT + slotSize），当前 Editor 显示 Thru Pin"]
+    return []
+
+
+def _ring_observed(pin: Dict) -> Optional[Dict[str, float]]:
+    gate = _th_oblong_gate(pin)
+    if not gate:
+        return None
+    etch, drill = gate
+    pw, ph = (etch.get("size") or [0, 0])[:2]
+    hw, hh = (drill.get("size") or [0, 0])[:2]
+    if hw <= 0 or hh <= 0:
+        return None
+    return {"ring_x": (pw - hw) / 2, "ring_y": (ph - hh) / 2}
+
+
+def _naming_observed(pin: Dict, form_id: str) -> Optional[Dict[str, Any]]:
+    etch = _get_etch_pad(pin)
+    drill = _get_pad_by_layer(pin, "DRILL")
+    if not etch or not drill:
+        return None
+    pw, ph = (etch.get("size") or [0, 0])[:2]
+    hw, hh = (drill.get("size") or [0, 0])[:2]
+    if hw <= 0 or hh <= 0 or pw <= 0 or ph <= 0:
+        return None
+    out: Dict[str, Any] = {"name": pin.get("name", "")}
+    if form_id == "FORM-MASK-TH-CIRCLE":
+        out.update({"hole_dia": max(hw, hh), "pad_dia": max(pw, ph)})
+    else:
+        out.update({"hole_long": max(hw, hh), "hole_short": min(hw, hh),
+                    "pad_long": max(pw, ph), "pad_short": min(pw, ph)})
+    return out
+
+
+def _paste_side(pin: Dict, side: str) -> Optional[Dict]:
+    want = ("PASTEMASK/TOP", "PASTEMASK_TOP") if side == "TOP" else (
+        "PASTEMASK/BOTTOM", "PASTEMASK_BOTTOM")
+    for pad in pin.get("pads") or []:
+        layer = str(pad.get("layer") or "")
+        if any(layer == w or layer.endswith("/" + w) or layer == "PIN/" + w for w in want):
+            return pad
+    return None
+
+
+def _finding_item(rid: str, title: str, findings: List[Dict[str, Any]],
+                  lib: Any, default_rules: List[str]) -> Dict:
+    """把同一报告编号下的多条 finding 聚合成历史 id 的 item。
+
+    聚合优先级 FAIL > WARN > SKIP(→NA) > PASS；无适用 pin 时按旧行为记 PASS。
+    """
+    order = {"FAIL": 0, "WARN": 1, "SKIP": 2, "PASS": 3}
+    status = "PASS"
+    if findings:
+        status = min((str(f.get("status")) for f in findings),
+                     key=lambda s: order.get(s, 9))
+        if status == "SKIP":
+            status = "NA"
+
+    shown = [f for f in findings if str(f.get("status")) ==
+             ("SKIP" if status == "NA" else status)]
+    detail = " | ".join(
+        f"pin{f.get('subject')}: {f.get('detail')}" for f in shown
+        if f.get("detail"))[:1200]
+
+    if status == "FAIL":
+        value = f"{len(shown)} 处违反约定"
+    elif status == "WARN":
+        value = f"{len(shown)} 处非标准（允许但提示）"
+    elif status == "NA":
+        value = f"{len(shown)} 个 pin 无法判定"
+    else:
+        value = "符合库约定"
+        exempt = [f for f in findings if f.get("exempt")]
+        if exempt:
+            detail = " | ".join(
+                f"pin{f.get('subject')}: {f.get('detail')}" for f in exempt)
+
+    rule_ids: List[str] = []
+    for f in findings:
+        rid_ = f.get("rule_id")
+        if rid_ and rid_ not in rule_ids:
+            rule_ids.append(rid_)
+    for rid_ in default_rules:
+        if rid_ not in rule_ids:
+            rule_ids.append(rid_)
+
+    tools_rules = [lib.rules_by_id[r] for r in rule_ids if r in lib.rules_by_id]
+    display = "；".join(
+        str(r.get("display") or r.get("name") or r) for r in tools_rules) or title
+    forms: List[str] = []
+    support_by_form: Dict[str, int] = {}
+    for f in findings:
+        fid = f.get("form")
+        if fid and fid not in forms:
+            forms.append(fid)
+        if fid and f.get("support") is not None:
+            support_by_form[fid] = f.get("support")
+    source_ref = next((f.get("source_ref") for f in findings if f.get("source_ref")), None)
+
+    item = _item(rid, title, status, value=value, rule=display,
+                 detail=detail, expected=display[:200], source="default")
+    item.update({
+        "rule_id": rule_ids[0] if rule_ids else None,
+        "rule_ids": rule_ids,
+        "forms": forms,
+        "direction": "assert",
+        "rule_source": tools_rules[0].get("source") if tools_rules else None,
+        "source_ref": source_ref,
+        "support": sum(support_by_form.values()) if support_by_form else None,
+        "support_by_form": support_by_form,
+        "rule_set_hash": lib.fingerprint,
+    })
+    return item
+
+
 def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List[Dict]:
     items = []
     cfg = rules.get("pad", {})
@@ -659,6 +806,8 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
             "support": support,
             "support_by_form": support_by_form,
             "rule_set_hash": lib.fingerprint,
+            "direction": "assert",
+            "report_id": "2.2",
         })
 
     # ---------- 2.3 钢网与焊盘等大 ----------
@@ -810,87 +959,95 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
                 source="default",
             ))
 
-        # ---- 2.8 / 2.9 / 2.10 构造约定符合性（2026-10-13 第 0 层）----
-        # 真源 knowledge/conventions.json（253 金标准挖掘+裁定），
-        # 与 builder 的 convention_engine 同源——check/create 一份知识。
-        try:
-            from services.convention_engine import (
-                check_padstack_naming, check_pin_conventions,
-            )
-            _hits = []
-            for _pin in pins:
-                _hits.extend(
-                    (lvl, rid, f"pin{_pin.get('number')}: {msg}")
-                    for lvl, rid, msg in check_pin_conventions(_pin)
-                )
-                _nm = check_padstack_naming(_pin)
-                if _nm:
-                    _hits.append(
-                        ("WARN", _nm[0], f"pin{_pin.get('number')}: {_nm[1]}"))
-        except Exception as _ee:  # noqa: BLE001
-            _hits = []
-            items.append(_item(
-                "2.8", "TH 构造约定", "WARN",
-                value=f"约定引擎不可用: {type(_ee).__name__}",
-                rule="convention_engine 异常，规则跳过",
-                detail=str(_ee)[:120],
-                expected=None, source=None,
-            ))
-        for _rid, _title in (("2.8", "TH 环宽约定"), ("2.10", "TH 钢网策略")):
-            _fails = [m for lvl, rid, m in _hits if rid == _rid and lvl == "FAIL"]
-            _warns = [m for lvl, rid, m in _hits if rid == _rid and lvl == "WARN"]
-            _nas = [m for lvl, rid, m in _hits if rid == _rid and lvl == "NA"]
-            if _fails:
+        # ---- 2.8 / 2.9 / 2.10 构造约定符合性（票 #18：判定平移）----
+        # 2.8 环宽 / 2.9 padstack 命名 / 2.10 钢网策略全部由 knowledge/rules
+        # 驱动；历史报告编号由规则的 report_id 映射回 2.8/2.9/2.10。
+        _migrated = ("RULE-ANNULAR-RING", "RULE-PADSTACK-NAMING",
+                     "RULE-PASTE-TOP-PRESENT", "RULE-PASTE-TOP-EQ-PAD",
+                     "RULE-PASTE-BOTTOM-ABSENT")
+        _missing_migrated = [r for r in _migrated if r not in lib.rules_by_id]
+        if os.environ.get("LAYOUT_FORGE_LEGACY_JUDGE") == "1" or _missing_migrated:
+            # 回滚：显式开关，或「撤掉新库」后规则缺失，走旧约定适配器。
+            # 默认完整库路径不 import 旧判定；只在本票迁移的 5 条规则不全时触发，
+            # 不会掩盖其他坏库（坏库加载即抛）。
+            from services.legacy_judge import evaluate_conventions
+            legacy_items, legacy_27 = evaluate_conventions(pins)
+            items.extend(legacy_items)
+            if legacy_27:
                 items.append(_item(
-                    _rid, _title, "FAIL",
-                    value=f"{len(_fails)} 处违反约定",
-                    rule=f"{_title}（真源 conventions.json，check/create 同源）",
-                    detail=" | ".join(_fails[:3]),
-                    expected="见 detail", source="default",
+                    "2.7", "TH 钻孔 holeType", "FAIL",
+                    value=f"{len(legacy_27)} 处违反约定",
+                    rule="oblong 槽孔必须 OVAL_SLOT（'OBLONG_DRILL 非法，静默回落 "
+                         "CIRCLE_DRILL → Editor 显示 Thru Pin）",
+                    detail=" | ".join(legacy_27[:3]),
+                    expected="holeType=OVAL SLOT", source="default",
                 ))
-            elif _warns:
-                items.append(_item(
-                    _rid, _title, "WARN",
-                    value=f"{len(_warns)} 处非标准（允许但提示）",
-                    rule=f"{_title}（真源 conventions.json，check/create 同源）",
-                    detail=" | ".join(_warns[:3]),
-                    expected="见 detail", source="default",
-                ))
-            else:
-                items.append(_item(
-                    _rid, _title, "PASS",
-                    value="符合库约定",
-                    rule=f"{_title}（真源 conventions.json，check/create 同源）",
-                    detail="; ".join(_nas[:2]),
-                    expected="见 conventions.json", source="default",
-                ))
-        # ---- 2.7c 转播：约定引擎里的 2.7 FAIL（holeType 等）----
-        _27_fails = [m for lvl, rid, m in _hits if rid == "2.7" and lvl == "FAIL"]
-        if _27_fails:
-            items.append(_item(
-                "2.7", "TH 钻孔 holeType", "FAIL",
-                value=f"{len(_27_fails)} 处违反约定",
-                rule="oblong 槽孔必须 OVAL_SLOT（'OBLONG_DRILL 非法，静默回落 "
-                     "CIRCLE_DRILL → Editor 显示 Thru Pin）",
-                detail=" | ".join(_27_fails[:3]),
-                expected="holeType=OVAL SLOT", source="default",
-            ))
-        _n_warns = [m for lvl, rid, m in _hits if rid == "2.9" and lvl == "WARN"]
-        if _n_warns:
-            items.append(_item(
-                "2.9", "TH padstack 命名语法", "WARN",
-                value=f"{len(_n_warns)} 处不合语法（库内存在 legacy 变体，仅提示）",
-                rule="POB{孔长}X{孔短}HOB{盘长}X{盘短}（长轴在前，板面尺寸序）",
-                detail=" | ".join(_n_warns[:3]),
-                expected="主语法或 NP/H省OB/OS偏移变体", source="default",
-            ))
         else:
-            items.append(_item(
-                "2.9", "TH padstack 命名语法", "PASS",
-                value="符合库命名语法",
-                rule="POB{孔}X{孔}HOB{盘}X{盘}（长轴在前）",
-                detail="", expected="主语法", source="default",
-            ))
+            conv: Dict[str, List[Dict[str, Any]]] = {"2.8": [], "2.9": [], "2.10": []}
+            _27_fails: List[str] = []
+            for _pin in pins:
+                _subj = _pin_rule_subject(_pin)
+                _form = rule_engine.match_form(lib, _subj)
+                _fid = _form.get("id") if _form else None
+                _pin_name = str(_pin.get("name") or "")
+                # 旧约定引擎在 2.7 硬失败（孔零 / holeType 错）时
+                # 提前 return，环宽与钢网都不判；这里保留同一短路口径，避免
+                # 把「无法判」变成 PASS/NA 之外的新状态。
+                _violations = _th_oblong_violations(_pin)
+                _27_fails.extend(
+                    f"pin{_pin.get('number')}: {m}" for m in _violations)
+                if _fid == "FORM-MASK-TH-OBLONG" and not _violations:
+                    # 观测拿不到时仍调 judge：缺键必须落成 SKIP，不许当成 PASS。
+                    _ring = _ring_observed(_pin) or {}
+                    conv["2.8"].append(rule_engine.judge(
+                        lib, "RULE-ANNULAR-RING", _subj, _ring))
+                    # NP 的豁免由规则库 exempt 数据决定；检查器不再硬编码跳过，
+                    # 否则规则库只驱动了一半。
+                    _top = _paste_side(_pin, "TOP")
+                    conv["2.10"].append(rule_engine.judge(
+                        lib, "RULE-PASTE-TOP-PRESENT", _subj,
+                        {"paste_top_present": 1 if _top else 0}))
+                    if _top is not None:
+                        _etch = _get_etch_pad(_pin) or {}
+                        _ts = _top.get("size") or [0, 0]
+                        _es = _etch.get("size") or [0, 0]
+                        conv["2.10"].append(rule_engine.judge(
+                            lib, "RULE-PASTE-TOP-EQ-PAD", _subj,
+                            {"paste_top_dx": abs(_ts[0] - _es[0]),
+                             "paste_top_dy": abs(_ts[1] - _es[1])}))
+                    _bot = _paste_side(_pin, "BOTTOM")
+                    conv["2.10"].append(rule_engine.judge(
+                        lib, "RULE-PASTE-BOTTOM-ABSENT", _subj,
+                        {"paste_bottom_present": 1 if _bot else 0}))
+                # 旧 2.9 只查 figure_name 能认出的长圆/圆孔；空名/空 figure_name
+                # 的件旧路径直接放行，这里保留同一口径（hole_type 仍用于选形态）。
+                _fig = str((_get_pad_by_layer(_pin, "DRILL") or {}).get("figure_name") or "").upper()
+                if (_pin_name.strip()
+                        and _fid in ("FORM-MASK-TH-OBLONG", "FORM-MASK-TH-CIRCLE")
+                        and ("OBLONG" in _fig or "CIRCLE" in _fig)):
+                    _nobs = _naming_observed(_pin, _fid) or {}
+                    conv["2.9"].append(rule_engine.judge(
+                        lib, "RULE-PADSTACK-NAMING", _subj, _nobs))
+
+            items.append(_finding_item(
+                "2.8", "TH 环宽约定", conv["2.8"], lib, ["RULE-ANNULAR-RING"]))
+            items.append(_finding_item(
+                "2.10", "TH 钢网策略", conv["2.10"], lib,
+                ["RULE-PASTE-TOP-PRESENT", "RULE-PASTE-TOP-EQ-PAD",
+                 "RULE-PASTE-BOTTOM-ABSENT"]))
+
+            if _27_fails:
+                items.append(_item(
+                    "2.7", "TH 钻孔 holeType", "FAIL",
+                    value=f"{len(_27_fails)} 处违反约定",
+                    rule="oblong 槽孔必须 OVAL_SLOT（'OBLONG_DRILL 非法，静默回落 "
+                         "CIRCLE_DRILL → Editor 显示 Thru Pin）",
+                    detail=" | ".join(_27_fails[:3]),
+                    expected="holeType=OVAL SLOT", source="default",
+                ))
+            items.append(_finding_item(
+                "2.9", "TH padstack 命名语法", conv["2.9"], lib,
+                ["RULE-PADSTACK-NAMING"]))
     else:
         items.append(_item(
             "2.7", "TH 焊盘层完整性", "NA",

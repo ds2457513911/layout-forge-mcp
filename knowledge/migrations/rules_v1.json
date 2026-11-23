@@ -35,7 +35,8 @@
         "6.2",
         "6.3",
         "6.4",
-        "6.6"
+        "6.6",
+        "2.10"
       ]
     }
   },
@@ -595,16 +596,15 @@
       "id": "MIG-RULE-2-8",
       "kind": "rule",
       "legacy": "rule_checker.py#2.8",
-      "legacy_value": "TH 构造约定",
+      "legacy_value": "TH 环宽约定",
       "target": {
-        "type": "legacy",
-        "id": "LEGACY-RULE",
-        "path": "services/rule_checker.py"
+        "type": "rule",
+        "id": "RULE-ANNULAR-RING"
       },
-      "status": "legacy",
-      "note": "现读 convention_engine 的构造约定，收编要等约定库迁移。",
+      "status": "migrated",
+      "note": "票 #18 起由 RULE-ANNULAR-RING + PARAM-ANNULAR-RING 判定（report_id=2.8）：[0.2,0.3] PASS，警告带外 WARN，[0.15,0.4] 外 FAIL，NP 前缀走 exempt。",
       "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
-      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+      "rollback": "撤掉 RULE-ANNULAR-RING/PARAM-ANNULAR-RING，或设 LAYOUT_FORGE_LEGACY_JUDGE=1；检查器回 services/legacy_judge.py 的 check_pin_conventions，与旧 2.8 状态一致（R7.8 演练）。"
     },
     {
       "id": "MIG-RULE-2-9",
@@ -612,14 +612,13 @@
       "legacy": "rule_checker.py#2.9",
       "legacy_value": "TH padstack 命名语法",
       "target": {
-        "type": "legacy",
-        "id": "LEGACY-RULE",
-        "path": "services/rule_checker.py"
+        "type": "rule",
+        "id": "RULE-PADSTACK-NAMING"
       },
-      "status": "legacy",
-      "note": "语法逻辑在 convention_engine，未进规则集；收编属 #21。",
+      "status": "migrated",
+      "note": "票 #18 起由 RULE-PADSTACK-NAMING + PARAM-NAMING-TH-OBLONG/-CIRCLE 判定（report_id=2.9）：按实测孔/盘尺寸反推名字，tol 0.011，不解析模板（ADR-0002 D6）。",
       "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
-      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+      "rollback": "撤掉两条命名规则/参数，或设 LAYOUT_FORGE_LEGACY_JUDGE=1；检查器回 legacy_judge 的 check_padstack_naming。"
     },
     {
       "id": "MIG-RULE-3-1",
@@ -800,6 +799,19 @@
       "note": "几何判定，收编属 #21。",
       "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
       "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-2-10",
+      "kind": "rule",
+      "legacy": "rule_checker.py#2.10",
+      "legacy_value": "TH 钢网策略",
+      "target": {
+        "type": "rule",
+        "id": "RULE-PASTE-TOP-PRESENT"
+      },
+      "status": "migrated",
+      "note": "票 #18 起由 RULE-PASTE-TOP-PRESENT / -TOP-EQ-PAD / -BOTTOM-ABSENT 三条规则判定（report_id=2.10）：顶面存在、顶面=焊盘、底面不应存在；NP 前缀走 exempt。",
+      "rollback": "撤掉三条 RULE-PASTE-* 与对应参数，或设 LAYOUT_FORGE_LEGACY_JUDGE=1；检查器回 legacy_judge 的 check_pin_conventions。"
     }
   ],
   "rollback_recipe": {

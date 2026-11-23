@@ -8,6 +8,27 @@
       "consequence": "silent",
       "evidence": "value",
       "note": "工艺偏差、非功能失效：与旧 2.2 一致，越界报 WARN 不升级 FAIL"
+    },
+    {
+      "id": "SEV-RING-OUT-OF-RANGE",
+      "severity": "FAIL",
+      "consequence": "functional",
+      "evidence": "value",
+      "note": "环宽超出 [0.15,0.4]：孔壁到铜箔过窄或过宽，旧 2.8 判 FAIL"
+    },
+    {
+      "id": "SEV-NAMING-DEVIATION",
+      "severity": "WARN",
+      "consequence": "maintainability",
+      "evidence": "value",
+      "note": "padstack 名与实测尺寸不符：库内存在 legacy 变体，旧 2.9 只提示"
+    },
+    {
+      "id": "SEV-PASTE-DEVIATION",
+      "severity": "WARN",
+      "consequence": "manufacturability",
+      "evidence": "value",
+      "note": "TH 钢网缺失/尺寸不符/多余底面钢网：旧 2.10 只提示"
     }
   ]
 }

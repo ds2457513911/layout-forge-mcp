@@ -896,17 +896,19 @@ def _leaf_keys(obj, prefix="") -> list:
 
 
 def _legacy_rule_ids() -> list:
-    """扫 services/rule_checker.py 的 AST，取 _item("X.Y") 的规则 id 全集。
+    """扫 services/rule_checker.py 的 AST，取规则 id 全集。
 
-    id "0" 是数据提取失败时的占位项（run_numeric_checks 的 error 分支），
-    不是一条检查规则，所以不登记进映射表。
+    规则 id 有两个产出口：
+      - _item("X.Y", ...)：未迁移的旧规则（含 0 占位，0 不登记）；
+      - _finding_item("X.Y", ...)：票 #18 起由规则库 finding 聚合的 2.8/2.9/2.10。
+    两个都收，迁移映射表才能覆盖检查器实际产出的全部规则 id。
     """
     src = (ROOT / "services" / "rule_checker.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
     ids = set()
     for node in ast.walk(tree):
         if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-                and node.func.id == "_item" and node.args):
+                and node.func.id in ("_item", "_finding_item") and node.args):
             arg = node.args[0]
             if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
                 if arg.value[:1].isdigit() and arg.value != "0":

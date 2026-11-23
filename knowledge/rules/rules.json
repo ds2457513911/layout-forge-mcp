@@ -5,6 +5,7 @@
     {
       "id": "RULE-MASK-EXPAND",
       "name": "阻焊开窗外扩",
+      "report_id": "2.2",
       "summary": "阻焊开窗相对铜箔的单边外扩必须落在放行区间内",
       "display": "单边外扩 [0.05, 0.13]mm（形态典型值按 form 分组，见 PARAM-MASK-EXPAND）",
       "use": [
@@ -19,6 +20,114 @@
       "source": "SRC-ADR-0002",
       "since": "2.2",
       "note": "旧 2.2 只有 PASS/WARN/NA，无 FAIL；本规则沿用同一结论口径"
+    },
+    {
+      "id": "RULE-ANNULAR-RING",
+      "name": "通孔长圆孔环宽",
+      "report_id": "2.8",
+      "summary": "孔壁到焊盘边缘的单边环宽必须落在 [0.15,0.4]mm，标准带 [0.2,0.3]",
+      "display": "环宽标准 0.3mm（紧凑允许 0.2），约定范围 [0.15,0.4]mm",
+      "use": [
+        "PARAM-ANNULAR-RING"
+      ],
+      "assert": [
+        {
+          "kind": "allowed"
+        }
+      ],
+      "severity": "SEV-RING-OUT-OF-RANGE",
+      "source": "SRC-CONV-ADJUDICATED",
+      "since": "2.8",
+      "exempt": {
+        "name_prefix": "NP",
+        "reason": "非金属化机械孔，环宽豁免"
+      },
+      "note": "三档：标准带内 PASS、约定范围内外标准带 WARN、范围外 FAIL；两向取最差"
+    },
+    {
+      "id": "RULE-PADSTACK-NAMING",
+      "name": "padstack 命名与实测尺寸一致",
+      "report_id": "2.9",
+      "summary": "padstack 名里的孔/盘尺寸必须与实测相符（长轴在前）",
+      "display": "TH oblong：POB{孔长}X{孔短}HOB{盘长}X{盘短}；TH circle：PC{孔}HC{盘}",
+      "use": [
+        "PARAM-NAMING-TH-OBLONG",
+        "PARAM-NAMING-TH-CIRCLE"
+      ],
+      "assert": [
+        {
+          "kind": "naming"
+        }
+      ],
+      "severity": "SEV-NAMING-DEVIATION",
+      "source": "SRC-CONV-ADJUDICATED",
+      "since": "2.9",
+      "note": "判定侧用尺寸反推比对，不解析模板（ADR D6）；NP 件也照查"
+    },
+    {
+      "id": "RULE-PASTE-TOP-PRESENT",
+      "name": "TH 件顶面钢网存在",
+      "report_id": "2.10",
+      "summary": "通孔件必须有顶面钢网",
+      "display": "TPM = 焊盘尺寸",
+      "use": [
+        "PARAM-PASTE-TOP-PRESENT"
+      ],
+      "assert": [
+        {
+          "kind": "allowed"
+        }
+      ],
+      "severity": "SEV-PASTE-DEVIATION",
+      "source": "SRC-CONV-ADJUDICATED",
+      "since": "2.10",
+      "exempt": {
+        "name_prefix": "NP",
+        "reason": "非金属化机械孔，钢网豁免"
+      },
+      "note": "旧 2.10 的第一条：缺顶面钢网 WARN"
+    },
+    {
+      "id": "RULE-PASTE-TOP-EQ-PAD",
+      "name": "TH 件顶面钢网与焊盘等大",
+      "report_id": "2.10",
+      "summary": "顶面钢网开窗尺寸必须与焊盘尺寸一致",
+      "display": "TPM 与焊盘任一轴差 ≤0.01mm",
+      "use": [
+        "PARAM-PASTE-TOP-DIFF"
+      ],
+      "assert": [
+        {
+          "kind": "allowed"
+        }
+      ],
+      "severity": "SEV-PASTE-DEVIATION",
+      "source": "SRC-CONV-ADJUDICATED",
+      "since": "2.10",
+      "note": "旧 2.10 的第二条：顶面钢网尺寸与焊盘差 >0.01 报 WARN"
+    },
+    {
+      "id": "RULE-PASTE-BOTTOM-ABSENT",
+      "name": "TH 件不应有底面钢网",
+      "report_id": "2.10",
+      "summary": "通孔件底面不应开钢网",
+      "display": "BPM 必须不存在",
+      "use": [
+        "PARAM-PASTE-BOTTOM-PRESENT"
+      ],
+      "assert": [
+        {
+          "kind": "allowed"
+        }
+      ],
+      "severity": "SEV-PASTE-DEVIATION",
+      "source": "SRC-CONV-ADJUDICATED",
+      "since": "2.10",
+      "exempt": {
+        "name_prefix": "NP",
+        "reason": "非金属化机械孔，钢网豁免"
+      },
+      "note": "旧 2.10 的第三条：底面有钢网 WARN"
     }
   ]
 }

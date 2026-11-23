@@ -80,9 +80,11 @@ SCHEMA_FILE_VERSIONS: Dict[str, str] = {
 KNOWN_FIELDS: Dict[str, set] = {
     "forms": {"id", "name", "when", "desc"},
     "parameters": {"id", "form", "keys", "value", "allowed", "warn", "eps",
-                   "support", "source", "field", "unit", "note", "groups"},
+                   "support", "source", "field", "unit", "note", "groups",
+                   "kind", "grammar", "tol"},
     "rules": {"id", "name", "use", "assert", "severity", "source", "since",
-              "derive", "form", "when", "display", "summary", "note"},
+              "derive", "form", "when", "display", "summary", "note",
+              "report_id", "exempt"},
     "sources": {"id", "kind", "ref", "note"},
     "severity": {"id", "severity", "consequence", "evidence", "note"},
 }
@@ -111,8 +113,17 @@ PREDICATES: Dict[str, Tuple[str, ...]] = {
     "pad_count": ("min", "max"),               # 焊盘数区间（闭区间）
 }
 
-# 断言种类白名单（ADR D6/D9）：等值 / 不等 / 区间 / 上下界 / 绝对值
-ASSERT_KINDS: Tuple[str, ...] = ("allowed", "eq", "ne", "range", "bounds", "abs")
+# 断言种类白名单（ADR D6/D9）：等值 / 不等 / 区间 / 上下界 / 绝对值 /
+# 命名反推（名字里的数字必须与实测尺寸相符；不解析模板，ADR D6）
+ASSERT_KINDS: Tuple[str, ...] = ("allowed", "eq", "ne", "range", "bounds", "abs",
+                                 "naming")
+
+# 命名语法白名单：语法 id 在数据里，解析器仍是代码（ADR D6）
+NAMING_GRAMMARS: Tuple[str, ...] = ("TH-OBLONG", "TH-CIRCLE")
+NAMING_KEYS: Dict[str, Tuple[str, ...]] = {
+    "TH-OBLONG": ("name", "hole_long", "hole_short", "pad_long", "pad_short"),
+    "TH-CIRCLE": ("name", "hole_dia", "pad_dia"),
+}
 
 # 参数形态组允许出现的字段：组只给「这个形态的典型值/支撑/出处」，
 # 区间与观测键属于参数本身（一处定义，所有形态共用）。
@@ -391,10 +402,10 @@ def _range_ok(allowed, value):
 
 def _validate_parameters(params: List[Dict[str, Any]], forms: List[Dict[str, Any]],
                          sources: List[Dict[str, Any]], errors: List[Dict[str, str]]) -> None:
-    """参数：两形状二选一 —— 单形态扁平（form/value/support/source）或多形态 groups。
+    """参数两种形状：分组（多形态）与扁平（单形态），外加 naming 参数。
 
-    两种形状的共用部分（keys / allowed / eps）只在参数级写一次：区间属于
-    「阻焊外扩」这件事，不属于某个形态。形态组只给典型值、支撑件数与出处。
+    naming 参数（kind=naming）是扁平形状的特例：没有 value/allowed，
+    靠 grammar + keys + tol 描述「名字里的数字如何与实测尺寸反推比对」。
     """
     name = SCHEMA_FILES["parameters"]
     form_ids = {f.get("id") for f in forms}
@@ -403,23 +414,77 @@ def _validate_parameters(params: List[Dict[str, Any]], forms: List[Dict[str, Any
         p = f"items[{i}]"
         who = par.get("id") or "?"
         _require(errors, name, p, par, "keys", list)
-        _require(errors, name, p, par, "allowed", list)
         keys = par.get("keys")
         if isinstance(keys, list) and (not keys or not all(isinstance(k, str) and k for k in keys)):
             _err(errors, name, f"{p}.keys", "应为非空字符串数组")
-        allowed = par.get("allowed")
-        allowed_ok = False
-        if isinstance(allowed, list):
-            if len(allowed) != 2 or not all(isinstance(x, (int, float)) and not isinstance(x, bool)
-                                            for x in allowed):
-                _err(errors, name, f"{p}.allowed", "应为 [下限, 上限] 两个数字")
-            elif allowed[0] > allowed[1]:
-                _err(errors, name, f"{p}.allowed", "下限大于上限")
-            else:
-                allowed_ok = True
-        eps = par.get("eps")
-        if eps is not None and (not isinstance(eps, (int, float)) or isinstance(eps, bool) or eps < 0):
-            _err(errors, name, f"{p}.eps", "应为非负数字")
+
+        kind = par.get("kind", "numeric")
+        if kind not in ("numeric", "naming"):
+            _err(errors, name, f"{p}.kind", f"未知参数种类 {kind!r}（numeric/naming）")
+            kind = "numeric"
+
+        if kind == "naming":
+            for key, typ in (("form", str), ("grammar", str), ("support", int), ("source", str)):
+                _require(errors, name, p, par, key, typ)
+            grammar = par.get("grammar")
+            if isinstance(grammar, str) and grammar not in NAMING_GRAMMARS:
+                _err(errors, name, f"{p}.grammar",
+                     f"未知命名语法 {grammar!r}（白名单：{'/'.join(NAMING_GRAMMARS)}）")
+            elif isinstance(grammar, str) and isinstance(keys, list):
+                expect = NAMING_KEYS[grammar]
+                if tuple(keys) != expect:
+                    _err(errors, name, f"{p}.keys",
+                         f"{grammar} 的观测键必须依次是 {list(expect)}")
+            for banned in ("value", "allowed"):
+                if banned in par:
+                    _err(errors, name, f"{p}.{banned}",
+                         "命名参数靠实测尺寸反推，不设数值区间")
+            tol = par.get("tol", 0.011)
+            if not isinstance(tol, (int, float)) or isinstance(tol, bool) or tol <= 0:
+                _err(errors, name, f"{p}.tol", "命名比对容差应为正数")
+            if "groups" in par:
+                _err(errors, name, f"{p}.groups", "命名参数必须写扁平形状（单形态）")
+        else:
+            _require(errors, name, p, par, "allowed", list)
+            allowed = par.get("allowed")
+            allowed_ok = False
+            if isinstance(allowed, list):
+                if len(allowed) != 2 or not all(isinstance(x, (int, float)) and not isinstance(x, bool)
+                                                for x in allowed):
+                    _err(errors, name, f"{p}.allowed", "应为 [下限, 上限] 两个数字")
+                elif allowed[0] > allowed[1]:
+                    _err(errors, name, f"{p}.allowed", "下限大于上限")
+                else:
+                    allowed_ok = True
+            eps = par.get("eps")
+            if eps is not None and (not isinstance(eps, (int, float)) or isinstance(eps, bool) or eps < 0):
+                _err(errors, name, f"{p}.eps", "应为非负数字")
+            warn = par.get("warn")
+            if warn is not None:
+                if (not isinstance(warn, list) or len(warn) != 2
+                        or not all(isinstance(x, (int, float)) and not isinstance(x, bool)
+                                   for x in warn)):
+                    _err(errors, name, f"{p}.warn", "应为 [警告下限, 警告上限] 两个数字")
+                elif warn[0] > warn[1]:
+                    _err(errors, name, f"{p}.warn", "警告带下限大于上限")
+                elif (isinstance(allowed, list) and len(allowed) == 2
+                      and all(isinstance(x, (int, float)) and not isinstance(x, bool)
+                              for x in allowed)
+                      and not (allowed[0] <= warn[0] <= warn[1] <= allowed[1])):
+                    _err(errors, name, f"{p}.warn",
+                         f"警告带 {warn} 必须落在 allowed {allowed} 内")
+
+        form = par.get("form")
+        if isinstance(form, str) and form not in form_ids:
+            _err(errors, name, f"{p}.form", f"引用了不存在的形态 {form!r}（参数 {who}）")
+        src = par.get("source")
+        if isinstance(src, str) and src not in source_ids:
+            _err(errors, name, f"{p}.source", f"引用了不存在的出处 {src!r}（参数 {who}）")
+        if isinstance(par.get("support"), int) and par["support"] < 0:
+            _err(errors, name, f"{p}.support", "支持件数不能为负")
+
+        if kind == "naming":
+            continue
 
         grouped = "groups" in par
         flat = sorted(set(par) & {"form", "value", "support", "source"})
@@ -431,17 +496,9 @@ def _validate_parameters(params: List[Dict[str, Any]], forms: List[Dict[str, Any
             _err(errors, name, f"{p}.groups",
                  f"缺 groups（多形态）或 form/value/support/source（单形态）（参数 {who}）")
         elif not grouped:
-            for key, kind in (("form", str), ("value", (int, float)),
-                              ("support", int), ("source", str)):
-                _require(errors, name, p, par, key, kind)
-            form = par.get("form")
-            if isinstance(form, str) and form not in form_ids:
-                _err(errors, name, f"{p}.form", f"引用了不存在的形态 {form!r}（参数 {who}）")
-            src = par.get("source")
-            if isinstance(src, str) and src not in source_ids:
-                _err(errors, name, f"{p}.source", f"引用了不存在的出处 {src!r}（参数 {who}）")
-            if isinstance(par.get("support"), int) and par["support"] < 0:
-                _err(errors, name, f"{p}.support", "支持件数不能为负")
+            for key, typ in (("form", str), ("value", (int, float)),
+                             ("support", int), ("source", str)):
+                _require(errors, name, p, par, key, typ)
             val = par.get("value")
             if allowed_ok and not _range_ok(allowed, val):
                 _err(errors, name, f"{p}.value",
@@ -462,9 +519,9 @@ def _validate_parameters(params: List[Dict[str, Any]], forms: List[Dict[str, Any
                     _err(errors, name, f"{gp}.{sorted(extra)[0]}",
                          f"未声明字段 {sorted(extra)}（形态组只许 "
                          f"{'/'.join(sorted(GROUP_FIELDS))}）")
-                for key, kind in (("form", str), ("value", (int, float)),
-                                  ("support", int), ("source", str)):
-                    _require(errors, name, gp, grp, key, kind, owner=who)
+                for key, typ in (("form", str), ("value", (int, float)),
+                                 ("support", int), ("source", str)):
+                    _require(errors, name, gp, grp, key, typ, owner=who)
                 form = grp.get("form")
                 if isinstance(form, str):
                     if form not in form_ids:
@@ -551,6 +608,12 @@ def _validate_rules(rules: List[Dict[str, Any]], forms: List[Dict[str, Any]],
                 extra = set(a) - {"kind", "eps", "tol", "lo", "hi", "min", "max", "value"}
                 if extra:
                     _err(errors, name, f"{ap}.{sorted(extra)[0]}", f"断言不认识的字段 {sorted(extra)}")
+                elif kind == "naming":
+                    used = [q for q in params
+                            if q.get("id") in (use or []) and q.get("kind") == "naming"]
+                    if not used:
+                        _err(errors, name, f"{ap}.kind",
+                             "naming 断言必须绑定 kind=naming 的参数")
         sev = rule.get("severity")
         if isinstance(sev, str) and sev not in sev_ids:
             _err(errors, name, f"{p}.severity", f"引用了不存在的 severity {sev!r}")
@@ -568,6 +631,22 @@ def _validate_rules(rules: List[Dict[str, Any]], forms: List[Dict[str, Any]],
         form = rule.get("form")
         if form is not None and form not in {f.get("id") for f in forms}:
             _err(errors, name, f"{p}.form", f"引用了不存在的形态 {form!r}")
+        report_id = rule.get("report_id")
+        if report_id is not None:
+            if not isinstance(report_id, str) or not re.fullmatch(r"[0-9]+(?:\.[0-9]+){1,2}[a-z]?", report_id):
+                _err(errors, name, f"{p}.report_id",
+                     f"报告编号应形如 2.8（数字点分，可带小写后缀），实际 {report_id!r}")
+        exempt = rule.get("exempt")
+        if exempt is not None:
+            if not isinstance(exempt, dict):
+                _err(errors, name, f"{p}.exempt", "exempt 必须是对象")
+            else:
+                extra = set(exempt) - {"name_prefix", "reason"}
+                if extra:
+                    _err(errors, name, f"{p}.exempt.{sorted(extra)[0]}",
+                         f"exempt 不认识的字段 {sorted(extra)}")
+                for key in ("name_prefix", "reason"):
+                    _require(errors, name, f"{p}.exempt", exempt, key, str)
 
 
 def _validate_sources(sources: List[Dict[str, Any]], errors: List[Dict[str, str]]) -> None:
@@ -814,9 +893,18 @@ def _form_status(entry: Dict[str, List[str]]) -> str:
     return "uncovered"
 
 
+COVERAGE_SUPPORT_FIELD = "mask_expand_side"
+
+
 def _form_param_support(lib: RuleLibrary, form_id: str, rule_ids: List[str]) -> Optional[int]:
-    """该形态的语料支撑件数（参数 support 的最大值）；没有规则 → None。"""
-    best: Optional[int] = None
+    """该形态的焊盘支撑件数；没有规则 → None。
+
+    覆盖率的「支撑（焊盘）」按 README 口径取阻焊外扩参数（22 / 9 / 195），
+    不取全形态参数最大值——2.8/2.9/2.10 迁移后同一形态有多条参数，
+    环宽 16、命名 23、钢网 25 是另外的样本口径，混在一起会顶掉阻焊的数。
+    形态没有阻焊参数时退回「所有参数 support 的最大值」，保持通用。
+    """
+    views: List[Dict[str, Any]] = []
     for rule_id in rule_ids:
         rule = lib.rules_by_id.get(rule_id) or {}
         for pid in rule.get("use") or []:
@@ -824,12 +912,19 @@ def _form_param_support(lib: RuleLibrary, form_id: str, rule_ids: List[str]) -> 
             if par is None:
                 continue
             view = resolve_parameter(par, form_id)
-            if view is None:
-                continue
+            if view is not None:
+                views.append(view)
+    for view in views:
+        if view.get("field") == COVERAGE_SUPPORT_FIELD:
             support = view.get("support")
             if isinstance(support, int) and not isinstance(support, bool):
-                if best is None or support > best:
-                    best = support
+                return support
+    best: Optional[int] = None
+    for view in views:
+        support = view.get("support")
+        if isinstance(support, int) and not isinstance(support, bool):
+            if best is None or support > best:
+                best = support
     return best
 
 
@@ -935,15 +1030,18 @@ def rule_set_info(lib: RuleLibrary) -> Dict[str, Any]:
 # 判定
 # ============================================================
 def _skip(rule_id: str, detail: str, form: Optional[str] = None,
-          subject_id: Optional[str] = None, lib: RuleLibrary = None) -> Dict[str, Any]:
+          subject_id: Optional[str] = None, lib: RuleLibrary = None,
+          report_id: Optional[str] = None,
+          direction: Optional[str] = None) -> Dict[str, Any]:
     """SKIP finding：不是通过。方向/版本/哈希与正常 finding 同口径带上。"""
     out: Dict[str, Any] = {
         "status": "SKIP",
         "rule_id": rule_id,
+        "report_id": report_id,
+        "direction": direction or "assert",
         "form": form,
         "subject": subject_id,
         "severity": "SKIP",
-        "direction": "assert",
         "detail": detail,
     }
     if lib is not None:
@@ -956,10 +1054,79 @@ def _value_in(value: float, lo: float, hi: float, eps: float) -> bool:
     return (lo - eps) <= value <= (hi + eps)
 
 
+def _dnum(text: str) -> float:
+    return float(str(text).replace("D", "."))
+
+
+def _naming_match(grammar: str, name: str, hole: List[float], pad: List[float],
+                  tol: float = 0.011) -> Tuple[bool, str]:
+    """尺寸反推：解析名字里的数字，与实测孔/盘尺寸逐项比对（ADR D6）。
+
+    保留旧 naming_match_th 的口径：长轴在前、两位小数、容差 0.011，允许
+    NP 前缀、OB 省略、H 后 OB/O 省略、OS{X|Y}{偏移} 后缀、圆孔 PC..HC..。
+    不解析模板，只做「名字 ↔ 实测」一致性判断。
+    """
+    base = re.sub(r"OS[XY][0-9D.]+$", "", str(name).upper())
+    hole_s = sorted([round(float(v), 2) for v in hole if float(v) > 0], reverse=True)
+    pad_s = sorted([round(float(v), 2) for v in pad if float(v) > 0], reverse=True)
+    if not hole_s:
+        return False, f"名字 {name} 无法反推：孔尺寸未知"
+
+    def eq(a: float, b: float) -> bool:
+        return abs(a - b) <= tol
+
+    if grammar == "TH-OBLONG":
+        m = re.match(r"(NP)?P?(?:OB)?([0-9D]+)X([0-9D]+)H(?:OB|O)?([0-9D]+)X([0-9D]+)", base)
+        if m:
+            want = [_dnum(m.group(i)) for i in (2, 3, 4, 5)]
+            if len(hole_s) < 2 or len(pad_s) < 2:
+                return False, f"名字 {name} 含四段尺寸，但实测孔/盘不足两轴"
+            if all(eq(a, b) for a, b in zip(want, hole_s + pad_s)):
+                return True, ""
+            return False, (f"名字 {name} 的数字 {want} 与实测孔 {hole_s} / 盘 {pad_s} 不符")
+        m = re.match(r"(NP)?P?(?:OB)?([0-9D]+)X([0-9D]+)", base)
+        if m:
+            want = [_dnum(m.group(i)) for i in (2, 3)]
+            plated = not base.startswith("NP")
+            if len(hole_s) < 2 or not all(eq(a, b) for a, b in zip(want, hole_s)):
+                return False, f"名字 {name} 的孔尺寸 {want} 与实测 {hole_s} 不符"
+            if plated:
+                return False, f"名字 {name} 省略了盘尺寸，只有非金属化（NP）件允许省略"
+            return True, ""
+        return False, f"名字 {name} 不合 TH-OBLONG 命名语法（POB{{孔长}}X{{孔短}}HOB{{盘长}}X{{盘短}}）"
+
+    if grammar == "TH-CIRCLE":
+        m = re.match(r"(NP)?P?C([0-9D]+)H(?:OB|C)?([0-9D]+)", base)
+        if m:
+            want = [_dnum(m.group(2)), _dnum(m.group(3))]
+            got = [hole_s[0], pad_s[0]] if pad_s else [hole_s[0], 0.0]
+            if all(eq(a, b) for a, b in zip(want, got)):
+                return True, ""
+            return False, f"名字 {name} 的数字 {want} 与实测孔 {got[0]} / 盘 {got[1]} 不符"
+        return False, f"名字 {name} 不合 TH-CIRCLE 命名语法（PC{{孔}}HC{{盘}}）"
+
+    return False, f"未知命名语法 {grammar!r}"
+
+
+def _eval_naming(param: Dict[str, Any], observed: Dict[str, Any]) -> Tuple[bool, str]:
+    grammar = str(param.get("grammar") or "")
+    tol = float(param.get("tol", 0.011))
+    name = str(observed.get("name") or "")
+    if grammar == "TH-OBLONG":
+        hole = [observed["hole_long"], observed["hole_short"]]
+        pad = [observed["pad_long"], observed["pad_short"]]
+    else:
+        hole = [observed["hole_dia"]]
+        pad = [observed["pad_dia"]]
+    return _naming_match(grammar, name, hole, pad, tol)
+
+
 def _eval_assert(assertion: Dict[str, Any], param: Dict[str, Any],
                  observed: Dict[str, Any]) -> Tuple[bool, str]:
     """跑一条断言；返回 (是否满足, 不满足时的说明)。"""
     kind = assertion.get("kind")
+    if kind == "naming":
+        return _eval_naming(param, observed)
     eps = assertion.get("eps", param.get("eps", DEFAULT_EPS))
     keys = param.get("keys") or []
     allowed = param.get("allowed") or [None, None]
@@ -1055,9 +1222,9 @@ def judge(lib: RuleLibrary, rule_id: str, subject: Dict[str, Any],
     :param rule_id: rules.json 里的规则 id
     :param subject: 事实（mount / layers / drill / name / pad_count）
     :param observed: 观测值（按参数 keys 取值，缺键即 UNKNOWN）
-    :return: finding dict（status / rule_id / form / direction / severity / source /
-             support / rule_set_hash / rule_set_version / detail …）；三态之一，
-             SKIP 也带 rule_id、方向与规则集标识（方向目前只有 assert，派生留给 #20）。
+    :return: finding dict（status / rule_id / report_id / form / direction /
+             severity / source / support / rule_set_hash / rule_set_version / detail …）；
+             三态之一，SKIP 也带 rule_id、方向与规则集标识。
     """
     subject_id = subject.get("id")
     rule = lib.rules_by_id.get(rule_id)
@@ -1067,7 +1234,8 @@ def judge(lib: RuleLibrary, rule_id: str, subject: Dict[str, Any],
     form = match_form(lib, subject)
     if form is None:
         return _skip(rule_id, f"缺 form：{subject_id} 没有匹配的形态",
-                     subject_id=subject_id, lib=lib)
+                     subject_id=subject_id, lib=lib,
+                     report_id=rule.get("report_id"))
     form_id = form.get("id")
 
     param = None
@@ -1084,15 +1252,13 @@ def judge(lib: RuleLibrary, rule_id: str, subject: Dict[str, Any],
         if not (rule_index(lib).get(form_id) or {}).get("assert"):
             return _skip(rule_id,
                          f"缺规则：形态 {form_id} 尚无判定规则（覆盖率缺口，不判 PASS）",
-                         form=form_id, subject_id=subject_id, lib=lib)
+                         form=form_id, subject_id=subject_id, lib=lib,
+                         report_id=rule.get("report_id"))
         return _skip(rule_id, f"缺参数：规则 {rule_id} 未对形态 {form_id} 声明参数",
-                     form=form_id, subject_id=subject_id, lib=lib)
-    keys = param.get("keys") or []
-    missing = [k for k in keys if k not in observed]
-    if missing:
-        return _skip(rule_id, f"输入 UNKNOWN：缺观测 {', '.join(missing)}", form=form_id,
-                     subject_id=subject_id, lib=lib)
+                     form=form_id, subject_id=subject_id, lib=lib,
+                     report_id=rule.get("report_id"))
 
+    keys = param.get("keys") or []
     severity_ref = rule.get("severity")
     sev_obj = lib.severity_by_id.get(severity_ref) or {}
     severity = sev_obj.get("severity") or "WARN"
@@ -1105,6 +1271,7 @@ def judge(lib: RuleLibrary, rule_id: str, subject: Dict[str, Any],
     base = {
         "status": "PASS",
         "rule_id": rule_id,
+        "report_id": rule.get("report_id"),
         "form": form_id,
         "subject": subject_id,
         "direction": "assert",
@@ -1116,11 +1283,30 @@ def judge(lib: RuleLibrary, rule_id: str, subject: Dict[str, Any],
         "support": param.get("support"),
         "rule_set_hash": lib.fingerprint,
         "rule_set_version": lib.version,
-        "value": {k: observed[k] for k in keys},
+        "value": {},
         "allowed": allowed,
         "eps": eps,
         "detail": "",
     }
+
+    # 豁免先于观测：NP 机械孔不需要环宽/钢网观测，旧路径也是直接放行。
+    exempt = rule.get("exempt")
+    if isinstance(exempt, dict):
+        prefix = str(exempt.get("name_prefix") or "")
+        sname = str(subject.get("name") or "")
+        if prefix and sname.upper().startswith(prefix.upper()):
+            base["status"] = "PASS"
+            base["severity"] = None
+            base["exempt"] = True
+            base["detail"] = str(exempt.get("reason") or "")
+            return base
+
+    missing = [k for k in keys if k not in observed]
+    if missing:
+        return _skip(rule_id, f"输入 UNKNOWN：缺观测 {', '.join(missing)}", form=form_id,
+                     subject_id=subject_id, lib=lib,
+                     report_id=rule.get("report_id"))
+    base["value"] = {k: observed[k] for k in keys}
 
     notes: List[str] = []
     for assertion in rule.get("assert") or []:
@@ -1132,4 +1318,19 @@ def judge(lib: RuleLibrary, rule_id: str, subject: Dict[str, Any],
         base["status"] = severity
         base["severity"] = severity
         base["detail"] = "违反：" + "；".join(notes)
+        return base
+
+    # 警告带：allowed 内但 warn 外 → WARN（三档判定的中间档）。
+    warn = param.get("warn")
+    if isinstance(warn, list) and len(warn) == 2:
+        wlo, whi = float(warn[0]), float(warn[1])
+        outside = [k for k in keys if not _value_in(float(observed[k]), wlo, whi, eps)]
+        if outside:
+            base["status"] = "WARN"
+            base["severity"] = "WARN"
+            base["severity_ref"] = None
+            base["warn_band"] = [wlo, whi]
+            base["detail"] = "非标准：" + "；".join(
+                f"{k}={float(observed[k]):g} 不在标准带 [{wlo:g}, {whi:g}]"
+                for k in outside)
     return base

@@ -39,6 +39,114 @@
         }
       ],
       "note": "阻焊开窗单边外扩。票 #19 把 PARAM-MASK-EXPAND-TH-OBLONG / -TH-CIRCLE / -SMD 三条独立参数合并到这里；旧 id 与回滚配方见 knowledge/migrations/rules_v1.json"
+    },
+    {
+      "id": "PARAM-ANNULAR-RING",
+      "form": "FORM-MASK-TH-OBLONG",
+      "field": "annular_ring",
+      "keys": [
+        "ring_x",
+        "ring_y"
+      ],
+      "unit": "mm",
+      "value": 0.3,
+      "allowed": [
+        0.15,
+        0.4
+      ],
+      "warn": [
+        0.2,
+        0.3
+      ],
+      "eps": 1e-09,
+      "support": 16,
+      "source": "SRC-CONV-ADJUDICATED",
+      "note": "conventions.json 裁定：ring∈[0.2,0.3] PASS；[0.15,0.2)∪(0.3,0.4] WARN；其余 FAIL；NP 件豁免（标准支持 16 件、紧凑 0.2 另有 6 件）"
+    },
+    {
+      "id": "PARAM-NAMING-TH-OBLONG",
+      "form": "FORM-MASK-TH-OBLONG",
+      "kind": "naming",
+      "grammar": "TH-OBLONG",
+      "keys": [
+        "name",
+        "hole_long",
+        "hole_short",
+        "pad_long",
+        "pad_short"
+      ],
+      "tol": 0.011,
+      "support": 23,
+      "source": "SRC-CONV-ADJUDICATED",
+      "note": "名字里的四段尺寸按长轴在前反推，必须与实测孔/盘相符；语法在 conventions.json th_oblong_plated.naming"
+    },
+    {
+      "id": "PARAM-NAMING-TH-CIRCLE",
+      "form": "FORM-MASK-TH-CIRCLE",
+      "kind": "naming",
+      "grammar": "TH-CIRCLE",
+      "keys": [
+        "name",
+        "hole_dia",
+        "pad_dia"
+      ],
+      "tol": 0.011,
+      "support": 8,
+      "source": "SRC-CONV-ADJUDICATED",
+      "note": "圆孔名字 PC{孔}HC{盘} 按实测直径反推；语法在 conventions.json th_circle_plated.naming"
+    },
+    {
+      "id": "PARAM-PASTE-TOP-PRESENT",
+      "form": "FORM-MASK-TH-OBLONG",
+      "field": "paste_top_present",
+      "keys": [
+        "paste_top_present"
+      ],
+      "value": 1,
+      "allowed": [
+        1,
+        1
+      ],
+      "eps": 0,
+      "support": 23,
+      "source": "SRC-CONV-ADJUDICATED",
+      "note": "TH 件必须有顶面钢网（conventions.json paste_top.policy = 焊盘尺寸）"
+    },
+    {
+      "id": "PARAM-PASTE-TOP-DIFF",
+      "form": "FORM-MASK-TH-OBLONG",
+      "field": "paste_top_diff",
+      "keys": [
+        "paste_top_dx",
+        "paste_top_dy"
+      ],
+      "unit": "mm",
+      "value": 0.0,
+      "allowed": [
+        0.0,
+        0.01
+      ],
+      "eps": 0,
+      "support": 23,
+      "source": "SRC-CONV-ADJUDICATED",
+      "note": "顶面钢网开窗应与焊盘等大；旧 2.10 只在任一轴差 >0.01 时报"
+    },
+    {
+      "id": "PARAM-PASTE-BOTTOM-PRESENT",
+      "form": "FORM-MASK-TH-OBLONG",
+      "field": "paste_bottom_present",
+      "keys": [
+        "paste_bottom_present"
+      ],
+      "value": 0,
+      "allowed": [
+        0,
+        0
+      ],
+      "eps": 0,
+      "support": 25,
+      "source": "SRC-CONV-ADJUDICATED",
+      "note": "TH 件不应有底面钢网（conventions.json paste_bottom.policy = 无）"
     }
   ]
 }

@@ -17,7 +17,7 @@ eval/suites/geometry_regression/check_geometry_regression.py —— L5 评测（
 | 盘点 | G2 | `Data/footprint` 的子目录 / PDF / 真 `.dra` 数 == 基线 | 无 |
 | 盘点 | G3 | `knowledge/specs`、`knowledge/cases` 条目数 == 基线 | 无 |
 | 盘点 | G4 | 三个库（`Data/PCB_Footprint` + `Data/footprint` + `Data/footprint_test`）**无噪声文件**；判定**只调** `orchestration.preflight.is_noise()`（2026-10-15 起含 `*.log` / `checklist_report_*.json` / `allegro.jrl` 等运行痕迹与历史报告） | 无 |
-| 盘点 | G5 | 六份检查脚本仍在（`selfcheck_geometry` / `selfcheck_skill_syntax` / `selfcheck_conventions` / `benchmark_golden` / `check_derive` / `check_rule_engine`） | 无 |
+| 盘点 | G5 | 七份检查脚本仍在（`selfcheck_geometry` / `selfcheck_skill_syntax` / `selfcheck_conventions` / `benchmark_golden` / `check_derive` / `check_rule_engine` / `check_rule_shift`） | 无 |
 | 盘点 | G6 | **被调方探针**：extracta 四路取数健康（崩在第 2 路 → 后面三路全没跑，R4 的分数就没意义） | 需 Cadence |
 | 跑分 | R1 | `Tools/selfcheck_geometry.py` 失败 0 且总数 == 基线 | 需 skillbridge |
 | 跑分 | R2 | `Tools/selfcheck_skill_syntax.py` 失败 0 且总数 == 基线 | 需 skillbridge |
@@ -25,6 +25,7 @@ eval/suites/geometry_regression/check_geometry_regression.py —— L5 评测（
 | 跑分 | R4 | `Tools/benchmark_golden.py`（253 件）：件数 == 基线、**提取失败 ≤ 基线**、FAIL 件数 ≤ 基线、exact ≥ 基线（**读 `benchmark_summary.csv`，不解析控制台**） | 无 |
 | 跑分 | R5 | `eval/suites/geometry_regression/check_derive.py`（票 #16）：**决策入口只依赖纯模块** + 8 份 spec 的求解输出 / 派生输出与 `eval/baselines/padstack_derive.json` 逐字段相等 | 无 |
 | 跑分 | R6 | `eval/suites/geometry_regression/check_rule_engine.py`（票 #17）：规则库整体加载 + 整库哈希 + 同输入逐字节相同；坏库六类必须整体失败并报位置；阻焊规则三形态 PASS/WARN/SKIP；改库即改判定；13 件真实夹具的 2.2 状态与旧判定一致；旧阈值文件 sha256 未变 | 无 |
+| 跑分 | R7 | `eval/suites/geometry_regression/check_rule_shift.py`（票 #18）：环宽三档/NP 豁免/命名反推/钢网三策略；检查器历史 id 2.8/2.9/2.10 带方向与规则集哈希且不再调用旧判定；输入 UNKNOWN 记 SKIP；253 件影子 id+status 差异 0；`LAYOUT_FORGE_LEGACY_JUDGE=1` 回滚对拍一致 | 无 |
 
 R4 的语义是「**不比基线差**」而不是「必须全 0」：金标准库里本来就有一批提取不出
 （`extracta pins.txt 输出为空`），硬要求 0 会让闸门永远红着 ＝ 等于没有闸门。
@@ -128,6 +129,7 @@ LEGACY_CHECKS = {
     "benchmark": TOOLS / "benchmark_golden.py",
     "derive": ROOT / "eval" / "suites" / "geometry_regression" / "check_derive.py",
     "rule_engine": ROOT / "eval" / "suites" / "geometry_regression" / "check_rule_engine.py",
+    "rule_shift": ROOT / "eval" / "suites" / "geometry_regression" / "check_rule_shift.py",
 }
 
 #: 被调方探针（G6）：extracta 四路取数健康
@@ -396,6 +398,8 @@ def build_snapshot(py: str | None, timeout: int, skip_benchmark: bool,
     runs["derive"] = _run(py or sys.executable, LEGACY_CHECKS["derive"], timeout)
     # R6（票 #17）规则库与判定引擎：纯 stdlib，离线跑（273 个夹具 pin 数秒出分）
     runs["rule_engine"] = _run(py or sys.executable, LEGACY_CHECKS["rule_engine"], timeout)
+    # R7（票 #18）2.8/2.9/2.10 规则库平移 + 253 件影子：纯 stdlib，离线跑
+    runs["rule_shift"] = _run(py or sys.executable, LEGACY_CHECKS["rule_shift"], timeout)
     probe = _run_probe(py, timeout)
     runs["extracta"] = probe
     csv_path = (benchmark_dir or BENCHMARK_DIR) / "benchmark_summary.csv"
@@ -480,7 +484,8 @@ def check(baseline: dict, current: dict, skip_benchmark: bool) -> list[dict]:
                              ("skill_syntax", "R2", "selfcheck_skill_syntax"),
                              ("conventions", "R3", "selfcheck_conventions"),
                              ("derive", "R5", "check_derive（票 #16 决策入口对拍）"),
-                             ("rule_engine", "R6", "check_rule_engine（票 #17 规则库与判定引擎）")):
+                             ("rule_engine", "R6", "check_rule_engine（票 #17 规则库与判定引擎）"),
+                             ("rule_shift", "R7", "check_rule_shift（票 #18 2.8/2.9/2.10 平移与影子）")):
         cur, base = cur_runs.get(key, {}), base_runs.get(key, {})
         if cur.get("skipped") == "no-interpreter":
             _add(f, rule, "error",
@@ -647,7 +652,7 @@ def main() -> int:
           f"specs {inv['specs']} ｜ cases {inv['cases']} ｜ 噪声 {len(inv['noise_files'])}")
     for key, label in (("geometry", "selfcheck_geometry"), ("skill_syntax", "selfcheck_skill_syntax"),
                        ("conventions", "selfcheck_conventions"), ("derive", "check_derive"),
-                       ("rule_engine", "check_rule_engine")):
+                       ("rule_engine", "check_rule_engine"), ("rule_shift", "check_rule_shift")):
         r = runs[key]
         state = (f"{r.get('passed')}/{r.get('total')} 通过"
                  if r.get("total") is not None else f"未跑（{r.get('skipped') or '无汇总行'}）")

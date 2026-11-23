@@ -1,6 +1,6 @@
 # knowledge/rules/ —— 封装规则集（唯一真源）
 
-> 建立：2026-10-12 ｜ 最后更新：2026-11-23（票 #21：规则集版本 + 覆盖率进报告；票 #19：三形态收成一个参数组）
+> 建立：2026-10-12 ｜ 最后更新：2026-11-23（票 #18：2.8/2.9/2.10 三条判定也迁到本目录；命名走尺寸反推，环宽有 warn 带，规则可声明 report_id / exempt。票 #21：规则集版本 + 覆盖率进报告；票 #19：三形态收成一个参数组）
 > 维护者：`services/rule_engine.py`（加载 + 判定入口）
 
 ## 这个目录是什么
@@ -10,8 +10,8 @@
 | 文件 | 对象 | 一个对象回答什么 | 必填字段 |
 |--|--|--|--|
 | `forms.json` | form（形态） | 「哪些输入算同一类封装」——由谓词白名单组合（安装方式 / 孔形 / 层存在 / 层集包含 / 名字族 / 焊盘数） | `id`、`name`、`when` |
-| `parameters.json` | parameter（参数） | 「这一类封装的某尺寸该是多少」——参数级写 `keys`/`allowed`/`eps`（所有形态共用），形态差异进 `groups[]`（每条 `form`/`value`/`support`/`source`），一个参数只在**一处**定义 | 分组形状：`id`、`keys`、`allowed`、`groups`；单形态也可写扁平形状 `id`、`form`、`value`、`support`、`source`。两种形状二选一，同 `(field, form)` 不许第二份拷贝 |
-| `rules.json` | rule（规则） | 「拿哪个参数、比哪一侧、违反了算什么」——`when` 选 form、`use` 选参数、`assert` 选判法 | `id`、`name`、`use`、`assert`、`severity`、`source`、`since` |
+| `parameters.json` | parameter（参数） | 「这一类封装的某尺寸该是多少」——参数级写 `keys`/`allowed`/`eps`（所有形态共用），形态差异进 `groups[]`（每条 `form`/`value`/`support`/`source`），一个参数只在**一处**定义；数值参数可带 `warn`（警告带），命名参数用 `kind: naming` + `grammar` + `tol` | 分组形状：`id`、`keys`、`allowed`、`groups`；单形态也可写扁平形状 `id`、`form`、`value`、`support`、`source`；命名参数是扁平形状特例（无 value/allowed）。两种形状二选一，同 `(field, form)` 不许第二份拷贝 |
+| `rules.json` | rule（规则） | 「拿哪个参数、比哪一侧、违反了算什么」——`when` 选 form、`use` 选参数、`assert` 选判法 | `id`、`name`、`use`、`assert`、`severity`、`source`、`since`；可带 `report_id`（历史报告编号）与 `exempt`（整类豁免） |
 | `sources.json` | source（出处） | 这个数字/这条规则**凭什么**——裁定记录、金标准对拍、ADR | `id`、`kind`、`ref` |
 | `library.json` | 规则集元信息 | 「这一整库是哪一版」——语义版本 + 发布日期；改任何对象都应升版本 | `schema`、`version`、`released_at` |
 | `_severity.json` | severity 映射 | 违反之后报多重 —— `severity = f(consequence, evidence)`，映射表单独一份，不散在代码里 | `id`、`severity`、`consequence`、`evidence` |
@@ -47,7 +47,8 @@ finding 里带 `rule_set_hash` 与 `rule_set_version`，报告首屏同时打印
   环境变量 `LAYOUT_FORGE_RULES_DIR` 或显式参数可整体替换（影子比对、临时库都靠它）。
 - **加载即校验**：未知谓词、未知断言种类、缺必填字段、id 重复、参数引用不存在的 form/source、
   规则引用不存在的参数、severity 引用不存在的映射、`value` 不在 `allowed` 内、`allowed` 不是 `[lo, hi]`、
-  库里出现**未登记**的 `*.json` —— 一律抛 `RuleLibraryError`，错误里带 `file` / `path` / `message`。
+  `warn` 不是 `[lo, hi]` 或不落在 `allowed` 内、命名参数 `grammar` 不在白名单、`report_id` 不是历史编号、
+  `exempt` 字段越界、库里出现**未登记**的 `*.json` —— 一律抛 `RuleLibraryError`，错误里带 `file` / `path` / `message`。
   **不降级、不回退内置默认值**：一份坏库比没有库更危险。
 - 判定/派生的三态：`PASS` / 违反（状态由 severity 映射给出）/ `SKIP`；
   SKIP 必须写明缺什么（`缺 form：` / `缺参数：` / `缺规则：` / `输入 UNKNOWN：`），不许拿 SKIP 冒充通过。
@@ -58,7 +59,7 @@ finding 里带 `rule_set_hash` 与 `rule_set_version`，报告首屏同时打印
 |--|--|--|
 | 内容 | 判定规则（形态怎么切、参数多少、违反算什么） | **构造约定**的裁定值（TH 环宽/钢网/命名语法/drill figure，带支持度） |
 | 来源 | ADR-0002 + 253 件金标准对拍 + 裁定记录 | 2026-10-13 第 0 层挖掘 + 裁定 |
-| 消费 | `rule_engine`（判定）→ `rule_checker`；后续派生侧 | `convention_engine`（builder 派生 + checker 2.7b/2.8/2.9/2.10 + 出厂自检） |
+| 消费 | `rule_engine`（判定）→ `rule_checker` 2.2/2.8/2.9/2.10；后续派生侧 | `convention_engine`（builder 派生 + 出厂自检）；2.8/2.9/2.10 的检查路径已改走 `rules/`，旧函数只在回滚开关下使用 |
 
 TH 构造类数值仍以 `conventions.json` 为准；四类库里凡引用它的参数把 `SRC-CONV-ADJUDICATED` 记在 `source` 上——**同一份约定不许有两个数字**。
 
@@ -77,9 +78,28 @@ TH 构造类数值仍以 `conventions.json` 为准；四类库里凡引用它的
 > `geometry_solver.py` 里 SMD 派生仍用旧字面 0.05（不是 0.08），是为「改造不改变已建封装形状」；
 > 已在迁移映射表里登记为 legacy，接线留给票 #20。
 
+## 已迁移的判定（票 #18）
+
+| 历史编号 | 规则 / 参数 | 形态 | 判法 |
+|--|--|--|--|
+| 2.8 环宽 | `RULE-ANNULAR-RING` / `PARAM-ANNULAR-RING` | TH 长圆孔 | `allowed=[0.15,0.4]`，`warn=[0.2,0.3]`：warn 内 PASS，allowed 内 warn 外 WARN，allowed 外 FAIL；NP 前缀按 `exempt` 直接 PASS |
+| 2.9 命名 | `RULE-PADSTACK-NAMING` / `PARAM-NAMING-TH-OBLONG` + `PARAM-NAMING-TH-CIRCLE` | TH 长圆/圆孔 | `kind: naming` 按实测孔/盘尺寸反推名字里的数字（tol 0.011），**不解析模板**；NP、盘段省略、`OS` 后缀等旧变体保留 |
+| 2.10 钢网 | `RULE-PASTE-TOP-PRESENT` / `RULE-PASTE-TOP-EQ-PAD` / `RULE-PASTE-BOTTOM-ABSENT` | TH 长圆孔 | 顶面钢网必须存在且与焊盘等大（0.01），底面不得有；NP 按 `exempt` 放行 |
+
+`report_id` 把新规则映射回历史报告的 2.8/2.9/2.10，旧报告仍可读；finding 带
+`direction: assert`，只有 assert 侧（没有派生规则）的规则才标方向。
+
+**输入 UNKNOWN 一律 SKIP**：judge 缺观测时返回 `SKIP`，检查器把该条记成 `NA`，
+不判 PASS。回滚演练：设 `LAYOUT_FORGE_LEGACY_JUDGE=1`，或撤掉本票新增的 5 条规则
+（检查器检测到迁移规则缺失）时，改走 `services/legacy_judge.py`（内部调用旧
+`convention_engine` 函数），同一输入状态一致；该适配器在票 #22 删除。253 件影子基线在
+`eval/baselines/shadow_2_8_10_253.json`，旧侧 `(id,status)` 在
+`eval/baselines/shadow_2_8_10_old_d87e172.json`，重跑用
+`eval/suites/geometry_regression/make_shadow_2_8_10.py`。
+
 ## `checker_rules.json`（已冻结）
 
-2026-11-20 起只读：它是迁移期旧阈值文件。2.2 阻焊外扩已改由四类库判定，
+2026-11-20 起只读：它是迁移期旧阈值文件。2.2 阻焊外扩与 2.8/2.9/2.10 已改由四类库判定，
 其余规则的数字阈值暂时仍从这里读。**不许再往里加键**；新规则一律进四类库。
 文件哈希记录在 `eval/baselines/rule_engine.json` 的 `legacy_rules_sha256`（R6 会比对）。
 
@@ -103,9 +123,7 @@ TH 构造类数值仍以 `conventions.json` 为准；四类库里凡引用它的
 1. 先确认 schema 已有该字段（`services/rule_engine.py` 的 `SCHEMA_FILES` + 校验分支）；
    没有就先改校验器与它的测试，**不许让库接受未声明的字段**。
 2. 给 `source`：新数字必须有出处，没出处加载就被拒。
-3. 改了规则集内容就升 `library.json` 的 `version`；加完跑
-   `eval/suites/geometry_regression/check_rule_engine.py`（R6）；
-   若改了行为，基线要另起一票重冻 —— `check_derive.py` 那份基线是故意不给 `--update` 的。
+3. 改了规则集内容就升 `library.json` 的 `version`；加完跑 `eval/suites/geometry_regression/check_rule_engine.py`（R6）与 `check_rule_shift.py`（R7）；若改了行为，基线要另起一票重冻 —— `check_derive.py` 那份基线是故意不给 `--update` 的。
 
 ## 相关目录
 

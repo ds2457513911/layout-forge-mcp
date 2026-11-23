@@ -185,10 +185,13 @@ WIRING = {
     ],
     "th_oblong.paste_top": [
         ("services/convention_engine.py", r"paste_top_eq_pad|paste_top"),
+        ("services/rule_checker.py", r"2\.10"),
     ],
     "th_oblong.naming(P{孔}H{盘})": [
         ("services/convention_engine.py", r"naming_match_th"),
-        ("services/rule_checker.py", r"check_padstack_naming"),
+        ("services/rule_engine.py", r"_naming_match"),
+        ("services/rule_checker.py", r"2\.9"),
+        ("services/legacy_judge.py", r"check_padstack_naming"),
     ],
     "th_oblong.rotation": [
         ("services/convention_engine.py", r"pin\[\"rotation\"\] = 90|rotation.*90"),

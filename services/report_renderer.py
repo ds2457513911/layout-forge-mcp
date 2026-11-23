@@ -572,6 +572,10 @@ def render_markdown(
             group_cell = f"**{title}**" if first else ""
             first = False
             name = it.get("name", "")
+            # 方向标签：只有 assert 侧的规则才标（票 #18 / ADR-0002 D2）。
+            # derive-only 的规则不标，避免报告里出现无意义的方向噪音。
+            if it.get("direction") == "assert":
+                name = f"{name}（方向：assert）"
             actual = _format_actual(it)
             expected = it.get("expected") or "—"
             status = it.get("status", "")
