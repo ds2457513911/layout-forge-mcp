@@ -1,0 +1,844 @@
+{
+  "schema": "layout-forge/rules/migration@1",
+  "id": "MIGRATION-RULES-V1",
+  "created_at": "2026-11-23",
+  "ticket": "#19",
+  "about": "旧阈值文件与旧检查器规则的迁移映射：每个旧阈值键、每条旧规则各登记唯一的归属。归属=新参数/新规则（已迁移）或保留为 legacy（写明原因与回滚方式）。机器可读；人读版由 Tools/render_migration_table.py 渲染到 docs/迁移映射表-规则集v1.md。",
+  "sources": {
+    "thresholds": {
+      "file": "knowledge/rules/checker_rules.json",
+      "frozen": true,
+      "sha256": "d56eccdef14c6043ca833b2a535b54ff1792f76606b65817fedcc53686b79844"
+    },
+    "legacy_rules": {
+      "file": "services/rule_checker.py",
+      "rule_ids": [
+        "0.1",
+        "0.2",
+        "1.1",
+        "1.2",
+        "1.3",
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.7",
+        "2.8",
+        "2.9",
+        "3.1",
+        "3.2x",
+        "3.2y",
+        "3.3",
+        "3.4",
+        "5.1",
+        "5.2",
+        "6.1",
+        "6.2",
+        "6.3",
+        "6.4",
+        "6.6"
+      ]
+    }
+  },
+  "entries": [
+    {
+      "id": "MIG-KEY-META-CALIBRATION",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#_meta.calibration",
+      "legacy_value": "2026-10-12 金标准 253 件对拍校准：阻焊外扩惯例 0.08（195/246 占比）、原点偏移 ≤0.5mm 占绝对多数、重叠判定加 0.05mm² 消 bbox 擦边、丝印重叠加 0.1mm 内缩消贴边",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-META",
+        "path": "knowledge/rules/checker_rules.json"
+      },
+      "status": "legacy",
+      "note": "_meta 是阈值文件的说明性元信息（不是阈值数字），旧检查器不按它判任何一条规则。",
+      "reason": "没有运行时消费方：services/rule_checker.py 只读各分节里的阈值，_meta 仅供人读。",
+      "rollback": "本条未动，回滚=无操作：文件本身冻结只读。"
+    },
+    {
+      "id": "MIG-KEY-META-FALLBACK",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#_meta.fallback",
+      "legacy_value": "文件缺失或 JSON 损坏时自动回退 services/rule_checker.py::DEFAULT_RULES（宁用内置默认，不带病运行）",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-META",
+        "path": "knowledge/rules/checker_rules.json"
+      },
+      "status": "legacy",
+      "note": "_meta 是阈值文件的说明性元信息（不是阈值数字），旧检查器不按它判任何一条规则。",
+      "reason": "没有运行时消费方：services/rule_checker.py 只读各分节里的阈值，_meta 仅供人读。",
+      "rollback": "本条未动，回滚=无操作：文件本身冻结只读。"
+    },
+    {
+      "id": "MIG-KEY-META-LAST-UPDATED",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#_meta.last_updated",
+      "legacy_value": "2026-10-12",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-META",
+        "path": "knowledge/rules/checker_rules.json"
+      },
+      "status": "legacy",
+      "note": "_meta 是阈值文件的说明性元信息（不是阈值数字），旧检查器不按它判任何一条规则。",
+      "reason": "没有运行时消费方：services/rule_checker.py 只读各分节里的阈值，_meta 仅供人读。",
+      "rollback": "本条未动，回滚=无操作：文件本身冻结只读。"
+    },
+    {
+      "id": "MIG-KEY-META-PURPOSE",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#_meta.purpose",
+      "legacy_value": "rule_checker 阈值外置真源（2026-10-12 起）。只放数字/开关，判定逻辑仍在 services/rule_checker.py —— 改逻辑必须改代码。改本文件立即生效，不用重启 MCP。",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-META",
+        "path": "knowledge/rules/checker_rules.json"
+      },
+      "status": "legacy",
+      "note": "_meta 是阈值文件的说明性元信息（不是阈值数字），旧检查器不按它判任何一条规则。",
+      "reason": "没有运行时消费方：services/rule_checker.py 只读各分节里的阈值，_meta 仅供人读。",
+      "rollback": "本条未动，回滚=无操作：文件本身冻结只读。"
+    },
+    {
+      "id": "MIG-KEY-ASSEMBLY-SIZE-TOLERANCE-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#assembly.size_tolerance_mm",
+      "legacy_value": 0.05,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-ASSEMBLY",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "assembly 尺寸容差服务旧规则 6.1 / 6.2；收编属 #21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-NAMING-NO-DOT",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#naming.no_dot",
+      "legacy_value": true,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-NAMING",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "「小数点用 d」同时被旧规则 1.2 与 geometry_solver 的命名生成读取，收编属派生侧（#20）。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-NAMING-PREFIX",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#naming.prefix",
+      "legacy_value": "NB_",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-NAMING",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "封装名前缀只服务旧规则 1.1；命名的形态（mount/name 谓词）尚未建模，无 form 可归属。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-NAMING-PREFIX-CASE-SENSITIVE",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#naming.prefix_case_sensitive",
+      "legacy_value": true,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-NAMING",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "大小写敏感只服务旧规则 1.1 的前缀比对，随命名字段一起收编。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-ORIGIN-CENTER-TOLERANCE-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#origin.center_tolerance_mm",
+      "legacy_value": 0.5,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-ORIGIN",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "原点居中容差服务旧规则 3.4；收编属 #21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-ORIGIN-CONNECTOR-TOLERANCE-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#origin.connector_tolerance_mm",
+      "legacy_value": 20.0,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-ORIGIN",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "连接器原点容差服务旧规则 3.4（连接器按更大容差判）；收编属 #21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-PAD-MIN-SPACING-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#pad.min_spacing_mm",
+      "legacy_value": 0.2,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-PAD-GEOMETRY",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "相邻 pin 间距下限服务旧规则 3.1；几何类规则的收编属 #21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-PAD-OVERLAP-TOLERANCE-MM2",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#pad.overlap_tolerance_mm2",
+      "legacy_value": 0.05,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-PAD-GEOMETRY",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "焊盘重叠容差服务旧规则 3.3；面积类判定的收编属 #21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-PAD-PASTEMASK-EQUAL-PAD",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#pad.pastemask_equal_pad",
+      "legacy_value": true,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-PASTEMASK",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "钢网=焊盘同时被旧规则 2.3 与 geometry_solver 的钢网生成读取，收编属派生侧（#20）。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-PAD-SIZE-TOLERANCE-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#pad.size_tolerance_mm",
+      "legacy_value": 0.05,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-PAD-GEOMETRY",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "焊盘尺寸容差服务旧规则 2.1 / 3.2x / 3.2y；几何类规则的收编属 #21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-PAD-SOLDERMASK-EXPAND-MAX-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#pad.soldermask_expand_max_mm",
+      "legacy_value": 0.13,
+      "target": {
+        "type": "parameter",
+        "id": "PARAM-MASK-EXPAND",
+        "path": "allowed[1]"
+      },
+      "status": "migrated",
+      "note": "区间上限对所有形态相同，收到参数级 allowed 的第二个元素。",
+      "rollback": "已由规则库对象替代；回滚按 rollback_recipe 展开成旧三参数形态。"
+    },
+    {
+      "id": "MIG-KEY-PAD-SOLDERMASK-EXPAND-MIN-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#pad.soldermask_expand_min_mm",
+      "legacy_value": 0.05,
+      "target": {
+        "type": "parameter",
+        "id": "PARAM-MASK-EXPAND",
+        "path": "allowed[0]"
+      },
+      "status": "migrated",
+      "note": "区间下限对所有形态相同，收到参数级 allowed 的第一个元素。",
+      "rollback": "已由规则库对象替代；回滚按 rollback_recipe 展开成旧三参数形态。"
+    },
+    {
+      "id": "MIG-KEY-PAD-SOLDERMASK-EXPAND-TYPICAL-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#pad.soldermask_expand_typical_mm",
+      "legacy_value": 0.08,
+      "target": {
+        "type": "parameter",
+        "id": "PARAM-MASK-EXPAND",
+        "path": "groups[].value"
+      },
+      "status": "migrated",
+      "note": "旧键是单值 0.08（SMD 惯例值）；迁移后按形态分组各存一份典型值：TH 长圆 0.05 / TH 圆 0.05 / SMD 0.08。",
+      "rollback": "已由规则库对象替代；回滚按 rollback_recipe 展开成旧三参数形态。"
+    },
+    {
+      "id": "MIG-KEY-PLACE-BOUND-CHIP-EXPAND-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#place_bound.chip_expand_mm",
+      "legacy_value": 0.15,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-PLACE-BOUND",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "chip 类外扩典型值服务旧规则 5.2；同上。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-PLACE-BOUND-CONNECTOR-EXPAND-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#place_bound.connector_expand_mm",
+      "legacy_value": 0.85,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-PLACE-BOUND",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "connector 类外扩典型值服务旧规则 5.2；同上。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-PLACE-BOUND-DEGENERATE-OUTLINE-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#place_bound.degenerate_outline_mm",
+      "legacy_value": 1.0,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-PLACE-BOUND",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "外框退化判据（短边小于此值即视为不可用）服务旧规则 5.2；收编属 #21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-PLACE-BOUND-EXPAND-TOLERANCE-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#place_bound.expand_tolerance_mm",
+      "legacy_value": 0.05,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-PLACE-BOUND",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "外扩量容差服务旧规则 5.2；收编属 #21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-PLACE-BOUND-IC-EXPAND-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#place_bound.ic_expand_mm",
+      "legacy_value": 0.35,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-PLACE-BOUND",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "IC 类 place_bound 外扩典型值服务旧规则 5.2；按器件类别取值需要 form 谓词先建模（#21）。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-PLACE-BOUND-MAX-EXPAND-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#place_bound.max_expand_mm",
+      "legacy_value": 3.0,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-PLACE-BOUND",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "外扩量上限服务旧规则 5.2；收编属 #21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-PLACE-BOUND-MAX-PLAUSIBLE-EXPAND-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#place_bound.max_plausible_expand_mm",
+      "legacy_value": 3.0,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-PLACE-BOUND",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "物理合理上限服务旧规则 5.2（疑似外框识别退化）；收编属 #21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-PLACE-BOUND-MIN-EXPAND-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#place_bound.min_expand_mm",
+      "legacy_value": 0.05,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-PLACE-BOUND",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "外扩量下限服务旧规则 5.2；收编属 #21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-SILKSCREEN-LINE-WIDTH-MIN-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#silkscreen.line_width_min_mm",
+      "legacy_value": 0.1,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-SILKSCREEN",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "丝印线宽下限同时被旧规则 6.4 / 6.6 与 geometry_solver 的丝印生成读取；收编属 #20/#21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-SILKSCREEN-OVERLAP-INSET-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#silkscreen.overlap_inset_mm",
+      "legacy_value": 0.1,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-SILKSCREEN",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "元素重叠内缩服务旧规则 6.3；收编属 #21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-KEY-SILKSCREEN-TO-PAD-CLEARANCE-MM",
+      "kind": "threshold_key",
+      "legacy": "checker_rules.json#silkscreen.to_pad_clearance_mm",
+      "legacy_value": 0.2,
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-SILKSCREEN",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "丝印到焊盘间距同时被旧规则 6.6 与 geometry_solver 读取；收编属 #20/#21。",
+      "reason": "本轮（票 #19）只收编阻焊外扩；该键仍由 services/rule_checker.py 的旧阈值路径消费，阈值文件冻结只读。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-0-1",
+      "kind": "rule",
+      "legacy": "rule_checker.py#0.1",
+      "legacy_value": "spec 守卫（规格书未建模条目）",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "读取规格书里未被工具建模的约束，属 spec_reading 套件，不是阈值参数。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-0-2",
+      "kind": "rule",
+      "legacy": "rule_checker.py#0.2",
+      "legacy_value": "SHAPE 自定义轮廓焊盘",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "自定义轮廓的形状目测项，无阈值可迁。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-1-1",
+      "kind": "rule",
+      "legacy": "rule_checker.py#1.1",
+      "legacy_value": "封装名前缀",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "命名的形态（form 谓词）尚未建立，靠 naming.* 三个键；收编属命名线（#21）。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-1-2",
+      "kind": "rule",
+      "legacy": "rule_checker.py#1.2",
+      "legacy_value": "小数点用 d 代替",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "依赖命名生成侧口径（geometry_solver），收编属派生侧（#20）。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-1-3",
+      "kind": "rule",
+      "legacy": "rule_checker.py#1.3",
+      "legacy_value": "包含引脚数（启发式）",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "读 datasheet 事实做启发式，不是阈值规则。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-2-1",
+      "kind": "rule",
+      "legacy": "rule_checker.py#2.1",
+      "legacy_value": "焊盘尺寸（与命名一致性）",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "几何类规则，收编属 #21；其容差键 pad.size_tolerance_mm 仍在旧表。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-2-2",
+      "kind": "rule",
+      "legacy": "rule_checker.py#2.2",
+      "legacy_value": "阻焊开窗外扩",
+      "target": {
+        "type": "rule",
+        "id": "RULE-MASK-EXPAND",
+        "path": "knowledge/rules/rules.json"
+      },
+      "status": "migrated",
+      "note": "已迁为规则 RULE-MASK-EXPAND + 参数 PARAM-MASK-EXPAND，判定侧改由 rule_engine.judge 执行。",
+      "rollback": "已由规则库对象替代；回滚按 rollback_recipe 展开成旧三参数形态。"
+    },
+    {
+      "id": "MIG-RULE-2-3",
+      "kind": "rule",
+      "legacy": "rule_checker.py#2.3",
+      "legacy_value": "钢网与焊盘等大",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "属派生侧（钢网生成），收编属 #20。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-2-7",
+      "kind": "rule",
+      "legacy": "rule_checker.py#2.7",
+      "legacy_value": "TH 焊盘层完整性",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "多谓词组合（四层齐全），需先拆 form 才能进规则集；收编属 #21。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-2-8",
+      "kind": "rule",
+      "legacy": "rule_checker.py#2.8",
+      "legacy_value": "TH 构造约定",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "现读 convention_engine 的构造约定，收编要等约定库迁移。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-2-9",
+      "kind": "rule",
+      "legacy": "rule_checker.py#2.9",
+      "legacy_value": "TH padstack 命名语法",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "语法逻辑在 convention_engine，未进规则集；收编属 #21。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-3-1",
+      "kind": "rule",
+      "legacy": "rule_checker.py#3.1",
+      "legacy_value": "pin 数与相邻 pin 中心间距",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "几何类规则，收编属 #21；间距下限键 pad.min_spacing_mm 仍在旧表。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-3-2X",
+      "kind": "rule",
+      "legacy": "rule_checker.py#3.2x",
+      "legacy_value": "pitch 与 datasheet 一致 (x)",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "需要 datasheet 事实比对，收编属 #21。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-3-2Y",
+      "kind": "rule",
+      "legacy": "rule_checker.py#3.2y",
+      "legacy_value": "pitch 与 datasheet 一致 (y)",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "同上。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-3-3",
+      "kind": "rule",
+      "legacy": "rule_checker.py#3.3",
+      "legacy_value": "焊盘不重叠",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "面积类判定，收编属 #21。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-3-4",
+      "kind": "rule",
+      "legacy": "rule_checker.py#3.4",
+      "legacy_value": "原点在封装中心",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "几何类判定，收编属 #21。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-5-1",
+      "kind": "rule",
+      "legacy": "rule_checker.py#5.1",
+      "legacy_value": "Place_Bound_Top 存在",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "存在性检查，收编属 #21。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-5-2",
+      "kind": "rule",
+      "legacy": "rule_checker.py#5.2",
+      "legacy_value": "Place_Bound 外扩量",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "按器件类别取外扩典型值，需 form 谓词先建模；8 个相关键仍在旧表。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-6-1",
+      "kind": "rule",
+      "legacy": "rule_checker.py#6.1",
+      "legacy_value": "Assembly_Top 存在",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "存在性检查，收编属 #21。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-6-2",
+      "kind": "rule",
+      "legacy": "rule_checker.py#6.2",
+      "legacy_value": "Assembly 有内容",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "几何内容量判定，收编属 #21。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-6-3",
+      "kind": "rule",
+      "legacy": "rule_checker.py#6.3",
+      "legacy_value": "Assembly 元素数",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "几何内容量判定，收编属 #21。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-6-4",
+      "kind": "rule",
+      "legacy": "rule_checker.py#6.4",
+      "legacy_value": "Silkscreen_Top 存在",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "存在性检查（微型件惯例豁免），收编属 #21。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    },
+    {
+      "id": "MIG-RULE-6-6",
+      "kind": "rule",
+      "legacy": "rule_checker.py#6.6",
+      "legacy_value": "Silkscreen 不与焊盘重叠",
+      "target": {
+        "type": "legacy",
+        "id": "LEGACY-RULE",
+        "path": "services/rule_checker.py"
+      },
+      "status": "legacy",
+      "note": "几何判定，收编属 #21。",
+      "reason": "旧检查器仍按 DEFAULT_RULES 与冻结阈值文件执行；本轮只把 2.2 换成规则库引用，其余规则的收编属 #20/#21（ADR-0002 D9 分阶段）。",
+      "rollback": "本条未动，回滚=无操作：旧路径仍在（services/rule_checker.py 读冻结的 checker_rules.json）。"
+    }
+  ],
+  "rollback_recipe": {
+    "id": "ROLLBACK-MASK-EXPAND",
+    "applies_to": [
+      "PARAM-MASK-EXPAND",
+      "RULE-MASK-EXPAND"
+    ],
+    "steps": [
+      {
+        "op": "expand_parameter",
+        "from": "PARAM-MASK-EXPAND",
+        "to": [
+          {
+            "id": "PARAM-MASK-EXPAND-TH-OBLONG",
+            "form": "FORM-MASK-TH-OBLONG"
+          },
+          {
+            "id": "PARAM-MASK-EXPAND-TH-CIRCLE",
+            "form": "FORM-MASK-TH-CIRCLE"
+          },
+          {
+            "id": "PARAM-MASK-EXPAND-SMD",
+            "form": "FORM-MASK-SMD"
+          }
+        ]
+      },
+      {
+        "op": "rewrite_rule",
+        "rule": "RULE-MASK-EXPAND",
+        "use": [
+          "PARAM-MASK-EXPAND-TH-OBLONG",
+          "PARAM-MASK-EXPAND-TH-CIRCLE",
+          "PARAM-MASK-EXPAND-SMD"
+        ]
+      }
+    ],
+    "expanded_parameter_shape": "每个展开参数用扁平单形态形状：参数级 field/keys/allowed/eps/unit 原样保留，再加上该形态组的 form/value/support/source",
+    "expect": "按配方展开后，同一批夹具的判定结果（status/form/support/source_ref）与合并后逐件相等；2.2 端到端汇总仍为 files 253 / judged 235 / diff 0。",
+    "note": "数据侧回滚只做上面两步；派生侧回滚=git revert 票 #19 的提交（convention_engine 重新从 conventions.json 取 mask_expand_side_mm）。"
+  }
+}

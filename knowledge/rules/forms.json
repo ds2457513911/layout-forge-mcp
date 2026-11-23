@@ -41,6 +41,27 @@
       }
     },
     {
+      "id": "FORM-TH-DRILL-OTHER",
+      "name": "通孔其他孔形",
+      "desc": "带 ~DRILL 的引脚，孔形是 SQUARE_DRILL / RECTANGLE_SLOT（Allegro holeType 只有 CIRCLE_DRILL / SQUARE_DRILL / OVAL_SLOT / RECTANGLE_SLOT 四种；这类多为安装/定位孔）。规则尚未建立，因此会在覆盖率里显示为「有形态但无规则」的静态缺口，而不是静默通过",
+      "when": {
+        "all": [
+          {
+            "predicate": "mount",
+            "equals": "tht"
+          },
+          {
+            "predicate": "hole_shape",
+            "in": [
+              "SQUARE_DRILL",
+              "RECTANGLE_SLOT",
+              "RECTANGLE SLOT"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "id": "FORM-MASK-SMD",
       "name": "SMD 表面贴装",
       "desc": "没有 ~DRILL 层的引脚（extracta 的 SMD pad 行不带 DRILL）",

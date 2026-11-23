@@ -24,11 +24,21 @@
 
 规则库文件（knowledge/rules/）：
   forms.json      形态定义：id + 谓词组合（白名单谓词才能用）
-  parameters.json 参数：id + form + value/allowed/eps/support/source
+  parameters.json 参数：id + keys/allowed/eps（所有形态共用）+ groups[]（每形态
+                  一份 value/support/source）；单形态参数也可写扁平的
+                  form/value/support/source —— 两种形状二选一，见 parameters@2
   rules.json      规则：id + use（参数 id）+ assert + severity + source
   sources.json    出处：id + kind + ref + note
   _severity.json  severity 映射表：id + severity + consequence + evidence
+  library.json    规则集版本：version（语义版本）+ released_at + note；版本进哈希、
+                  进报告首屏（ADR-0002 D9）——库内容与版本任一处变，哈希就变
   checker_rules.json ★ 冻结只读的旧阈值文件，本模块不读、不许改
+
+覆盖率（票 #21）：coverage() 回答两个不同的问题，**分开列**（ADR-0002 D11）：
+  - 有形态但无规则：form 表 × 规则表差集，静态可算（forms_without_rule）
+  - 无形态：输入连 form 都匹配不上，只有运行时才知道（inputs_without_form）
+方向（ADR-0002 D2）：assert 用于判定、derive 用于派生；只有一侧有规则的形态
+在覆盖率里标 assert_only / derive_only，不当作「有规则」。
 """
 
 from __future__ import annotations
@@ -43,13 +53,24 @@ from typing import Any, Dict, List, Optional, Tuple
 
 SCHEMA_VERSION = "layout-forge/rules@1"
 
+# 规则集版本文件（library.json）是唯一不是 {"items": [...]} 形状的库文件。
+META_SCHEMA_KEYS = frozenset({"library"})
+LIBRARY_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+LIBRARY_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+KNOWN_LIBRARY_FIELDS = frozenset({"schema", "version", "released_at", "note"})
+
+# 覆盖率段的 schema 与方向标签（ADR-0002 D2 / D11）
+COVERAGE_SCHEMA = "layout-forge/coverage@1"
+DIRECTIONS: Tuple[str, ...] = ("assert", "derive")
+
 # 库目录：环境变量优先（测试用），否则项目根下 knowledge/rules
 RULE_DIR_ENV = "LAYOUT_FORGE_RULES_DIR"
 DEFAULT_RULE_DIR = Path(__file__).resolve().parents[1] / "knowledge" / "rules"
 
 SCHEMA_FILE_VERSIONS: Dict[str, str] = {
+    "library": "layout-forge/rules/library@1",
     "forms": "layout-forge/rules/forms@1",
-    "parameters": "layout-forge/rules/parameters@1",
+    "parameters": "layout-forge/rules/parameters@2",
     "rules": "layout-forge/rules/rules@1",
     "sources": "layout-forge/rules/sources@1",
     "severity": "layout-forge/rules/severity@1",
@@ -59,7 +80,7 @@ SCHEMA_FILE_VERSIONS: Dict[str, str] = {
 KNOWN_FIELDS: Dict[str, set] = {
     "forms": {"id", "name", "when", "desc"},
     "parameters": {"id", "form", "keys", "value", "allowed", "warn", "eps",
-                   "support", "source", "field", "unit", "note"},
+                   "support", "source", "field", "unit", "note", "groups"},
     "rules": {"id", "name", "use", "assert", "severity", "source", "since",
               "derive", "form", "when", "display", "summary", "note"},
     "sources": {"id", "kind", "ref", "note"},
@@ -68,6 +89,7 @@ KNOWN_FIELDS: Dict[str, set] = {
 
 # 四类对象 + severity 表的文件名（都是 {"items": [...]} 形状）
 SCHEMA_FILES: Dict[str, str] = {
+    "library": "library.json",
     "forms": "forms.json",
     "parameters": "parameters.json",
     "rules": "rules.json",
@@ -91,6 +113,10 @@ PREDICATES: Dict[str, Tuple[str, ...]] = {
 
 # 断言种类白名单（ADR D6/D9）：等值 / 不等 / 区间 / 上下界 / 绝对值
 ASSERT_KINDS: Tuple[str, ...] = ("allowed", "eq", "ne", "range", "bounds", "abs")
+
+# 参数形态组允许出现的字段：组只给「这个形态的典型值/支撑/出处」，
+# 区间与观测键属于参数本身（一处定义，所有形态共用）。
+GROUP_FIELDS = frozenset({"form", "value", "support", "source", "note"})
 
 DEFAULT_EPS = 0.005    # 边界浮点擦边，与旧 2.2 同口径
 
@@ -124,13 +150,15 @@ def sha256_text(text: str) -> str:
 # 库对象
 # ============================================================
 class RuleLibrary:
-    """加载后的整库：四类对象按 id 索引 + severity 表 + 整库哈希。"""
+    """加载后的整库：四类对象按 id 索引 + severity 表 + 版本 + 整库哈希。"""
 
-    def __init__(self, directory: Path, files: Dict[str, List[Dict[str, Any]]],
+    def __init__(self, directory: Path, files: Dict[str, Any],
                  fingerprint: str, file_hashes: Dict[str, str]) -> None:
         self.directory = str(directory)
         self.file_hashes = dict(file_hashes)
         self.fingerprint = fingerprint
+        self.library: Dict[str, Any] = dict(files.get("library") or {})
+        self.version: str = str(self.library.get("version") or "")
         self.forms: List[Dict[str, Any]] = files["forms"]
         self.parameters: List[Dict[str, Any]] = files["parameters"]
         self.rules: List[Dict[str, Any]] = files["rules"]
@@ -146,6 +174,7 @@ class RuleLibrary:
         """整库的确定性视图（报告 / 哈希 / 对拍都用它）。"""
         return {
             "schema": SCHEMA_VERSION,
+            "library": self.library,
             "forms": self.forms,
             "parameters": self.parameters,
             "rules": self.rules,
@@ -154,7 +183,7 @@ class RuleLibrary:
         }
 
     def __repr__(self) -> str:                       # pragma: no cover - 调试用
-        return (f"<RuleLibrary {self.directory} forms={len(self.forms)} "
+        return (f"<RuleLibrary {self.directory} v{self.version} forms={len(self.forms)} "
                 f"params={len(self.parameters)} rules={len(self.rules)} "
                 f"hash={self.fingerprint[:12]}>")
 
@@ -167,9 +196,14 @@ def _err(errors: List[Dict[str, str]], file: str, path: str, message: str) -> No
 
 
 def _require(errors: List[Dict[str, str]], file: str, path: str, obj: Dict[str, Any],
-             key: str, kind: type, allow_none: bool = False) -> bool:
-    """必填字段 + 类型校验；返回是否存在且类型对。"""
-    label = obj.get("id")
+             key: str, kind: type, allow_none: bool = False,
+             owner: Optional[str] = None) -> bool:
+    """必填字段 + 类型校验；返回是否存在且类型对。
+
+    owner 用于「报错要指得出是哪个对象」但被校验的是子结构（形态组没有自己的 id）
+    的场合：错误后缀带的是所属参数 id，而不是组的 form。
+    """
+    label = owner or obj.get("id")
     suffix = f"（对象 {label}）" if isinstance(label, str) and label else ""
     if key not in obj:
         _err(errors, file, f"{path}.{key}", f"缺必填字段{suffix}")
@@ -258,6 +292,40 @@ def _check_derive_expr(errors: List[Dict[str, str]], file: str, path: str,
             return
 
 
+def _read_meta_file(directory: Path, errors: List[Dict[str, str]]) -> Tuple[Dict[str, Any], Dict[str, str]]:
+    """读 library.json（规则集版本）。它是唯一不是 items 形状的库文件。"""
+    name = SCHEMA_FILES["library"]
+    path = directory / name
+    hashes: Dict[str, str] = {}
+    if not path.is_file():
+        _err(errors, name, "$", "库文件缺失（规则集版本必须显式声明）")
+        return {}, hashes
+    raw = path.read_bytes()
+    hashes[name] = hashlib.sha256(raw).hexdigest()
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        _err(errors, name, "$", f"JSON 解析失败：{exc}")
+        return {}, hashes
+    if not isinstance(data, dict):
+        _err(errors, name, "$", "顶层必须是对象")
+        return {}, hashes
+    expected = SCHEMA_FILE_VERSIONS["library"]
+    if data.get("schema") != expected:
+        _err(errors, name, "$.schema", f"schema 应为 {expected!r}，实际 {data.get('schema')!r}")
+    extra = set(data) - KNOWN_LIBRARY_FIELDS
+    if extra:
+        _err(errors, name, f"$.{sorted(extra)[0]}", f"未声明字段 {sorted(extra)}")
+    version = data.get("version")
+    if not isinstance(version, str) or not LIBRARY_VERSION_RE.match(version):
+        _err(errors, name, "$.version",
+             f"版本应为 MAJOR.MINOR.PATCH（如 1.0.0），实际 {version!r}")
+    released = data.get("released_at")
+    if not isinstance(released, str) or not LIBRARY_DATE_RE.match(released):
+        _err(errors, name, "$.released_at", f"released_at 应为 YYYY-MM-DD，实际 {released!r}")
+    return data, hashes
+
+
 def _read_schema_file(directory: Path, key: str, errors: List[Dict[str, str]]) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
     name = SCHEMA_FILES[key]
     path = directory / name
@@ -313,31 +381,34 @@ def _validate_forms(forms: List[Dict[str, Any]], errors: List[Dict[str, str]]) -
                  f"when 只支持 all/any，发现 {sorted(unknown)}")
 
 
+def _range_ok(allowed, value):
+    """value 是否落在 [下限, 上限]；非数字视为「不参与校验」（校验器另行报错）。"""
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return True
+    return (isinstance(allowed, list) and len(allowed) == 2
+            and allowed[0] <= value <= allowed[1])
+
+
 def _validate_parameters(params: List[Dict[str, Any]], forms: List[Dict[str, Any]],
                          sources: List[Dict[str, Any]], errors: List[Dict[str, str]]) -> None:
+    """参数：两形状二选一 —— 单形态扁平（form/value/support/source）或多形态 groups。
+
+    两种形状的共用部分（keys / allowed / eps）只在参数级写一次：区间属于
+    「阻焊外扩」这件事，不属于某个形态。形态组只给典型值、支撑件数与出处。
+    """
     name = SCHEMA_FILES["parameters"]
     form_ids = {f.get("id") for f in forms}
     source_ids = {s.get("id") for s in sources}
     for i, par in enumerate(params):
         p = f"items[{i}]"
-        _require(errors, name, p, par, "form", str)
+        who = par.get("id") or "?"
         _require(errors, name, p, par, "keys", list)
-        _require(errors, name, p, par, "value", (int, float))
         _require(errors, name, p, par, "allowed", list)
-        _require(errors, name, p, par, "support", int)
-        _require(errors, name, p, par, "source", str)
-        form = par.get("form")
-        if isinstance(form, str) and form not in form_ids:
-            _err(errors, name, f"{p}.form",
-                 f"引用了不存在的形态 {form!r}（参数 {par.get('id')}）")
-        src = par.get("source")
-        if isinstance(src, str) and src not in source_ids:
-            _err(errors, name, f"{p}.source",
-                 f"引用了不存在的出处 {src!r}（参数 {par.get('id')}）")
         keys = par.get("keys")
         if isinstance(keys, list) and (not keys or not all(isinstance(k, str) and k for k in keys)):
             _err(errors, name, f"{p}.keys", "应为非空字符串数组")
         allowed = par.get("allowed")
+        allowed_ok = False
         if isinstance(allowed, list):
             if len(allowed) != 2 or not all(isinstance(x, (int, float)) and not isinstance(x, bool)
                                             for x in allowed):
@@ -345,16 +416,102 @@ def _validate_parameters(params: List[Dict[str, Any]], forms: List[Dict[str, Any
             elif allowed[0] > allowed[1]:
                 _err(errors, name, f"{p}.allowed", "下限大于上限")
             else:
-                val = par.get("value")
-                if isinstance(val, (int, float)) and not isinstance(val, bool):
-                    if not (allowed[0] <= val <= allowed[1]):
-                        _err(errors, name, f"{p}.value", f"value {val} 不在 allowed {allowed} 内")
+                allowed_ok = True
         eps = par.get("eps")
         if eps is not None and (not isinstance(eps, (int, float)) or isinstance(eps, bool) or eps < 0):
             _err(errors, name, f"{p}.eps", "应为非负数字")
-        support = par.get("support")
-        if isinstance(support, int) and support < 0:
-            _err(errors, name, f"{p}.support", "支持件数不能为负")
+
+        grouped = "groups" in par
+        flat = sorted(set(par) & {"form", "value", "support", "source"})
+        if grouped and flat:
+            _err(errors, name, f"{p}.{flat[0]}",
+                 f"groups 与扁平字段 {flat} 不能同时出现（参数 {who}）："
+                 "单形态参数写扁平形式，多形态参数写 groups")
+        elif not grouped and not flat:
+            _err(errors, name, f"{p}.groups",
+                 f"缺 groups（多形态）或 form/value/support/source（单形态）（参数 {who}）")
+        elif not grouped:
+            for key, kind in (("form", str), ("value", (int, float)),
+                              ("support", int), ("source", str)):
+                _require(errors, name, p, par, key, kind)
+            form = par.get("form")
+            if isinstance(form, str) and form not in form_ids:
+                _err(errors, name, f"{p}.form", f"引用了不存在的形态 {form!r}（参数 {who}）")
+            src = par.get("source")
+            if isinstance(src, str) and src not in source_ids:
+                _err(errors, name, f"{p}.source", f"引用了不存在的出处 {src!r}（参数 {who}）")
+            if isinstance(par.get("support"), int) and par["support"] < 0:
+                _err(errors, name, f"{p}.support", "支持件数不能为负")
+            val = par.get("value")
+            if allowed_ok and not _range_ok(allowed, val):
+                _err(errors, name, f"{p}.value",
+                     f"value {val} 不在 allowed {allowed} 内（参数 {who}）")
+        else:
+            groups = par.get("groups")
+            if not isinstance(groups, list) or not groups:
+                _err(errors, name, f"{p}.groups", f"groups 应为非空数组（参数 {who}）")
+                continue
+            seen_forms = set()
+            for j, grp in enumerate(groups):
+                gp = f"{p}.groups[{j}]"
+                if not isinstance(grp, dict):
+                    _err(errors, name, gp, "形态组必须是对象")
+                    continue
+                extra = set(grp) - GROUP_FIELDS
+                if extra:
+                    _err(errors, name, f"{gp}.{sorted(extra)[0]}",
+                         f"未声明字段 {sorted(extra)}（形态组只许 "
+                         f"{'/'.join(sorted(GROUP_FIELDS))}）")
+                for key, kind in (("form", str), ("value", (int, float)),
+                                  ("support", int), ("source", str)):
+                    _require(errors, name, gp, grp, key, kind, owner=who)
+                form = grp.get("form")
+                if isinstance(form, str):
+                    if form not in form_ids:
+                        _err(errors, name, f"{gp}.form",
+                             f"引用了不存在的形态 {form!r}（参数 {who}）")
+                    if form in seen_forms:
+                        _err(errors, name, f"{gp}.form",
+                             f"形态 {form!r} 在同一参数里出现两次（参数 {who}）")
+                    seen_forms.add(form)
+                src = grp.get("source")
+                if isinstance(src, str) and src not in source_ids:
+                    _err(errors, name, f"{gp}.source",
+                         f"引用了不存在的出处 {src!r}（参数 {who}）")
+                if isinstance(grp.get("support"), int) and grp["support"] < 0:
+                    _err(errors, name, f"{gp}.support", "支持件数不能为负")
+                val = grp.get("value")
+                if allowed_ok and not _range_ok(allowed, val):
+                    _err(errors, name, f"{gp}.value",
+                         f"value {val} 不在 allowed {allowed} 内（参数 {who}，形态 {form}）")
+
+
+def _check_field_form_unique(params: List[Dict[str, Any]],
+                             errors: List[Dict[str, str]]) -> None:
+    """同一 (field, form) 只许一个参数定义 —— 防「同一个数字两份拷贝」复活。
+
+    票 #19 的教训：阻焊外扩曾经三处独立定义（TH 长圆 / TH 圆 / SMD 各一条参数，
+    派生侧还各读各的）。合并后若有人再建一条同 field 同 form 的参数，就是第二份
+    真源，加载阶段直接拒。
+    """
+    name = SCHEMA_FILES["parameters"]
+    seen: Dict[Tuple[str, str], str] = {}
+    for i, par in enumerate(params):
+        field = par.get("field")
+        if not isinstance(field, str) or not field:
+            continue
+        for grp in parameter_groups(par):
+            form = grp.get("form") if isinstance(grp, dict) else None
+            if not isinstance(form, str):
+                continue
+            key = (field, form)
+            pid = str(par.get("id"))
+            if key in seen:
+                _err(errors, name, f"items[{i}].field",
+                     f"{field}@{form} 已被参数 {seen[key]} 定义"
+                     "（一个参数一处定义，不许第二份拷贝）")
+            else:
+                seen[key] = pid
 
 
 def _validate_rules(rules: List[Dict[str, Any]], forms: List[Dict[str, Any]],
@@ -484,9 +641,14 @@ def load_library(path: Optional[Any] = None) -> RuleLibrary:
         _err(errors, str(directory), "$", "规则库目录不存在")
         raise RuleLibraryError(errors, str(directory))
 
-    files: Dict[str, List[Dict[str, Any]]] = {}
+    files: Dict[str, Any] = {}
     hashes: Dict[str, str] = {}
+    meta, meta_hash = _read_meta_file(directory, errors)
+    files["library"] = meta
+    hashes.update(meta_hash)
     for schema_key in SCHEMA_FILES:
+        if schema_key in META_SCHEMA_KEYS:
+            continue
         items, hs = _read_schema_file(directory, schema_key, errors)
         files[schema_key] = items
         hashes.update(hs)
@@ -500,17 +662,21 @@ def load_library(path: Optional[Any] = None) -> RuleLibrary:
 
     if not errors:
         for file_key, items in files.items():
+            if file_key in META_SCHEMA_KEYS:
+                continue
             known = KNOWN_FIELDS[file_key]
             for i, obj in enumerate(items):
                 extra = set(obj) - known
                 if extra:
                     _err(errors, SCHEMA_FILES[file_key], f"items[{i}].{sorted(extra)[0]}",
                          f"未声明字段 {sorted(extra)}")
-        _check_duplicate_ids(files, errors)
+        _check_duplicate_ids({k: v for k, v in files.items()
+                              if k not in META_SCHEMA_KEYS}, errors)
         _validate_forms(files["forms"], errors)
         _validate_sources(files["sources"], errors)
         _validate_severity(files["severity"], errors)
         _validate_parameters(files["parameters"], files["forms"], files["sources"], errors)
+        _check_field_form_unique(files["parameters"], errors)
         _validate_rules(files["rules"], files["forms"], files["parameters"],
                         files["sources"], files["severity"], errors)
 
@@ -585,18 +751,205 @@ def match_form(lib: RuleLibrary, subject: Dict[str, Any]) -> Optional[Dict[str, 
 
 
 # ============================================================
+# 覆盖缺口（票 #21；ADR-0002 D11 / D9）
+# ============================================================
+def rule_directions(rule: Dict[str, Any]) -> Dict[str, bool]:
+    """一条规则有哪些方向：assert（判定）/ derive（派生）；可同时存在。"""
+    return {"assert": bool(rule.get("assert")), "derive": rule.get("derive") is not None}
+
+
+def rule_forms(lib: RuleLibrary, rule: Dict[str, Any]) -> List[str]:
+    """规则作用于哪些形态：显式 form 优先，否则由 use → 参数的 form 推出来。"""
+    out: List[str] = []
+    form = rule.get("form")
+    if isinstance(form, str) and form not in out:
+        out.append(form)
+    for pid in rule.get("use") or []:
+        par = lib.parameters_by_id.get(pid) or {}
+        for grp in parameter_groups(par):
+            fid = grp.get("form")
+            if isinstance(fid, str) and fid not in out:
+                out.append(fid)
+    return out
+
+
+def rule_index(lib: RuleLibrary) -> Dict[str, Dict[str, List[str]]]:
+    """形态 → {assert: [规则 id], derive: [规则 id]}；按库内顺序、去重。
+
+    按库缓存：库加载后不可变，反复算覆盖率不必重建索引。
+    """
+    cached = getattr(lib, "_rule_index", None)
+    if cached is not None:
+        return cached
+    index: Dict[str, Dict[str, List[str]]] = {}
+    for form in lib.forms:
+        fid = form.get("id")
+        if isinstance(fid, str):
+            index[fid] = {"assert": [], "derive": []}
+    for rule in lib.rules:
+        rid = rule.get("id")
+        if not isinstance(rid, str):
+            continue
+        directions = rule_directions(rule)
+        for fid in rule_forms(lib, rule):
+            slot = index.get(fid)
+            if slot is None:
+                continue
+            for direction in DIRECTIONS:
+                if directions[direction] and rid not in slot[direction]:
+                    slot[direction].append(rid)
+    lib._rule_index = index
+    return index
+
+
+def _form_status(entry: Dict[str, List[str]]) -> str:
+    """covered / assert_only / derive_only / uncovered —— 一侧有规则不算「有规则」。"""
+    has_assert, has_derive = bool(entry["assert"]), bool(entry["derive"])
+    if has_assert and has_derive:
+        return "covered"
+    if has_assert:
+        return "assert_only"
+    if has_derive:
+        return "derive_only"
+    return "uncovered"
+
+
+def _form_param_support(lib: RuleLibrary, form_id: str, rule_ids: List[str]) -> Optional[int]:
+    """该形态的语料支撑件数（参数 support 的最大值）；没有规则 → None。"""
+    best: Optional[int] = None
+    for rule_id in rule_ids:
+        rule = lib.rules_by_id.get(rule_id) or {}
+        for pid in rule.get("use") or []:
+            par = lib.parameters_by_id.get(pid)
+            if par is None:
+                continue
+            view = resolve_parameter(par, form_id)
+            if view is None:
+                continue
+            support = view.get("support")
+            if isinstance(support, int) and not isinstance(support, bool):
+                if best is None or support > best:
+                    best = support
+    return best
+
+
+def _subject_signature(subject: Dict[str, Any]) -> str:
+    shape = _subject_hole_shape(subject)
+    return f"mount={subject.get('mount') or '?'}; hole_shape={shape or '—'}"
+
+
+def _no_form_reason(subject: Dict[str, Any]) -> str:
+    mount = subject.get("mount")
+    shape = _subject_hole_shape(subject)
+    if mount not in ("tht", "smd"):
+        return f"安装方式 {mount!r} 不在形态定义里"
+    if mount == "tht" and shape is None:
+        return "缺孔形：通孔引脚没读到 drill.shape"
+    if shape is not None:
+        return f"孔形 {shape!r} 还没进形态表（先定义形态，再补规则）"
+    return "没有可判定的形态事实"
+
+
+def coverage(lib: RuleLibrary, subjects: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+    """本次输入 × 规则库的覆盖率（纯函数）。
+
+    :param lib: load_library() 的返回值
+    :param subjects: 本次输入的 subject 列表（judge 的 subject 同形状）
+    :return: {schema, rule_set_version, rule_set_hash, total, forms[], gaps{}}
+             gaps 里两类缺口分开列：forms_without_rule（静态差集）与
+             inputs_without_form（运行时才知道）。
+    """
+    index = rule_index(lib)
+    hits: Dict[str, List[str]] = {fid: [] for fid in index}
+    grouped: Dict[str, Dict[str, Any]] = {}
+    order: List[str] = []
+    total = 0
+    for i, subject in enumerate(subjects or []):
+        total += 1
+        sid = subject.get("id")
+        subject_id = sid if isinstance(sid, str) and sid else str(i)
+        form = match_form(lib, subject)
+        fid = form.get("id") if isinstance(form, dict) else None
+        if fid in hits:
+            hits[fid].append(subject_id)
+            continue
+        signature = _subject_signature(subject)
+        if signature not in grouped:
+            grouped[signature] = {"signature": signature,
+                                 "reason": _no_form_reason(subject),
+                                 "count": 0, "subjects": []}
+            order.append(signature)
+        rec = grouped[signature]
+        rec["count"] += 1
+        if len(rec["subjects"]) < 5:
+            rec["subjects"].append(subject_id)
+
+    forms_out: List[Dict[str, Any]] = []
+    for form in lib.forms:
+        fid = form.get("id")
+        if not isinstance(fid, str):
+            continue
+        entry = index[fid]
+        forms_out.append({
+            "form": fid,
+            "name": form.get("name") or "",
+            "status": _form_status(entry),
+            "assert_rules": list(entry["assert"]),
+            "derive_rules": list(entry["derive"]),
+            "hits": len(hits.get(fid, [])),
+            "subjects": hits.get(fid, [])[:8],
+            "support": _form_param_support(lib, fid, entry["assert"]),
+        })
+    matched = sum(rec["hits"] for rec in forms_out)
+    return {
+        "schema": COVERAGE_SCHEMA,
+        "rule_set_version": lib.version,
+        "rule_set_hash": lib.fingerprint,
+        "total": {"subjects": total, "matched": matched, "unmatched": total - matched},
+        "forms": forms_out,
+        "gaps": {
+            "forms_without_rule": [rec["form"] for rec in forms_out if not rec["assert_rules"]],
+            "inputs_without_form": [grouped[sig] for sig in order],
+        },
+    }
+
+
+def rule_set_info(lib: RuleLibrary) -> Dict[str, Any]:
+    """报告首屏/JSON 用的规则集标识：版本 + 哈希 + 各对象件数（ADR-0002 D9）。"""
+    return {
+        "schema": SCHEMA_VERSION,
+        "version": lib.version,
+        "released_at": lib.library.get("released_at"),
+        "hash": lib.fingerprint,
+        "counts": {
+            "forms": len(lib.forms),
+            "parameters": len(lib.parameters),
+            "rules": len(lib.rules),
+            "sources": len(lib.sources),
+            "severity": len(lib.severity),
+        },
+    }
+
+
+# ============================================================
 # 判定
 # ============================================================
 def _skip(rule_id: str, detail: str, form: Optional[str] = None,
-          subject_id: Optional[str] = None) -> Dict[str, Any]:
-    return {
+          subject_id: Optional[str] = None, lib: RuleLibrary = None) -> Dict[str, Any]:
+    """SKIP finding：不是通过。方向/版本/哈希与正常 finding 同口径带上。"""
+    out: Dict[str, Any] = {
         "status": "SKIP",
         "rule_id": rule_id,
         "form": form,
         "subject": subject_id,
         "severity": "SKIP",
+        "direction": "assert",
         "detail": detail,
     }
+    if lib is not None:
+        out["rule_set_hash"] = lib.fingerprint
+        out["rule_set_version"] = lib.version
+    return out
 
 
 def _value_in(value: float, lo: float, hi: float, eps: float) -> bool:
@@ -642,6 +995,58 @@ def _eval_assert(assertion: Dict[str, Any], param: Dict[str, Any],
     return True, ""
 
 
+def parameter_groups(param: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """把一个参数展开成「形态组」列表（扁平单形态参数折成一组）。
+
+    参数有两种形状（见 parameters@2）：多形态写 groups[]，单形态写扁平的
+    form/value/support/source。调用方只想问「这个参数管哪几个形态、各组的典型值
+    是多少」，不该关心形状差异 —— 这一层归一化就干这个。
+    """
+    groups = param.get("groups")
+    if isinstance(groups, list):
+        return [g for g in groups if isinstance(g, dict)]
+    if "form" in param:
+        return [{"form": param.get("form"),
+                 "value": param.get("value"),
+                 "support": param.get("support"),
+                 "source": param.get("source")}]
+    return []
+
+
+def param_covers_form(param: Dict[str, Any], form_id: Optional[str]) -> bool:
+    """这个参数是否为该形态给过值。"""
+    if form_id is None:
+        return False
+    return any(g.get("form") == form_id for g in parameter_groups(param))
+
+
+def resolve_parameter(param: Dict[str, Any],
+                      form_id: Optional[str]) -> Optional[Dict[str, Any]]:
+    """按形态解析参数：返回「参数级字段 + 该形态组的值」的合并视图。
+
+    合并视图是判定与派生共用的形状：allowed / eps / keys 来自参数（区间对所有
+    形态相同），value / support / source 来自形态组（不同形态取不同典型值）。
+    该形态没有组 → None（调用方据此报 SKIP 或拒绝猜值，不许回落到别的形态）。
+    """
+    if form_id is None:
+        return None
+    for grp in parameter_groups(param):
+        if grp.get("form") != form_id:
+            continue
+        view = dict(param)
+        for key in ("groups", "form", "value", "support", "source"):
+            view.pop(key, None)
+        view["id"] = param.get("id")
+        view["form"] = form_id
+        view["value"] = grp.get("value")
+        view["support"] = grp.get("support")
+        view["source"] = grp.get("source")
+        if grp.get("note"):
+            view["group_note"] = grp.get("note")
+        return view
+    return None
+
+
 def judge(lib: RuleLibrary, rule_id: str, subject: Dict[str, Any],
           observed: Dict[str, Any]) -> Dict[str, Any]:
     """单条规则在一个 subject 上判定，纯函数。
@@ -650,31 +1055,43 @@ def judge(lib: RuleLibrary, rule_id: str, subject: Dict[str, Any],
     :param rule_id: rules.json 里的规则 id
     :param subject: 事实（mount / layers / drill / name / pad_count）
     :param observed: 观测值（按参数 keys 取值，缺键即 UNKNOWN）
-    :return: finding dict（status / rule_id / form / severity / source / support /
-             rule_set_hash / detail …）；三态之一，SKIP 也带 rule_id。
+    :return: finding dict（status / rule_id / form / direction / severity / source /
+             support / rule_set_hash / rule_set_version / detail …）；三态之一，
+             SKIP 也带 rule_id、方向与规则集标识（方向目前只有 assert，派生留给 #20）。
     """
     subject_id = subject.get("id")
     rule = lib.rules_by_id.get(rule_id)
     if rule is None:
-        return _skip(rule_id, f"缺规则：规则库里没有 {rule_id}")
+        return _skip(rule_id, f"缺规则：规则库里没有 {rule_id}", lib=lib)
 
     form = match_form(lib, subject)
     if form is None:
-        return _skip(rule_id, f"缺 form：{subject_id} 没有匹配的形态", subject_id=subject_id)
+        return _skip(rule_id, f"缺 form：{subject_id} 没有匹配的形态",
+                     subject_id=subject_id, lib=lib)
     form_id = form.get("id")
 
-    params = [lib.parameters_by_id[pid] for pid in rule.get("use", [])
-              if pid in lib.parameters_by_id and lib.parameters_by_id[pid].get("form") == form_id]
-    if not params:
-        return _skip(rule_id, f"缺参数：形态 {form_id} 没有绑定参数", form=form_id,
-                     subject_id=subject_id)
-
-    param = params[0]
+    param = None
+    for pid in rule.get("use", []):
+        candidate = lib.parameters_by_id.get(pid)
+        if candidate is None:
+            continue
+        resolved = resolve_parameter(candidate, form_id)
+        if resolved is not None:
+            param = resolved
+            break
+    if param is None:
+        # 形态完全没有判定规则，与「规则不绑定这个形态的参数」是两类缺口，分开报。
+        if not (rule_index(lib).get(form_id) or {}).get("assert"):
+            return _skip(rule_id,
+                         f"缺规则：形态 {form_id} 尚无判定规则（覆盖率缺口，不判 PASS）",
+                         form=form_id, subject_id=subject_id, lib=lib)
+        return _skip(rule_id, f"缺参数：规则 {rule_id} 未对形态 {form_id} 声明参数",
+                     form=form_id, subject_id=subject_id, lib=lib)
     keys = param.get("keys") or []
     missing = [k for k in keys if k not in observed]
     if missing:
         return _skip(rule_id, f"输入 UNKNOWN：缺观测 {', '.join(missing)}", form=form_id,
-                     subject_id=subject_id)
+                     subject_id=subject_id, lib=lib)
 
     severity_ref = rule.get("severity")
     sev_obj = lib.severity_by_id.get(severity_ref) or {}
@@ -690,6 +1107,7 @@ def judge(lib: RuleLibrary, rule_id: str, subject: Dict[str, Any],
         "rule_id": rule_id,
         "form": form_id,
         "subject": subject_id,
+        "direction": "assert",
         "param": param.get("id"),
         "severity": None,
         "severity_ref": severity_ref,
@@ -697,6 +1115,7 @@ def judge(lib: RuleLibrary, rule_id: str, subject: Dict[str, Any],
         "source_ref": source_ref,
         "support": param.get("support"),
         "rule_set_hash": lib.fingerprint,
+        "rule_set_version": lib.version,
         "value": {k: observed[k] for k in keys},
         "allowed": allowed,
         "eps": eps,

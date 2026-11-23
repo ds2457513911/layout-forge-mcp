@@ -27,7 +27,20 @@ v2 变更：
 """
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Optional
+
+
+# JSON 报告格式版本（checklist_report_*.json）；3.1 起含 rule_set / coverage
+REPORT_VERSION = "3.1"
+
+# 覆盖率状态：一侧有规则不算「覆盖」，与 rule_engine._form_status 同口径
+COVERAGE_STATUS_TEXT = {
+    "covered": "✅ 判定+派生",
+    "assert_only": "✓ 仅判定",
+    "derive_only": "✓ 仅派生",
+    "uncovered": "❌ 无规则",
+}
 
 
 # ============================================================
@@ -363,6 +376,103 @@ def _group_items(items: list[dict]) -> dict[str, list[dict]]:
     return groups
 
 
+
+
+# ============================================================
+# 规则集与覆盖率（票 #21；ADR-0002 D9 / D11）
+# ============================================================
+def rule_set_line(numeric_result: dict) -> str:
+    """首屏的规则集标识行；缺 rule_set 返回空串（历史/错误分支安全）。"""
+    info = numeric_result.get("rule_set")
+    if not isinstance(info, dict) or not info.get("hash"):
+        return ""
+    counts = info.get("counts") or {}
+    version = info.get("version") or "?"
+    short = str(info.get("hash"))[:12]
+    return (f"规则集 v{version} · hash {short}…"
+            f"（form {counts.get('forms', 0)} / 参数 {counts.get('parameters', 0)}"
+            f" / 规则 {counts.get('rules', 0)}）")
+
+
+def coverage_lines(cov: Any) -> list:
+    """覆盖率块（合计 + 形态表 + 两类缺口）。缺 coverage 返回空列表。"""
+    if not isinstance(cov, dict):
+        return []
+    total = cov.get("total") or {}
+    forms = cov.get("forms") or []
+    gaps = cov.get("gaps") or {}
+    uncovered_hit = sum(1 for rec in forms
+                        if isinstance(rec, dict) and rec.get("hits") and not rec.get("assert_rules"))
+    headline = (f"覆盖率：本次输入 {total.get('subjects', 0)} 个焊盘 · "
+                f"命中形态 {total.get('matched', 0)}")
+    if uncovered_hit:
+        headline += f"（其中 {uncovered_hit} 个命中但无规则）"
+    out = [
+        headline + f" · 无形态 {total.get('unmatched', 0)}",
+        "| 形态 | 形态名 | 本次命中 | 支撑（焊盘） | 判定规则（assert） | 派生规则（derive） | 覆盖 |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for rec in forms:
+        if not isinstance(rec, dict):
+            continue
+        status = rec.get("status")
+        out.append(
+            f"| {_esc(rec.get('form') or '')} | {_esc(rec.get('name') or '')} "
+            f"| {rec.get('hits', 0)} "
+            f"| {str(rec.get('support')) + ' 焊盘' if rec.get('support') is not None else '—'} "
+            f"| {_esc('、'.join(rec.get('assert_rules') or []) or '—')} "
+            f"| {_esc('、'.join(rec.get('derive_rules') or []) or '—')} "
+            f"| {COVERAGE_STATUS_TEXT.get(status, status or '—')} |"
+        )
+
+    names = {rec.get("form"): rec.get("name") or "" for rec in forms if isinstance(rec, dict)}
+    no_rule = gaps.get("forms_without_rule") or []
+    no_form = gaps.get("inputs_without_form") or []
+
+    def _named(fid):
+        name = names.get(fid) or ""
+        return f"{fid}（{name}）" if name else str(fid)
+
+    out.append("缺口·有形态但无规则：" + ("、".join(_named(f) for f in no_rule) if no_rule else "无"))
+    if no_form:
+        detail = "；".join(
+            f"{rec.get('signature')} × {rec.get('count')}（{rec.get('reason')}"
+            + (f"；样例 {'、'.join(rec.get('subjects') or [])}" if rec.get("subjects") else "")
+            + "）"
+            for rec in no_form if isinstance(rec, dict)
+        )
+        out.append("缺口·无形态的输入：" + detail)
+    else:
+        out.append("缺口·无形态的输入：无")
+    return out
+
+
+# ============================================================
+# JSON 报告（checklist_report_*.json）的唯一定义处
+# ============================================================
+def build_checklist_report(result: dict, generated_at: Optional[str] = None) -> dict:
+    """把 check_footprint_by_rules 的结果整理成 JSON 报告。
+
+    两个生产方（MCP 工具与 Tools/cleanup_redundant.py）都调这里，
+    保证「报告字段」只有一处定义；新增字段不会在两条路径上漂移。
+    """
+    result = result if isinstance(result, dict) else {}
+    fp = result.get("footprint_data") or {}
+    return {
+        "report_version": REPORT_VERSION,
+        "generated_at": generated_at or datetime.now().isoformat(timespec="seconds"),
+        "dra_file": fp.get("source_file"),
+        "symbol_name": fp.get("symbol_name"),
+        "component_type": result.get("component_type"),
+        "conclusion": result.get("conclusion"),
+        "summary": result.get("summary"),
+        "rule_set": result.get("rule_set"),
+        "coverage": result.get("coverage"),
+        "items": result.get("items"),
+        "failed": result.get("failed"),
+        "warned": result.get("warned"),
+    }
+
 # ============================================================
 # 渲染主函数
 # ============================================================
@@ -410,6 +520,14 @@ def render_markdown(
         count_str += f"｜报告 {report_filename}"
     lines.append(count_str)
     lines.append("")
+
+    # ---------- 规则集与覆盖率（首屏；旧调用方缺这两个字段时整块跳过） ----------
+    rule_line = rule_set_line(numeric_result)
+    if rule_line:
+        lines.append(rule_line)
+    lines.extend(coverage_lines(numeric_result.get("coverage")))
+    if rule_line or numeric_result.get("coverage"):
+        lines.append("")
 
     # ---------- 表格 ----------
     lines.append("| 大项 | 检查项 | 实测 | 要求 | 状态 |")
@@ -470,6 +588,17 @@ def render_markdown(
                 f"| {group_cell} | {_esc(row['name'])} | {_esc(row['actual'])} "
                 f"| {_esc(row['expected'])} | {status_icon} |"
             )
+
+    skip_notes = [
+        (it.get("name") or "", " ".join(str(it.get("detail") or "").split()))
+        for it in (numeric_result.get("items") or [])
+        if it.get("status") == "NA" and str(it.get("detail") or "").strip()
+    ]
+    if skip_notes:
+        lines.append("")
+        lines.append("> 未判定（SKIP，不判 PASS）：")
+        for name, detail in skip_notes[:10]:
+            lines.append(f"> - {_esc(name)}：{_esc(detail)}")
 
     lines.append("")
     lines.append("> 理论值由 AI 读图获取，建议对照 PDF 原图复核。")

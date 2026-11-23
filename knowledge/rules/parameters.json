@@ -1,63 +1,44 @@
 {
-  "schema": "layout-forge/rules/parameters@1",
-  "_meta": "参数按 form 分组，一个参数一处定义；value 是惯例值，allowed 是放行区间，support 是金标准里支撑该值的件数。",
+  "schema": "layout-forge/rules/parameters@2",
+  "_meta": "一个参数一处定义：参数级字段（keys/allowed/eps/unit/field）对所有形态组共用，groups 只给每个形态自己的典型值、支撑件数与出处。改 allowed 一处 → 所有形态的判定同步变；改某组 value → 该形态的派生同步变。",
   "items": [
     {
-      "id": "PARAM-MASK-EXPAND-TH-OBLONG",
-      "form": "FORM-MASK-TH-OBLONG",
+      "id": "PARAM-MASK-EXPAND",
       "field": "mask_expand_side",
       "keys": [
         "expand_x",
         "expand_y"
       ],
       "unit": "mm",
-      "value": 0.05,
       "allowed": [
         0.05,
         0.13
       ],
       "eps": 0.005,
-      "support": 22,
-      "source": "SRC-CONV-ADJUDICATED",
-      "note": "通孔长圆孔 22/26 件阻焊单边 0.05；与旧 2.2 的 min/max 同一口径"
-    },
-    {
-      "id": "PARAM-MASK-EXPAND-TH-CIRCLE",
-      "form": "FORM-MASK-TH-CIRCLE",
-      "field": "mask_expand_side",
-      "keys": [
-        "expand_x",
-        "expand_y"
+      "groups": [
+        {
+          "form": "FORM-MASK-TH-OBLONG",
+          "value": 0.05,
+          "support": 22,
+          "source": "SRC-CONV-ADJUDICATED",
+          "note": "通孔长圆孔 22/26 件阻焊单边 0.05；与旧 2.2 的 min/max 同一口径"
+        },
+        {
+          "form": "FORM-MASK-TH-CIRCLE",
+          "value": 0.05,
+          "support": 9,
+          "source": "SRC-CONV-ADJUDICATED",
+          "note": "通孔圆孔 9 件阻焊单边 0.05"
+        },
+        {
+          "form": "FORM-MASK-SMD",
+          "value": 0.08,
+          "support": 195,
+          "source": "SRC-LEGACY-RULES",
+          "note": "SMD 惯例值 0.08（全量 195/246 个焊盘）；出处是旧阈值文件的 soldermask_expand_typical_mm"
+        }
       ],
-      "unit": "mm",
-      "value": 0.05,
-      "allowed": [
-        0.05,
-        0.13
-      ],
-      "eps": 0.005,
-      "support": 9,
-      "source": "SRC-CONV-ADJUDICATED",
-      "note": "通孔圆孔 9 件阻焊单边 0.05"
-    },
-    {
-      "id": "PARAM-MASK-EXPAND-SMD",
-      "form": "FORM-MASK-SMD",
-      "field": "mask_expand_side",
-      "keys": [
-        "expand_x",
-        "expand_y"
-      ],
-      "unit": "mm",
-      "value": 0.08,
-      "allowed": [
-        0.05,
-        0.13
-      ],
-      "eps": 0.005,
-      "support": 195,
-      "source": "SRC-LEGACY-RULES",
-      "note": "SMD 惯例值 0.08（全量 195/246 个焊盘）；allowed 与旧 checker_rules 2.2 一致"
+      "note": "阻焊开窗单边外扩。票 #19 把 PARAM-MASK-EXPAND-TH-OBLONG / -TH-CIRCLE / -SMD 三条独立参数合并到这里；旧 id 与回滚配方见 knowledge/migrations/rules_v1.json"
     }
   ]
 }

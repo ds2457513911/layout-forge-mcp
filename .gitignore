@@ -61,6 +61,7 @@ Tools/*
 !Tools/selfcheck_skill_syntax.py
 !Tools/benchmark_golden.py
 !Tools/mine_conventions.py
+!Tools/render_migration_table.py
 
 # 含客户料号 / 本机绝对路径，明确排除
 Tools/e2e_*.py
@@ -108,3 +109,6 @@ Tools/deploy/__pycache__/
 .AIREADME
 __pycache__/
 *.pyc
+
+# 并行会话的 git worktree 检出（嵌套仓库，不进本仓）
+.agents/worktrees/

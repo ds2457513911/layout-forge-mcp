@@ -97,6 +97,7 @@ REGISTERED_DIRS = [
     "knowledge/specs",
     "knowledge/cases",
     "knowledge/rules",
+    "knowledge/migrations",
     "docs",
     "Tools",
     "Tools/deploy",

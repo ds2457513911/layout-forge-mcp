@@ -18,6 +18,12 @@ services/convention_engine.py —— 构造约定引擎（2026-10-13 第 0 层�
       pin 旋转 90° 后落到板面成为横槽。
     命名用**板面尺寸序**（长轴在前）：POB1D7X0D5HOB2D3X1D1。
     本引擎对外接口一律收**板面帧**(长, 短)，内部转本地帧。
+
+  ★ 阻焊外扩的唯一真源（票 #19）
+    单边外扩不再读 conventions.json 的 adjudicated.th_oblong_plated.mask_expand_side_mm
+    —— 那是同一个数字的第二份拷贝。真源是 knowledge/rules/parameters.json 的
+    PARAM-MASK-EXPAND，按形态分组（TH 长圆 0.05 / TH 圆 0.05 / SMD 0.08），
+    派生与判定（checker 2.2）读同一个参数对象：改一处，两侧同时生效。
 """
 from __future__ import annotations
 
@@ -27,8 +33,14 @@ import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from services import rule_engine
+
 ROOT = Path(__file__).resolve().parent.parent
 CONV_PATH = ROOT / "knowledge" / "conventions.json"
+
+# 阻焊单边外扩：参数真源 + TH 长圆孔对应的形态 id（票 #19）
+MASK_PARAM_ID = "PARAM-MASK-EXPAND"
+MASK_TH_FORM = "FORM-MASK-TH-OBLONG"
 
 # 约定文件缺失/损坏时的兜底值（= 2026-10-13 裁定值，与 conventions.json 一致）
 FALLBACK = {
@@ -36,7 +48,8 @@ FALLBACK = {
     "ring_compact": 0.20,        # 紧凑允许（高密度 type-c）
     "ring_warn_lo": 0.15,
     "ring_warn_hi": 0.40,
-    "mask_expand_side": 0.05,    # 阻焊单边外扩
+    # 阻焊单边外扩**不在这里**：唯一真源是规则库 PARAM-MASK-EXPAND（票 #19），
+    # 猜一个兜底值会让错的封装静默建成，故缺库即抛错。
     "paste_top_eq_pad": True,    # 顶面钢网 = 焊盘尺寸
     "paste_bottom": False,       # 底面无钢网
 }
@@ -76,19 +89,45 @@ def load_conventions(force: bool = False) -> Dict[str, Any]:
         return data
 
 
+def _mask_expand_from_rules() -> Dict[str, Any]:
+    """阻焊单边外扩：读规则库 PARAM-MASK-EXPAND 的通孔长圆孔形态组。
+
+    返回的是合并视图（allowed / eps 来自参数，value / support / source 来自组）。
+    缺参数或缺该形态的组 → 抛错而不猜值：阻焊外扩算错不会亮红灯，只会静默
+    建出漏铜/露基材的封装，所谓"数值兜底"正是本票要消灭的假绿。
+    """
+    lib = rule_engine.load_library()
+    param = lib.parameters_by_id.get(MASK_PARAM_ID)
+    if param is None:
+        raise RuntimeError(
+            f"规则库缺参数 {MASK_PARAM_ID}（knowledge/rules/parameters.json），"
+            f"TH 长圆孔派生拒绝猜值"
+        )
+    view = rule_engine.resolve_parameter(param, MASK_TH_FORM)
+    if view is None:
+        raise RuntimeError(
+            f"参数 {MASK_PARAM_ID} 缺形态组 {MASK_TH_FORM}，TH 长圆孔派生拒绝猜值"
+        )
+    return view
+
+
 def th_oblong_params() -> Dict[str, Any]:
-    """TH oblong 构造参数（裁定值 + 支持度；不可用时给兜底并打 fallback 标）"""
+    """TH oblong 构造参数（裁定值 + 支持度；约定文件不可用时给兜底并打 fallback 标）
+
+    阻焊外扩是例外：它来自规则库（票 #19），没有兜底值，缺库即抛错。
+    """
     conv = load_conventions()
     adj = (conv.get("adjudicated") or {}).get("th_oblong_plated") or {}
     ring = (adj.get("annular_ring_mm") or {})
-    mask = (adj.get("mask_expand_side_mm") or {})
+    mask = _mask_expand_from_rules()
     paste = (adj.get("paste_top") or {})
     return {
         "ring_standard": float(ring.get("standard", FALLBACK["ring_standard"])),
         "ring_compact": float(ring.get("compact_allowed", FALLBACK["ring_compact"])),
         "ring_warn_lo": FALLBACK["ring_warn_lo"],
         "ring_warn_hi": FALLBACK["ring_warn_hi"],
-        "mask_expand_side": float(mask.get("value", FALLBACK["mask_expand_side"])),
+        "mask_expand_side": float(mask["value"]),
+        "mask_source": mask.get("source"),
         "paste_top_eq_pad": FALLBACK["paste_top_eq_pad"] if paste else False,
         "paste_bottom": FALLBACK["paste_bottom"],
         "fallback": conv.get("fallback", False),

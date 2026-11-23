@@ -53,10 +53,10 @@
       "rc": 0,
       "seconds": 0.4,
       "timeout": false,
-      "passed": 60,
-      "total": 60,
+      "passed": 150,
+      "total": 150,
       "failed": 0,
-      "tail": "  ok    R6.5 nb_dc_jack5_10d5x6d5x4d78.dra 2.2 状态一致（旧 PASS）\n  ok    R6.5 nb_dc_jack5_10d5x6d5x4d78.dra 形态归属一致\n  ok    R6.5 nb_ddr4_std260_73d9x25d7x4d5_0d5.dra 2.2 状态一致（旧 WARN）\n  ok    R6.5 nb_ddr4_std260_73d9x25d7x4d5_0d5.dra 形态归属一致\n  ok    R6.5 nb_hdmi19_15x12d5x5d55_1.dra 2.2 状态一致（旧 PASS）\n  ok    R6.5 nb_hdmi19_15x12d5x5d55_1.dra 形态归属一致\n  ok    R6.5 gap-close-pwr-se.dra 2.2 状态一致（旧 NA）\n  ok    R6.5 gap-close-pwr-se.dra 形态归属一致\n  ok    R6.5 253 件 shadow 记录在案（差异 0）\n  ok    R6.6 旧阈值文件只读（sha256 未变）\n  ok    R6.6 引擎模块纯净（不碰宿主/网络/进程）\n结果: 60/60"
+      "tail": "  ok    R6.5 nb_dc_jack5_10d5x6d5x4d78.dra 2.2 状态一致（旧 PASS）\n  ok    R6.5 nb_dc_jack5_10d5x6d5x4d78.dra 形态归属一致\n  ok    R6.5 nb_ddr4_std260_73d9x25d7x4d5_0d5.dra 2.2 状态一致（旧 WARN）\n  ok    R6.5 nb_ddr4_std260_73d9x25d7x4d5_0d5.dra 形态归属一致\n  ok    R6.5 nb_hdmi19_15x12d5x5d55_1.dra 2.2 状态一致（旧 PASS）\n  ok    R6.5 nb_hdmi19_15x12d5x5d55_1.dra 形态归属一致\n  ok    R6.5 gap-close-pwr-se.dra 2.2 状态一致（旧 NA）\n  ok    R6.5 gap-close-pwr-se.dra 形态归属一致\n  ok    R6.5 253 件 shadow 记录在案（差异 0）\n  ok    R6.6 旧阈值文件只读（sha256 未变）\n  ok    R6.6 引擎模块纯净（不碰宿主/网络/进程）\n结果: 150/150"
     },
     "extracta": {
       "ok": true,

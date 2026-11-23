@@ -1,6 +1,6 @@
 # Tools/ —— CLI 脚本 / 探针 / 自检 / 文档
 
-> 最后更新：2026-10-14（补登 3 个约定链路工具：`mine_conventions` / `selfcheck_conventions` / `compare_extracta`）
+> 最后更新：2026-11-23（补登 `render_migration_table`；票 #21 报告字段改动不影响 Tools 接口）
 
 ## 这个目录是干什么的
 
@@ -66,6 +66,7 @@
 
 | 文件 | 功能 | 需要 Allegro |
 |--|--|--|
+| `render_migration_table.py` | ★ **规则迁移映射表渲染器**（票 #19）：读 `knowledge/migrations/rules_v1.json`，生成 `docs/迁移映射表-规则集v1.md`（人读版）。**别手改生成物**；R6.13 逐字节比对两者 | ✅ |
 | `mine_conventions.py` | ★ **构造规约收割器**（第 0 层）：从 padstack / 图纸 dump 里收割构造事实（孔型、命名编码、列守卫）→ 约定数据，喂 `services/convention_engine.py` | ❌ |
 | `selfcheck_conventions.py` | ★ **约定链路完整性自检**：堵死「约定被学到 → 约定被消费」链路上的两个代码级断点（LYDPJ holeType 事故，工程师 4 次否决复盘） | ❌ |
 | `compare_extracta.py` | ★ **两份 extracta dump 的逐列程序化对拍（验收强制工具）**：源自 2026-10-13 holeType 事故 —— 肉眼比对把 `CIRCLE_DRILL` vs `OVAL SLOT` 判成了「全字段一致」。**禁止肉眼比对后手写一致** | ❌ |

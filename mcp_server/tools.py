@@ -106,19 +106,7 @@ def _write_checklist_json(
 
     out_path = out_dir / filename
 
-    fp_data = result.get("footprint_data") or {}
-    report = {
-        "report_version": "3.0",
-        "generated_at": datetime.now().isoformat(timespec="seconds"),
-        "dra_file": fp_data.get("source_file"),
-        "symbol_name": fp_data.get("symbol_name"),
-        "component_type": result.get("component_type"),
-        "conclusion": result.get("conclusion"),
-        "summary": result.get("summary"),
-        "items": result.get("items"),
-        "failed": result.get("failed"),
-        "warned": result.get("warned"),
-    }
+    report = report_renderer.build_checklist_report(result)
 
     try:
         out_path.write_text(

@@ -627,7 +627,10 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
             sm_detail = "；".join(sm_bad[:3])
         elif sm_skips:
             sm_status = "NA"
-            sm_detail = f"{len(sm_skips)} 个 pin 无法判定：" + "；".join(sm_skips[:3])
+            n_pass = sum(1 for s in sm_statuses if s == "PASS")
+            passed = f"{n_pass} 个 pin 通过；" if n_pass else ""
+            sm_detail = (f"{passed}{len(sm_skips)} 个 pin 未判定（SKIP，不判 PASS）："
+                         + "；".join(sm_skips[:3]))
         else:
             sm_status = "PASS"
             sm_detail = ""
@@ -1594,6 +1597,12 @@ def run_numeric_checks(
     else:
         conclusion = "PASS"
 
+    # 覆盖率（票 #21）：本次输入的每个焊盘先归属形态，再与规则表对差集。
+    # 两类缺口分开返回：有形态但无规则（静态）、无形态（运行时）。
+    lib = rule_engine.load_library()
+    subjects = [_pin_rule_subject(pin) for pin in footprint_data.get("pins") or []
+                if pin.get("pads")]
+
     return {
         "conclusion": conclusion,
         "component_type": comp_type,
@@ -1605,6 +1614,8 @@ def run_numeric_checks(
             "na": n_na,
             "pass_rate": round(n_pass / n_total, 4) if n_total else 0.0,
         },
+        "rule_set": rule_engine.rule_set_info(lib),
+        "coverage": rule_engine.coverage(lib, subjects),
         "items": all_items,
         "failed": failed,
         "warned": warned,

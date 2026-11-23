@@ -1,0 +1,6 @@
+{
+  "schema": "layout-forge/rules/library@1",
+  "version": "1.0.0",
+  "released_at": "2026-11-23",
+  "note": "规则集版本（ADR-0002 D9）：form/parameter/rule/source/severity 任一处内容改动后由人 bump；内容哈希 rule_set_hash 由加载器现算，报告首屏同时记版本与哈希。"
+}

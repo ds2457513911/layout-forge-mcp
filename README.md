@@ -90,6 +90,7 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 | `knowledge/specs/` | ★ **spec 库**（2026-10-09 新增）：已解析器件的参数 JSON，同封装零读图复用 | `knowledge/specs/README.md` |
 | `knowledge/cases/` | ★ **检测案例库**（2026-10-12 新增）：指纹 + 报告摘要 + 人工裁定 + 教训，检查前 `find_case` 同族预警 | `knowledge/README.md` |
 | `knowledge/rules/` | ★ **规则阈值外置**（2026-10-12 新增）：`checker_rules.json`，改数字立即生效 | `knowledge/README.md` |
+| `knowledge/migrations/` | ★ **规则迁移映射表**（票 #19）：`rules_v1.json`，旧阈值/旧规则 → 新参数/新规则的唯一归属；人读版由 `Tools/render_migration_table.py` 生成 | `knowledge/migrations/README.md` |
 | `docs/` | ★ **作业流程 SOP** + 调研与攻坚清单（决策依据都在这）；`边界契约.md` 是「哪类事实归哪一层」的唯一权威 | `docs/README.md` |
 | `Tools/deploy/` | ★ **一键部署**（新机器双击 `deploy.bat` 即可：装环境 / 注册 MCP / 装 Skill / 配 SkillBridge / 验收） | `Tools/deploy/README.md` |
 | `.trash/` | 隔离区（可恢复，**不要当垃圾桶删**） | `.trash/README.md` |
