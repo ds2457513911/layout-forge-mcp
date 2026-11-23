@@ -1,5 +1,5 @@
 {
-  "frozen_at": "2026-11-23T11:53:17",
+  "frozen_at": "2026-11-23T14:50:47",
   "schema_version": 2,
   "interpreter": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\.venv\\Scripts\\python.exe",
   "inventory": {
@@ -15,7 +15,7 @@
   "runs": {
     "geometry": {
       "rc": 0,
-      "seconds": 0.3,
+      "seconds": 0.2,
       "timeout": false,
       "passed": 239,
       "total": 239,
@@ -51,26 +51,26 @@
     },
     "rule_engine": {
       "rc": 0,
-      "seconds": 0.7,
+      "seconds": 0.9,
       "timeout": false,
-      "passed": 151,
-      "total": 151,
+      "passed": 159,
+      "total": 159,
       "failed": 0,
-      "tail": "  ok    R6.9 改版本号 → 整库哈希变化\n  ok    R6.9 改版本号后覆盖率哈希与新库同源\n  ok    R6.10 语料里出现过的形态都在形态表里\n  ok    R6.10 语料 253 件中 19 件无形态（无形态类别的真实样本）\n  ok    R6.10 每形态语料支撑件数与 conventions 裁定一致\n  ok    R6.10 SMD 也有语料支撑件数（来自规则库来源，不是空占位）\n  ok    R6.10 语料里每个形态都能在覆盖率表里找到对应行\n  ok    R6.10 语料件数（按件）SMD 217 / TH-CIRCLE 23 / TH-OBLONG 15\n  ok    R6.10 支撑是焊盘口径（22 / 9 / 195），与件数口径分开记\n  ok    R6.10 冻结夹具上 coverage 逐形态命中 == 独立谓词计数\n  ok    R6.10 覆盖率合计 == 有焊盘的 pin 数\n结果: 151/151"
+      "tail": "  ok    R6.9 改版本号 → 整库哈希变化\n  ok    R6.9 改版本号后覆盖率哈希与新库同源\n  ok    R6.10 语料里出现过的形态都在形态表里\n  ok    R6.10 语料 253 件中 19 件无形态（无形态类别的真实样本）\n  ok    R6.10 每形态语料支撑件数与 conventions 裁定一致\n  ok    R6.10 SMD 也有语料支撑件数（来自规则库来源，不是空占位）\n  ok    R6.10 语料里每个形态都能在覆盖率表里找到对应行\n  ok    R6.10 语料件数（按件）SMD 217 / TH-CIRCLE 23 / TH-OBLONG 15\n  ok    R6.10 支撑是焊盘口径（22 / 9 / 195），与件数口径分开记\n  ok    R6.10 冻结夹具上 coverage 逐形态命中 == 独立谓词计数\n  ok    R6.10 覆盖率合计 == 有焊盘的 pin 数\n结果: 159/159"
     },
     "rule_shift": {
       "rc": 0,
-      "seconds": 0.2,
+      "seconds": 55.3,
       "timeout": false,
-      "passed": 88,
-      "total": 88,
+      "passed": 106,
+      "total": 106,
       "failed": 0,
-      "tail": "  ok    R7.7 影子覆盖 253 件\n  ok    R7.7 rows 253 条且与 summary 一致\n  ok    R7.7 逐件 id+status 差异 0\n  ok    R7.7 summary/diffs/rows 三处差异数一致\n  ok    R7.7 每条可比记录的 old/new 序列相同\n  ok    R7.7 每件不可读都有 errors_detail 归属\n  ok    R7.7 errors_detail 每条带原因\n  ok    R7.7 judged 与可比记录数一致\n  ok    R7.7 影子哈希对应当前规则库\n  ok    R7.8 回滚夹具已撤掉本票新增规则\n  ok    R7.8 回滚演练：撤掉新规则后旧路径状态一致\n结果: 88/88"
+      "tail": "  ok    R7.9 可比 235 件\n  ok    R7.9 不可读 18 件且都有明细\n  ok    R7.9 每个 error 写明原因\n  ok    R7.9 整份 items 的 (id,status) 序列逐件逐项差异 0\n  ok    R7.9 影子哈希对应当前规则库\n  ok    R7.9 影子确实跨了库版本（旧基线哈希 != 当前哈希）\n  ok    R7.9 基线哈希与被比对的旧快照一致\n  ok    R7.9 状态分布与旧快照逐键一致（253 件）\n  ok    R7.9 实跑闸门：当前代码重跑 253 件差异 0\n  ok    R7.9 实跑覆盖完整（253 件 / 235 可比 / 18 不可读）\n  ok    R7.9 实跑结果的库哈希对应当前规则库\n结果: 106/106"
     },
     "extracta": {
       "ok": true,
       "sample": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\footprint\\3S48000163\\nb_xtal4_3d2x2d5x0d7.dra",
-      "cwd": "C:\\Users\\ds245\\AppData\\Local\\Temp\\extracta_probe_w7i2fi86",
+      "cwd": "C:\\Users\\ds245\\AppData\\Local\\Temp\\extracta_probe_8c9t573u",
       "cdsroot": "C:\\Software\\Cadence\\Cadence_SPB_17.2-2016",
       "extracta": "C:\\Software\\Cadence\\Cadence_SPB_17.2-2016\\tools\\bin\\extracta.exe",
       "seconds": 0.2,
@@ -107,12 +107,12 @@
     },
     "benchmark": {
       "rc": 2,
-      "seconds": 55.3,
+      "seconds": 50.1,
       "timeout": false,
       "passed": null,
       "total": null,
       "failed": null,
-      "tail": "  [250/253] tvs_1x0d6x0d53_esd54231n.dra                 REVIEW_REQUIRED  P12/F0/W1/NA3  none\n  [251/253] tvs_1x0d6x0d5_esd5411n.dra                   FAIL  P11/F1/W1/NA3  none\n  [252/253] xtal2_3d2x1d5x0d9.dra                        REVIEW_REQUIRED  P14/F0/W1/NA2  none\n  [253/253] y_4p_smd3225.dra                             REVIEW_REQUIRED  P15/F0/W1/NA1  none\n\n================================================================\n  完成：253 件，用时 55s\n  PASS 7 ｜ WARN 0 ｜ FAIL 81 ｜ 其他/提取失败 183\n  例外件（有 FAIL/WARN 项）：230 件 → exceptions/（第 2 层 AI 复核输入）\n  指纹 exact 命中：0/253\n  报告：C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\Tools\\log\\golden_benchmark\\benchmark_summary.csv\n================================================================",
+      "tail": "  [250/253] tvs_1x0d6x0d53_esd54231n.dra                 REVIEW_REQUIRED  P12/F0/W1/NA3  none\n  [251/253] tvs_1x0d6x0d5_esd5411n.dra                   FAIL  P11/F1/W1/NA3  none\n  [252/253] xtal2_3d2x1d5x0d9.dra                        REVIEW_REQUIRED  P14/F0/W1/NA2  none\n  [253/253] y_4p_smd3225.dra                             REVIEW_REQUIRED  P15/F0/W1/NA1  none\n\n================================================================\n  完成：253 件，用时 50s\n  PASS 7 ｜ WARN 0 ｜ FAIL 81 ｜ 其他/提取失败 183\n  例外件（有 FAIL/WARN 项）：230 件 → exceptions/（第 2 层 AI 复核输入）\n  指纹 exact 命中：0/253\n  报告：C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\layout-forge-mcp\\Tools\\log\\golden_benchmark\\benchmark_summary.csv\n================================================================",
       "pieces": 253,
       "pass": 7,
       "warn": 0,

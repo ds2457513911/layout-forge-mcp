@@ -10,7 +10,7 @@ Tools/benchmark_golden.py —— 金标准批量对拍（三层漏斗 · 第 1 �
       - 提取走 extracta_reader（Cadence extracta 二进制，离线）
       - 环境变量 LAYOUT_CHECK_FORCE_SOURCE=extracta 强制单源，
         read_full_footprint 绝不触碰 SkillBridge
-      - 规则阈值来自 knowledge/rules/checker_rules.json（热更新层）
+      - 规则阈值来自 knowledge/rules/（tolerances.json + 四类库，热更新层）
 
 产出（默认 Tools/log/golden_benchmark/）：
     benchmark_summary.csv      每件一行：结论 / PASS/FAIL/WARN 数 / 指纹匹配档位

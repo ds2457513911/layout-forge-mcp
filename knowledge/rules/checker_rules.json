@@ -1,9 +1,10 @@
 {
   "_meta": {
-    "purpose": "rule_checker 阈值外置真源（2026-10-12 起）。只放数字/开关，判定逻辑仍在 services/rule_checker.py —— 改逻辑必须改代码。改本文件立即生效，不用重启 MCP。",
-    "fallback": "文件缺失或 JSON 损坏时自动回退 services/rule_checker.py::DEFAULT_RULES（宁用内置默认，不带病运行）",
+    "status": "FROZEN —— 历史出处：票 #22（2026-11-23）起无任何代码读取本文件",
+    "purpose": "2026-10-12 阈值外置的历史文件。19 个有消费方的判定容差已收编进 knowledge/rules/tolerances.json；3 个阻焊单边键（soldermask_expand_typical/min/max）由 PARAM-MASK-EXPAND 接管；pad.min_spacing_mm 与 assembly.size_tolerance_mm 无运行时消费方。改本文件不会影响任何判定。",
+    "fallback": "无（规则库加载失败即 RuleLibraryError，不回退内置默认值）",
     "calibration": "2026-10-12 金标准 253 件对拍校准：阻焊外扩惯例 0.08（195/246 占比）、原点偏移 ≤0.5mm 占绝对多数、重叠判定加 0.05mm² 消 bbox 擦边、丝印重叠加 0.1mm 内缩消贴边",
-    "last_updated": "2026-10-12"
+    "last_updated": "2026-11-23（仅 _meta 标注冻结；24 个阈值数字一个未改）"
   },
   "naming": {
     "prefix": "NB_",
@@ -12,7 +13,7 @@
   },
   "pad": {
     "size_tolerance_mm": 0.05,
-    "min_spacing_mm": 0.20,
+    "min_spacing_mm": 0.2,
     "soldermask_expand_typical_mm": 0.08,
     "soldermask_expand_min_mm": 0.05,
     "soldermask_expand_max_mm": 0.13,
@@ -34,9 +35,9 @@
     "max_plausible_expand_mm": 3.0
   },
   "silkscreen": {
-    "line_width_min_mm": 0.10,
-    "to_pad_clearance_mm": 0.20,
-    "overlap_inset_mm": 0.10
+    "line_width_min_mm": 0.1,
+    "to_pad_clearance_mm": 0.2,
+    "overlap_inset_mm": 0.1
   },
   "assembly": {
     "size_tolerance_mm": 0.05

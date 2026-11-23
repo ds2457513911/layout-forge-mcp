@@ -16,7 +16,7 @@ geometry_solver.py —— 「器件参数 → 成品几何」求解器（攻坚 
 依据（全部可追溯，不凭经验拍）
 ==============================
   [规范] `Data/checklist/PCB_Footprint建库规范.xlsx`（下表引用其「规范项」）
-  [规则] `services/rule_checker.py::DEFAULT_RULES`
+  [规则] `services/rule_checker.py::load_rules()`（读 knowledge/rules/tolerances.json）
   [实证] `Data/footprint/3S48000163/checklist_report_20260918_095100.json`（金标准实测）
 
   规范项                                 出处      本模块落点
@@ -64,7 +64,7 @@ import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from services import spec_library
-from services.rule_checker import DEFAULT_RULES, _classify_component
+from services.rule_checker import _classify_component, load_rules
 
 __all__ = [
     "name_num", "parse_name_num",
@@ -333,8 +333,8 @@ def solve_symbol_name(
     ★ [规范 一] 命名用**中值**（画实体才用最大值）——
       所以 body 传中值，几何用 `spec["use_max_for_geometry"]` 另行控制。
     """
-    rules = rules or DEFAULT_RULES
-    prefix = rules["naming"].get("prefix", "NB_") if prefix is None else prefix
+    rules = rules or load_rules()
+    prefix = rules["naming"]["prefix"] if prefix is None else prefix
     base = str(symbol_base).strip()
 
     dims = [body[k] for k in ("x", "y", "z") if body.get(k) is not None]
@@ -355,7 +355,7 @@ def solve_symbol_name(
     if suffix:
         name += f"_{str(suffix).strip()}"
 
-    if rules["naming"].get("no_dot", True) and "." in name:
+    if rules["naming"]["no_dot"] and "." in name:
         raise AssertionError(f"命名里出现了小数点（违反 [规范 一]）：{name}")
     return name
 
@@ -554,7 +554,7 @@ def solve_outlines(
     外扩量按元件类型取 [规则] `place_bound.*_expand_mm`：
        ic 0.35 / chip 0.15 / connector 0.85
     """
-    rules = rules or DEFAULT_RULES
+    rules = rules or load_rules()
     body = spec["body"]
     if float(body["x"]) <= 0 or float(body["y"]) <= 0:
         raise ValueError("body.x / body.y 必须为正（单位 mm）")
@@ -586,7 +586,7 @@ def solve_outlines(
     else:
         expand = pb_cfg.get(key)
     if expand is None:
-        expand = pb_cfg.get("ic_expand_mm", 0.35)
+        expand = pb_cfg["ic_expand_mm"]
         warnings.append(f"元件类型 '{ctype}' 无对应外扩规则，已按 ic 的 "
                         f"{expand}mm 处理 —— 请人工确认。")
     expand = float(expand)
@@ -605,7 +605,8 @@ def solve_outlines(
 
     body_rect = {"x1": _r4(_half(-dev[0]) + ocx), "y1": _r4(_half(-dev[1]) + ocy),
                  "x2": _r4(_half(dev[0]) + ocx), "y2": _r4(_half(dev[1]) + ocy),
-                 "width": float(rules.get("assembly", {}).get("line_width_mm", 0.10))}
+                 # 绘图线宽是 Assembly 层的构造常量（不在容差表里，也不是判定阈值）
+                 "width": 0.10}
     pb_rect = {"x1": _r4(_half(-pb[0]) + ocx), "y1": _r4(_half(-pb[1]) + ocy),
                "x2": _r4(_half(pb[0]) + ocx), "y2": _r4(_half(pb[1]) + ocy)}
 
@@ -714,7 +715,7 @@ def solve_pad_rects(
       （实测板上焊盘是 1.2×1.4 —— 与规格书 LAND PATTERN 的 1.4×1.2 不符，
        见该件缺陷说明）。这里显式支持旋转，别再用"反正差不多"糊过去。
     """
-    rules = rules or DEFAULT_RULES
+    rules = rules or load_rules()
     pins, _, _ = solve_pins(spec)
     ps = [_resolved(spec, "pad.x", float(spec["pad"]["size"][0])),
           _resolved(spec, "pad.y", float(spec["pad"]["size"][-1]))]
@@ -932,11 +933,11 @@ def solve_silkscreen(
     [规范 四] 丝印线宽 >=0.10；丝印不得进入阻焊开窗区（间距 >= 0.20）；
               1 脚标识（IC / 多引脚必做）。
     """
-    rules = rules or DEFAULT_RULES
+    rules = rules or load_rules()
     cfg = rules["silkscreen"]
-    w_min = float(cfg.get("line_width_min_mm", 0.10))
+    w_min = float(cfg["line_width_min_mm"])
     clearance = float(spec.get("silk_pad_clearance",
-                               cfg.get("to_pad_clearance_mm", 0.20)))
+                               cfg["to_pad_clearance_mm"]))
     width = float(spec.get("silk_width", max(w_min, 0.15)))
     style = str(spec.get("silk_style", "auto")).lower()
 
@@ -1098,7 +1099,7 @@ def solve_refdes(
     :param body: 本体（Assembly 外框）矩形 {"x1","y1","x2","y2"}；
                  缺省时退回用 Place_Bound 中心，仅位置略有差别。
     """
-    rules = rules or DEFAULT_RULES
+    rules = rules or load_rules()
     gap = float(spec.get("refdes_gap", 0.10))
     text_h = float(spec.get("refdes_text_height", 0.80))  # [规范 四] 字高 >= 0.8
     pbh = _half(abs(place_bound["y2"] - place_bound["y1"]))
@@ -1170,7 +1171,7 @@ def solve_refdes(
 # ============================================================
 # 7. 总入口
 # ============================================================
-# ★ spec 顶层键面白名单（2026-10-13 未知键守卫）：solver + convention_engine
+# ★ spec 顶层键面白名单（2026-10-13 未知键守卫）：solver + padstack_derive
 #   消费的全部键 + 工具层信息键。新增消费点时必须同步本清单——
 #   守卫哲学与 pads.txt 列守卫/spec 守卫一致：忽略可以，忽略而不告诉你不行。
 SPEC_KNOWN_KEYS = frozenset({
@@ -1183,7 +1184,7 @@ SPEC_KNOWN_KEYS = frozenset({
     # ---- 焊盘 / 阵列 / 孔 ----
     "pad", "array", "pitch", "drill_diameter", "mount",
     "pins_override", "pin_names",            # pin_names 仅记录（tools.py 写入）
-    # ---- TH 约定引擎（apply_conventions）----
+    # ---- TH 主 padstack 来自规则库派生（padstack_derive.derive_padstacks）----
     "padstack", "paste_bottom", "extra_padstacks",
     # ---- 轮廓 ----
     "body", "body_center", "body_max", "body_tol",
@@ -1242,7 +1243,7 @@ def solve(
         "warnings": [str], "error": str|None,
     }
     """
-    rules = rules or DEFAULT_RULES
+    rules = rules or load_rules()
     deriv: List[Dict[str, Any]] = []
     warnings: List[str] = []
     warnings += guard_spec_keys(spec)     # ★ 未知键显名（不阻断）

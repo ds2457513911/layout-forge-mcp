@@ -1,0 +1,196 @@
+{
+  "schema": "layout-forge/rules/tolerances@1",
+  "about": "判定容差：旧 knowledge/rules/checker_rules.json 中**有代码消费方**的 19 个阈值收编于此（票 #22）。旧文件的 24 个叶子键里，3 个阻焊单边键的真源是 PARAM-MASK-EXPAND（票 #17 已接管），pad.min_spacing_mm 与 assembly.size_tolerance_mm 无任何运行时消费方——这 5 个键只登记在迁移表，不在本表重复取值，避免同一数字两处出处。改容差改这里：services/rule_checker.py::load_rules() 每次现读，几何求解器与判定侧共用同一份；库坏即 RuleLibraryError，不回退内置默认。",
+  "items": [
+    {
+      "id": "TOL-NAMING-PREFIX",
+      "section": "naming",
+      "key": "prefix",
+      "value": "NB_",
+      "kind": "string",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "焊盘名族前缀（NB_ 为北磨命名约定）"
+    },
+    {
+      "id": "TOL-NAMING-PREFIX-CASE-SENSITIVE",
+      "section": "naming",
+      "key": "prefix_case_sensitive",
+      "value": true,
+      "kind": "bool",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "前缀大小写敏感"
+    },
+    {
+      "id": "TOL-NAMING-NO-DOT",
+      "section": "naming",
+      "key": "no_dot",
+      "value": true,
+      "kind": "bool",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "焊盘名不得含小数点（小数用 D 代替）"
+    },
+    {
+      "id": "TOL-PAD-SIZE-TOLERANCE-MM",
+      "section": "pad",
+      "key": "size_tolerance_mm",
+      "value": 0.05,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "焊盘尺寸与规格的允许偏差"
+    },
+    {
+      "id": "TOL-PAD-PASTEMASK-EQUAL-PAD",
+      "section": "pad",
+      "key": "pastemask_equal_pad",
+      "value": true,
+      "kind": "bool",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "钢网开窗等于焊盘"
+    },
+    {
+      "id": "TOL-PAD-OVERLAP-TOLERANCE-MM2",
+      "section": "pad",
+      "key": "overlap_tolerance_mm2",
+      "value": 0.05,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "焊盘重叠面积容差（mm²）"
+    },
+    {
+      "id": "TOL-ORIGIN-CENTER-TOLERANCE-MM",
+      "section": "origin",
+      "key": "center_tolerance_mm",
+      "value": 0.5,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "原点与几何中心允许偏差（mm）"
+    },
+    {
+      "id": "TOL-ORIGIN-CONNECTOR-TOLERANCE-MM",
+      "section": "origin",
+      "key": "connector_tolerance_mm",
+      "value": 20.0,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "连接器类原点允许偏差（mm）"
+    },
+    {
+      "id": "TOL-PLACE-BOUND-IC-EXPAND-MM",
+      "section": "place_bound",
+      "key": "ic_expand_mm",
+      "value": 0.35,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "IC 类 Place Bound 外扩"
+    },
+    {
+      "id": "TOL-PLACE-BOUND-CHIP-EXPAND-MM",
+      "section": "place_bound",
+      "key": "chip_expand_mm",
+      "value": 0.15,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "Chip 类 Place Bound 外扩"
+    },
+    {
+      "id": "TOL-PLACE-BOUND-CONNECTOR-EXPAND-MM",
+      "section": "place_bound",
+      "key": "connector_expand_mm",
+      "value": 0.85,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "连接器类 Place Bound 外扩"
+    },
+    {
+      "id": "TOL-PLACE-BOUND-EXPAND-TOLERANCE-MM",
+      "section": "place_bound",
+      "key": "expand_tolerance_mm",
+      "value": 0.05,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "Place Bound 外扩比对容差"
+    },
+    {
+      "id": "TOL-PLACE-BOUND-MIN-EXPAND-MM",
+      "section": "place_bound",
+      "key": "min_expand_mm",
+      "value": 0.05,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "Place Bound 外扩下限"
+    },
+    {
+      "id": "TOL-PLACE-BOUND-MAX-EXPAND-MM",
+      "section": "place_bound",
+      "key": "max_expand_mm",
+      "value": 3.0,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "Place Bound 外扩上限"
+    },
+    {
+      "id": "TOL-PLACE-BOUND-DEGENERATE-OUTLINE-MM",
+      "section": "place_bound",
+      "key": "degenerate_outline_mm",
+      "value": 1.0,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "Place Bound 退化轮廓判据（小于此值视为退化）"
+    },
+    {
+      "id": "TOL-PLACE-BOUND-MAX-PLAUSIBLE-EXPAND-MM",
+      "section": "place_bound",
+      "key": "max_plausible_expand_mm",
+      "value": 3.0,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "Place Bound 离谱外扩判据"
+    },
+    {
+      "id": "TOL-SILKSCREEN-LINE-WIDTH-MIN-MM",
+      "section": "silkscreen",
+      "key": "line_width_min_mm",
+      "value": 0.1,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "丝印线宽下限"
+    },
+    {
+      "id": "TOL-SILKSCREEN-TO-PAD-CLEARANCE-MM",
+      "section": "silkscreen",
+      "key": "to_pad_clearance_mm",
+      "value": 0.2,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "丝印到焊盘最小间距"
+    },
+    {
+      "id": "TOL-SILKSCREEN-OVERLAP-INSET-MM",
+      "section": "silkscreen",
+      "key": "overlap_inset_mm",
+      "value": 0.1,
+      "kind": "float",
+      "source": "SRC-LEGACY-RULES",
+      "since": "2026-11-23",
+      "note": "丝印压焊盘判定内缩量"
+    }
+  ]
+}

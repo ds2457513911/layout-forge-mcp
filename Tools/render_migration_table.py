@@ -44,6 +44,8 @@ def _fmt_target(target: Dict[str, Any]) -> str:
         return f"参数 {oid} → {path}"
     if kind == "rule":
         return f"规则 {oid}"
+    if kind == "tolerance":
+        return f"容差 {oid} → {path}"
     return f"保留在 {path}"
 
 
@@ -111,7 +113,8 @@ def render(doc: Dict[str, Any]) -> str:
     out.extend(_table(["旧规则", "名称", "归属（唯一）", "状态", "说明"], rows))
     out.append("")
     out.append("legacy 行的保留原因与回滚方式逐条记在台账 JSON 的 @@BT@@reason@@BT@@ / @@BT@@rollback@@BT@@ 字段；"
-               "共同点是：旧检查器仍读冻结的阈值文件，收编按 ADR-0002 D9 分阶段（#20 派生侧 / #21 覆盖率与其余规则）。")
+               "票 #22 之后：旧阈值文件已无任何代码读取，阈值归属见容差表；标 legacy 的规则行只剩"
+               "@@BT@@_meta@@BT@@ 说明性元信息与仍写在 @@BT@@services/rule_checker.py@@BT@@ 原生代码里的判定逻辑（形态化不在 #22 范围）。")
     out.append("")
     out.append("## 三、回滚配方（可按步骤执行）")
     out.append("")
@@ -143,7 +146,7 @@ def render(doc: Dict[str, Any]) -> str:
     out.append("4. **回滚演练**：@@BT@@R6.14@@BT@@ 会照 @@BT@@rollback_recipe@@BT@@ 把库展开回旧形态，用同一批夹具重判，"
                "结果必须与合并后逐件一致（@@BT@@eval/baselines/rule_engine.json@@BT@@ 与 "
                "@@BT@@eval/baselines/shadow_2_2_253.json@@BT@@）。")
-    out.append("5. **派生侧**：映射表只管数据；若迁移同时改了派生取值来源（如本次 convention_engine），"
+    out.append("5. **派生侧**：映射表只管数据；若迁移同时改了派生取值来源（如本条迁移改的道），"
                "回滚=连代码一起 revert，并在台账 @@BT@@rollback_recipe.note@@BT@@ 里写明。")
     out.append("")
     return "\n".join(out)

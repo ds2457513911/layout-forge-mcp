@@ -1,6 +1,6 @@
 {
   "schema": "layout-forge/rules/library@1",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "released_at": "2026-11-23",
-  "note": "规则集版本（ADR-0002 D9）：form/parameter/rule/source/severity 任一处内容改动后由人 bump；内容哈希 rule_set_hash 由加载器现算，报告首屏同时记版本与哈希。1.1.0：票 #20 新增派生方向（rules 的 derive、parameter 组的 derive_value），语义版本升次位。"
+  "note": "规则集版本（ADR-0002 D9）：form/parameter/rule/source/severity/tolerance 任一处内容改动后由人 bump；内容哈希 rule_set_hash 由加载器现算，报告首屏同时记版本与哈希。1.1.0：票 #20 新增派生方向（rules 的 derive、parameter 组的 derive_value）。1.2.0：票 #22 收编判定容差（tolerances.json，19 条有消费方的旧阈值键），移除旧判定回滚开关与旧构造约定引擎，检查与建封装两条路径只读本库。"
 }

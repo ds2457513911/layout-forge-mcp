@@ -27,9 +27,10 @@
        逐件跑新路径，2.2 状态必须与旧判定逐件相等。
        对应 AC：「该条判定与旧 2.2 在同一批封装上状态一致」。
 
-  R6.6 旧阈值文件只读 —— knowledge/rules/checker_rules.json 的 sha256 等于
-       基线冻结值；模块纯度（services/rule_engine.py 不碰宿主/网络/进程）。
-       对应 AC：「旧阈值文件保持只读，未被改写」。
+  R6.6 旧阈值文件只读且无人读 —— knowledge/rules/checker_rules.json 的 sha256 等于基线冻结值；
+       五个服务模块的 AST 里没有打开它；tolerances.json 的 19 条与旧文件逐值相等、5 个无消费方键不收录；
+       模块纯度（services/rule_engine.py 不碰宿主/网络/进程）。
+       对应 AC：「旧阈值文件保持只读，未被改写」+「无代码再读取它」。
 
   R6.7 覆盖率两类缺口（票 #21）—— 静态缺口（有形态但无规则）来自 form 表 ×
         规则表差集，静态就能算；运行时缺口（无形态）只有跑输入才知道；两类
@@ -361,7 +362,7 @@ def check_wired_to_new_library(c: Checker, RE) -> None:
 
     os.environ.pop("LAYOUT_FORGE_RULES_DIR", None)
     RE.reset_cache()
-    item = _item_22(RC.check_pad_size(_smd_payload(), None, RC.DEFAULT_RULES))
+    item = _item_22(RC.check_pad_size(_smd_payload(), None, RC.load_rules()))
     c.check(item["id"] == "2.2" and item["status"] == "PASS",
             "R6.4 基本件 2.2 → PASS", json.dumps(item, ensure_ascii=False)[:300])
     c.check(item.get("rule_id") == "RULE-MASK-EXPAND",
@@ -389,7 +390,7 @@ def check_wired_to_new_library(c: Checker, RE) -> None:
              "hole_type": "OVAL SLOT"},
         ],
     })
-    item_m = _item_22(RC.check_pad_size(mixed, None, RC.DEFAULT_RULES))
+    item_m = _item_22(RC.check_pad_size(mixed, None, RC.load_rules()))
     c.check(set(item_m.get("support_by_form") or {}) == {
                 "FORM-MASK-TH-OBLONG", "FORM-MASK-SMD"}
             and item_m.get("support") == sum(item_m["support_by_form"].values()),
@@ -414,7 +415,7 @@ def check_wired_to_new_library(c: Checker, RE) -> None:
         _dump_json(p, data)
         os.environ["LAYOUT_FORGE_RULES_DIR"] = str(tmp)
         RE.reset_cache()
-        item2 = _item_22(RC.check_pad_size(_smd_payload(), None, RC.DEFAULT_RULES))
+        item2 = _item_22(RC.check_pad_size(_smd_payload(), None, RC.load_rules()))
         c.check(item2["status"] == "WARN",
                 "R6.4 改库即改判定（证明 2.2 走新库，不是读死阈值）",
                 f"状态 {item2['status']}，rule={item2.get('rule')!r}")
@@ -433,7 +434,7 @@ def check_status_parity(c: Checker, RE, base: dict) -> None:
     for fx in fixtures:
         name = fx.get("file")
         payload = {"pins": fx.get("pins") or []}
-        item = _item_22(RC.check_pad_size(payload, None, RC.DEFAULT_RULES))
+        item = _item_22(RC.check_pad_size(payload, None, RC.load_rules()))
         got, want = item.get("status"), fx.get("status22")
         c.check(got == want, f"R6.5 {name} 2.2 状态一致（旧 {want}）",
                 f"新 {got}；detail={item.get('detail')!r}")
@@ -455,7 +456,8 @@ def check_status_parity(c: Checker, RE, base: dict) -> None:
 
 
 # ---------------------------------------------------------------- R6.6
-def check_frozen_legacy_and_purity(c: Checker, base: dict) -> None:
+def check_frozen_legacy_and_purity(c: Checker, base: dict, RE, lib) -> None:
+    """票 #22：旧阈值文件冻结且**无消费方**；容差表是唯一真源。"""
     want = base.get("legacy_rules_sha256")
     got = _sha256_file(LEGACY_RULES) if LEGACY_RULES.is_file() else None
     c.check(got == want, "R6.6 旧阈值文件只读（sha256 未变）",
@@ -477,6 +479,41 @@ def check_frozen_legacy_and_purity(c: Checker, base: dict) -> None:
                 bad.append(f"{mod}:{node.lineno}")
     c.check(not bad, "R6.6 引擎模块纯净（不碰宿主/网络/进程）", "、".join(bad))
 
+    # 票 #22：旧阈值文件不再被**任何运行时代码**读取。
+    # 扫描面 = services/*.py + mcp_server/*.py（不只 5 个内核模块）：
+    # 只要有代码把它当路径打开，这一条就红。
+    readers = []
+    for base in (ROOT / "services", ROOT / "mcp_server"):
+        for py in sorted(base.rglob("*.py")):
+            src = py.read_text(encoding="utf-8")
+            for needle, label in (("checker_rules", "旧阈值文件"),
+                                  ("conventions.json", "旧构造约定库")):
+                if _opens_legacy_file(src, needle):
+                    readers.append(f"{py.relative_to(ROOT)}（{label}）")
+    c.check(not readers,
+            "R6.6 运行时代码（services/、mcp_server/）无读取旧阈值文件/旧构造约定库",
+            "、".join(readers))
+
+    flat = _leaf_values(_load_json(LEGACY_RULES))
+    diffs = []
+    for item in lib.tolerances:
+        key = str(item.get("section")) + "." + str(item.get("key"))
+        if item.get("value") != flat.get(key):
+            diffs.append(f"{key}: 旧 {flat.get(key)!r} → 库 {item.get('value')!r}")
+    c.check(len(lib.tolerances) == 19 and not diffs,
+            "R6.6 容差表 19 条与旧阈值文件逐值相等",
+            "；".join(diffs) or f"{len(lib.tolerances)} 条")
+    dropped = {"pad.min_spacing_mm", "pad.soldermask_expand_typical_mm",
+               "pad.soldermask_expand_min_mm", "pad.soldermask_expand_max_mm",
+               "assembly.size_tolerance_mm"}
+    live = {str(i.get("section")) + "." + str(i.get("key")) for i in lib.tolerances}
+    c.check(not (live & dropped),
+            "R6.6 无消费方的 5 个旧键不在容差表里重复取值（单一口径）",
+            "、".join(sorted(live & dropped)))
+    c.check(set(lib.tolerances_map) == {"naming", "pad", "origin", "place_bound",
+                                       "silkscreen"},
+            "R6.6 容差按旧分节取用（load_rules() 五个分节）",
+            str(sorted(lib.tolerances_map)))
 
 
 # ---------------------------------------------------------------- R6.7
@@ -560,7 +597,7 @@ def check_report_fields(c: Checker, RE) -> None:
     os.environ.pop("LAYOUT_FORGE_RULES_DIR", None)
     RE.reset_cache()
     lib = RE.load_library()
-    res = RC.run_numeric_checks(_smd_payload(), None, RC.DEFAULT_RULES)
+    res = RC.run_numeric_checks(_smd_payload(), None, RC.load_rules())
     c.check(bool(res.get("rule_set")) and res["rule_set"].get("version") == lib.version
             and res["rule_set"].get("hash") == lib.fingerprint,
             "R6.8 numeric_result 带规则集版本与哈希")
@@ -818,13 +855,15 @@ def check_single_definition(c, RE, lib) -> None:
 
 # ---------------------------------------------------------------- R6.12
 def check_single_change_two_sides(c, RE) -> None:
-    """票 #19：改规则库一处，派生与判定同时跟着变；旧阈值文件不再影响派生。"""
-    from services import convention_engine as CE
+    """票 #22：改规则库一处，派生与判定同时跟着变；旧阈值文件不参与任何一侧。
+
+    迁移前靠 convention_engine 证明；#22 删除该模块后，改在
+    services/padstack_derive.py（派生）与 RE.judge（判定）上验证同一语义。
+    """
+    from services import padstack_derive as PD
 
     lib_dir = Path(tempfile.mkdtemp(prefix="r6_both_"))
-    conv_dir = Path(tempfile.mkdtemp(prefix="r6_conv_"))
     old_env = os.environ.get("LAYOUT_FORGE_RULES_DIR")
-    old_conv = CE.CONV_PATH
     try:
         _write_lib(lib_dir, lambda d: None)
         p = lib_dir / "parameters.json"
@@ -842,29 +881,27 @@ def check_single_change_two_sides(c, RE) -> None:
                     grp["derive_value"] = grp["value"]
         _dump_json(p, data)
 
-        # 旧阈值文件里那份 mask 值故意改成 0.09（迁移前是 0.05）：派生必须无视它
-        conv = json.loads(json.dumps(CE.load_conventions(force=True)))
-        conv["adjudicated"]["th_oblong_plated"]["mask_expand_side_mm"]["value"] = 0.09
-        conv_path = conv_dir / "conventions.json"
-        conv_path.write_text(json.dumps(conv, ensure_ascii=False, indent=2) + "\n",
-                             encoding="utf-8")
-        CE.CONV_PATH = conv_path
-        CE._CACHE = None
-        CE._CACHE_STAMP = None
-
         os.environ["LAYOUT_FORGE_RULES_DIR"] = str(lib_dir)
         RE.reset_cache()
         lib2 = RE.load_library(lib_dir)
-        params = CE.th_oblong_params()
-        c.check(abs(float(params["mask_expand_side"]) - 0.06) < 1e-9,
-                "R6.12 派生侧读到库里的形态组值（0.06，不是旧文件的 0.09）",
-                str(params.get("mask_expand_side")))
-        c.check(params.get("mask_source") == "SRC-CONV-ADJUDICATED",
-                "R6.12 派生结果带出处", str(params.get("mask_source")))
-        c.check((params.get("support") or {}).get("mask") == 22,
-                "R6.12 派生结果带支持件数", str(params.get("support")))
 
-        ps, _notes = CE.derive_th_oblong_padstack((1.9, 0.7), (2.3, 1.1))
+        view = RE.resolve_parameter(lib2.parameters_by_id[MASK_PARAM],
+                                    "FORM-MASK-TH-OBLONG") or {}
+        c.check(abs(float(view.get("value") or 0) - 0.06) < 1e-9,
+                "R6.12 形态组值来自改后的库（0.06）", str(view.get("value")))
+        c.check(view.get("source") == "SRC-CONV-ADJUDICATED",
+                "R6.12 参数视图带出处", str(view.get("source")))
+        c.check(view.get("support") == 22,
+                "R6.12 参数视图带支持件数", str(view.get("support")))
+
+        spec = {"mount": "tht",
+                "pad": {"shape": "oblong", "drill_type": "OBLONG_DRILL",
+                        "drill_size": [0.7, 1.3]}}
+        sm = PD.mask_expand_for_spec(spec)
+        c.check(abs(sm - 0.06) < 1e-9,
+                "R6.12 派生侧读到同一处改动的 derive_value（0.06）", str(sm))
+
+        ps, _deriv = PD.provisional_padstack(spec, (1.9, 0.7))
         layer = {lay["layer"]: lay["size"] for lay in ps["layers"]}
         pad, mask = layer["TOP"], layer["SOLDERMASK_TOP"]
         c.check(abs(mask[0] - pad[0] - 0.12) < 1e-9
@@ -886,12 +923,8 @@ def check_single_change_two_sides(c, RE) -> None:
             os.environ.pop("LAYOUT_FORGE_RULES_DIR", None)
         else:
             os.environ["LAYOUT_FORGE_RULES_DIR"] = old_env
-        CE.CONV_PATH = old_conv
-        CE._CACHE = None
-        CE._CACHE_STAMP = None
         RE.reset_cache()
         shutil.rmtree(lib_dir, ignore_errors=True)
-        shutil.rmtree(conv_dir, ignore_errors=True)
 
 
 # ---------------------------------------------------------------- R6.13
@@ -904,6 +937,40 @@ def _leaf_keys(obj, prefix="") -> list:
             out.extend(_leaf_keys(v, f"{prefix}.{k}" if prefix else str(k)))
         return out
     return [prefix]
+
+
+def _opens_legacy_file(text: str, needle: str = "checker_rules") -> bool:
+    """AST 判定：代码是否真的把 needle（旧阈值/旧约定文件）当路径打开。
+
+    只认「打开/读取路径」的调用参数；注释、文档串、模块级常量都不算。
+    """
+    tree = ast.parse(text)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        fn = node.func
+        name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
+        # 只认「打开/读取路径」的函数；loads 是解析字符串，不算读取文件，
+        # 否则 json.loads(常量) 之类的误判会把正确用法标红。
+        if name not in ("open", "Path", "join", "read_text", "read_bytes", "load"):
+            continue
+        # 路径可能在参数里，也可能在接收者里：Path(x) / "checker_rules.json" 后接 .read_text()。
+        targets = [node.func] + list(node.args) + [kw.value for kw in node.keywords]
+        for target in targets:
+            for sub in ast.walk(target):
+                if isinstance(sub, ast.Constant) and needle in str(sub.value):
+                    return True
+    return False
+
+
+def _leaf_values(obj, prefix="") -> Dict[str, Any]:
+    """把旧阈值文件摊平成 {section.key: value}（与 _leaf_keys 同口径）。"""
+    if isinstance(obj, dict):
+        out: Dict[str, Any] = {}
+        for k, v in obj.items():
+            out.update(_leaf_values(v, f"{prefix}.{k}" if prefix else str(k)))
+        return out
+    return {prefix: obj}
 
 
 def _legacy_rule_ids() -> list:
@@ -968,6 +1035,9 @@ def check_migration_table(c, RE, lib) -> None:
         elif ttype == "rule":
             if tid not in lib.rules_by_id:
                 bad.append(str(e.get("legacy")) + " → 规则 " + str(tid) + " 不存在")
+        elif ttype == "tolerance":
+            if tid not in lib.tolerances_by_id:
+                bad.append(str(e.get("legacy")) + " → 容差 " + str(tid) + " 不存在")
         elif ttype == "legacy":
             if not e.get("reason") or not e.get("rollback"):
                 bad.append(str(e.get("legacy")) + " 保留 legacy 但没写原因/回滚方式")
@@ -997,6 +1067,25 @@ def check_migration_table(c, RE, lib) -> None:
             "R6.13 旧 2.2 的落点是引用合并参数的 RULE-MASK-EXPAND",
             str((lib.rules_by_id.get("RULE-MASK-EXPAND") or {}).get("use")))
 
+    tol_rows = [e for e in key_rows
+                if (e.get("target") or {}).get("type") == "tolerance"]
+    c.check(len(tol_rows) == 19,
+            "R6.13 19 个有消费方的阈值键指向容差条目", f"{len(tol_rows)} 行")
+    c.check({(e.get("target") or {}).get("id") for e in tol_rows}
+            == set(lib.tolerances_by_id),
+            "R6.13 容差表的每条都被映射表登记（无影子条目）",
+            "缺=" + str(sorted(set(lib.tolerances_by_id)
+                               - {(e.get("target") or {}).get("id") for e in tol_rows})))
+    flat = _leaf_values(_load_json(LEGACY_RULES))
+    drift = []
+    for e in tol_rows:
+        key = str(e.get("legacy", "")).split("#", 1)[-1]
+        sec, _, k = key.partition(".")
+        got = (lib.tolerances_map.get(sec) or {}).get(k, "<缺>")
+        if got != flat.get(key):
+            drift.append(f"{key}: 旧 {flat.get(key)!r} → 库 {got!r}")
+    c.check(not drift, f"R6.13 每条容差与旧键逐值相等（{len(tol_rows)}/{len(tol_rows)}）", "；".join(drift))
+
     spec = importlib.util.spec_from_file_location(
         "render_migration_table", ROOT / "Tools" / "render_migration_table.py")
     mod = importlib.util.module_from_spec(spec)
@@ -1020,8 +1109,8 @@ def check_rollback_drill(c, RE, base) -> None:
             "R6.14 回滚配方可执行（展开参数 + 改写规则 use）",
             str(len(expand.get("to") or [])) + " 个旧参数 / use=" + str(rewrite.get("use")))
     note = str(recipe.get("note") or "")
-    c.check("convention_engine" in note,
-            "R6.14 回滚配方写明代码侧配套步骤（convention_engine 回读旧文件）",
+    c.check("revert" in note and "padstack_derive" in note,
+            "R6.14 回滚配方写明代码侧配套步骤（#22 起无旧判定开关，须 revert 提交）",
             note[:80])
 
     tmp = Path(tempfile.mkdtemp(prefix="r6_rollback_"))
@@ -1085,7 +1174,7 @@ def check_rollback_drill(c, RE, base) -> None:
 
         for fx in base.get("fixtures") or []:
             item = _item_22(RC.check_pad_size({"pins": fx.get("pins") or []},
-                                              None, RC.DEFAULT_RULES))
+                                              None, RC.load_rules()))
             got, want = item.get("status"), fx.get("status22")
             c.check(got == want,
                     "R6.14 回滚后 " + str(fx.get("file")) + " 2.2 状态与迁移前一致（旧 " + str(want) + "）",
@@ -1124,7 +1213,7 @@ def main() -> int:
     check_three_states(c, RE, lib)
     check_wired_to_new_library(c, RE)
     check_status_parity(c, RE, base)
-    check_frozen_legacy_and_purity(c, base)
+    check_frozen_legacy_and_purity(c, base, RE, lib)
     check_single_definition(c, RE, lib)
     check_single_change_two_sides(c, RE)
     check_migration_table(c, RE, lib)

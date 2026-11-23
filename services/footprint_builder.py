@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from services import channel_guard
+from services.rule_engine import RuleLibraryError
 from services import paths as P
 from services import skill_snippets as S
 from services.padstack_derive import derive_padstacks, reading_from_output
@@ -3635,8 +3636,9 @@ def build_footprint(
     #   services/padstack_derive.py::derive_padstacks   决定「这颗 padstack 该长什么样」
     #   services/footprint_builder.py::create_padstack  把它实例化成宿主能建的对象（往下几行）
     # 决策入口是纯函数、不连 Allegro，所以「本该长什么样」可以离线对拍（8 份参数档）。
-    # 知识真源仍是 knowledge/conventions.json（TH oblong：OBLONG_Y 竖孔、环宽/mask/paste/
-    # 命名全按约定派生，pin 补 rotation=90；约定引擎失败则原样继续 = fail-open，同改造前）。
+    # 知识真源是 knowledge/rules/（票 #22 收口）：TH oblong 的 OBLONG_Y 竖孔、环宽 /
+    # mask / paste / 命名全按规则库派生，pin 补 rotation=90；派生失败则原样继续 =
+    # fail-open，同改造前。knowledge/conventions.json 只作历史出处，无运行时消费方。
     # ★ mount 仍固定 "tht"：约定引擎自 2026-10-13 第 0 层落地起就按这个口径工作
     #   （SMD 件因此也进 TH 分支，但因无 drill 而不被改）。改成读真实 mount 会改变
     #   SMD 产出 —— 那属于 #17 起的规则迁移，本票只拆结构、不改行为。
@@ -3649,7 +3651,7 @@ def build_footprint(
     ))
     _notes = _derive["notes"]
     for _ce in _notes["errors"]:
-        logger.warning("convention_engine 预处理失败（原样继续）: %s", _ce)
+        logger.warning("padstack 规则派生失败（原样继续）: %s", _ce)
     if _notes["conventions"]:
         warnings.extend("约定引擎: " + n for n in _notes["conventions"])
     padstack = _derive["padstack"]
@@ -3924,12 +3926,12 @@ def build_footprint(
             warnings.append(f"保存失败: {r.get('error')}")
 
     # ---- 8b) 出厂自检（Phase 4，2026-10-13）：extracta 约定回读 ----
-    # check/create 同一份约定：建完立刻按 conventions.json 验。
+    # check/create 同一份约定：建完立刻按规则库（knowledge/rules/）验。
     # TH 件若有 FAIL（如 DRILL 实义为零）→ 整体不 success，不出厂。
     _selfcheck_ok: Any = None
     if save:
         try:
-            from services.convention_engine import verify_built_footprint
+            from services.footprint_selfcheck import verify_built_footprint
             with AllegroSession(workspace_id) as _sv:
                 _dra_full = _sv.eval_skill("axlGetDrawingName()")
             _dra_path = str(_dra_full).strip('"') if _dra_full else None
@@ -3952,6 +3954,9 @@ def build_footprint(
                     warnings.extend("出厂自检 WARN: " + m for m in _warns[:5])
                     ok = False
                     _selfcheck_ok = False
+        except RuleLibraryError:
+            # 规则库坏 = 判定不可信：不能当成「自检跳过」继续出厂（票 #22）。
+            raise
         except Exception as _se:  # noqa: BLE001
             logger.warning("出厂自检异常（不阻断）: %s", _se)
 

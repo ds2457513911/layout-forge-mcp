@@ -129,6 +129,6 @@ python eval/suites/spec_reading/check_spec_reading.py --update
 ## 相关目录
 
 - `eval/README.md` —— 五套件总表与全局纪律
-- `eval/suites/geometry_regression/` —— 确定性几何考卷（G1–G6 / R1–R6）
+- `eval/suites/geometry_regression/` —— 确定性几何考卷（G1–G6 / R1–R7）
 - `eval/suites/behavior/` —— 行为合规夹具（Phase 2-c，待建）
 - `layout-forge-mcp/LAYERS.md` —— 五层能力模型与验收命令

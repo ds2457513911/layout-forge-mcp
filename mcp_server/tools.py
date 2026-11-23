@@ -1092,7 +1092,7 @@ def register(mcp: FastMCP) -> None:
         **纯离线**，不连 Allegro、不写文件 —— 结果先给 AI / 人复核，再拿去建。
 
         ★ 所有数字都按 `Data/checklist/PCB_Footprint建库规范.xlsx` +
-          `services/rule_checker.py::DEFAULT_RULES` 推导，
+          `knowledge/rules/`（`services/rule_checker.py::load_rules()`）推导，
           返回值 `derivations` 里逐条给出「值 / 公式 / 出处」，可审计。
 
         四条最容易写错的规则（本工具已内置）：

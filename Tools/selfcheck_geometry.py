@@ -4,7 +4,7 @@ selfcheck_geometry.py —— `services/geometry_solver.py` 的离线自检
 
 不需要 Allegro、不需要联网。全部用**可追溯的基准**对拍：
   [规范] Data/checklist/PCB_Footprint建库规范.xlsx
-  [规则] services/rule_checker.py::DEFAULT_RULES
+  [规则] knowledge/rules/tolerances.json（services/rule_checker.py::load_rules()）
   [金标] Data/footprint/3S48000163/checklist_report_20260918_095100.json
          Data/footprint/3S48000163/nb_xtal4_3d2x2d5x0d7.*（人工建的成功产物）
   [规格] 3S48000163产品规格书_20220916_S1.pdf  p5（DIMENSIONS / CONNECTION DIAGRAM）
@@ -784,18 +784,37 @@ def main() -> int:
     c.chk("spec 库真源已迁 knowledge/specs（spec_library.SPEC_DIR）",
           _SL.SPEC_DIR.replace("\\", "/").endswith("knowledge/specs"),
           _SL.SPEC_DIR, ".../knowledge/specs")
-    c.chk("rule_checker 有外置加载函数 load_external_rules",
-          hasattr(_RC, "load_external_rules"), True, True)
-    _eff = _RC.load_external_rules()
-    c.chk("外置规则 JSON 可加载（合并后 naming.prefix = NB_）",
-          _eff.get("naming", {}).get("prefix") == "NB_",
-          _eff.get("naming", {}).get("prefix"), "NB_")
-    c.chk("外置规则文件缺失时回退内置 DEFAULT_RULES",
-          _RC.load_external_rules(os.path.join("N:", "no", "such.json"))
-          == _RC.DEFAULT_RULES, True, True)
-    c.chk("_deep_merge 嵌套合并（覆盖子键、保留兄弟键）",
-          _RC._deep_merge({"a": {"x": 1, "y": 2}}, {"a": {"x": 9}})
-          == {"a": {"x": 9, "y": 2}}, True, True)
+    from services import rule_engine as _RE
+    _eff = _RC.load_rules()
+    c.chk("容差来自规则库（五个分节，naming.prefix = NB_）",
+          sorted(_eff) == ["naming", "origin", "pad",
+                           "place_bound", "silkscreen"]
+          and _eff.get("naming", {}).get("prefix") == "NB_",
+          sorted(_eff), "五分节 + NB_")
+    c.chk("旧阈值加载函数与内置默认值已下线（无回退路径）",
+          not hasattr(_RC, "load_external_rules")
+          and not hasattr(_RC, "DEFAULT_RULES"), True, True)
+    _saved = os.environ.get("LAYOUT_FORGE_RULES_DIR")
+    _raised = False
+    try:
+        os.environ["LAYOUT_FORGE_RULES_DIR"] = os.path.join("N:", "no", "such", "rules")
+        _RE.reset_cache()
+        try:
+            _RE.load_library()
+        except Exception as _exc:                          # noqa: BLE001
+            _raised = type(_exc).__name__ == "RuleLibraryError"
+    finally:
+        if _saved is None:
+            os.environ.pop("LAYOUT_FORGE_RULES_DIR", None)
+        else:
+            os.environ["LAYOUT_FORGE_RULES_DIR"] = _saved
+        _RE.reset_cache()
+    c.chk("规则库不可读时拒绝加载（RuleLibraryError，不静默回退）",
+          _raised, True, True)
+    c.chk("容差条目 19 条且字段齐全（id/section/key/kind/source）",
+          len(_RE.load_library().tolerances) == 19
+          and all(all(k in it for k in ("id", "section", "key", "kind", "source"))
+                  for it in _RE.load_library().tolerances), True, True)
     c.chk("case_library 目录指向 knowledge/cases",
           _CL.CASE_DIR.replace("\\", "/").endswith("knowledge/cases"),
           _CL.CASE_DIR, ".../knowledge/cases")

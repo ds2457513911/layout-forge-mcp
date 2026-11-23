@@ -406,11 +406,11 @@ python eval\suites\architecture\check_architecture.py      # 层方向 / 目录�
 python eval\suites\tool_contract\check_tool_contract.py    # 数量与名字 / docstring / 遥测口径 / 分组 C7 / 目录过期 C8
 python eval\suites\spec_reading\check_spec_reading.py      # 读图准确率（真值人工签字；基线 92.5%）
 python eval\suites\behavior\check_behavior.py              # S1/S2/S4 硬规则 + L3 状态机可执行性（B1–B5）
-# ③ 几何回归评分（把 239/222/35 与 253 件对拍变成分数；必须用「工作区外」的解释器，见下）
+# ③ 几何回归评分（把 239/222/42 与 253 件对拍变成分数；必须用「工作区外」的解释器，见下）
 python eval\suites\geometry_regression\check_geometry_regression.py
 ```
 
-★ `eval/check_eval.py` 只做**跑全 + 计数 + 汇总**，判据仍在各自套件里（A1–A10 / C1–C6 / B1–B5 / S1–S8 / G1–G6 + R1–R6）；
+★ `eval/check_eval.py` 只做**跑全 + 计数 + 汇总**，判据仍在各自套件里（A1–A10 / C1–C6 / B1–B5 / S1–S8 / G1–G6 + R1–R7）；
 它自己的元判据是 E1（五套都要跑到，缺依赖记 ERROR）、E2（看退出码，不解析人话）、E3（`--json` 解析失败也算 ERROR）、
 E4（实跑行数必须等于计划行数）。**汇总漏一行却不报错，就是把闸门拆了一角。**
 
@@ -508,8 +508,9 @@ GBK 控制台下汇总行打印 `[✓]`（U+2713）抛 `UnicodeEncodeError`，�
 - 门禁：`eval/suites/tool_contract/check_tool_contract.py`（C1/C2 冻结基线、C3/C4 docstring、
   C5/C6 遥测、**C7 分组完整性**、**C8 目录过期**）
 
-> ★ 阈值类参数外置在 `knowledge/rules/checker_rules.json`（2026-10-12 起），
-> 改 JSON 立即生效、不用重启 MCP；判定逻辑仍在 `rule_checker.py`。
+> ★ 判定阈值与构造约定收在规则库 `knowledge/rules/`（`parameters.json` / `rules.json` / `tolerances.json`），
+> 改 JSON 立即生效、不用重启 MCP；判定与派生共用这一份。旧 `checker_rules.json` 与 `conventions.json`
+> 自票 #22 起只作历史出处，任何代码都不读它们。
 > ★ 改工具集后的三步：① 在 `knowledge/tool_groups.json` 里给新工具补分组
 > ② `python eval/suites/tool_contract/check_tool_contract.py --update` 重冻结基线
 > ③ 同一脚本加 `--write-catalog` 重生成 `docs/tools-catalog.md`。
@@ -521,7 +522,7 @@ GBK 控制台下汇总行打印 `[✓]`（U+2713）抛 `UnicodeEncodeError`，�
 |---|---|
 | `knowledge/specs/` | ★ spec 库（`*.json` + `_index.json` + `README.md`） |
 | `knowledge/cases/` | ★ 检测案例库（指纹 + 报告摘要 + **人工裁定** + 教训），同族件自动召回 |
-| `knowledge/rules/` | ★ 规则阈值外置（`checker_rules.json`），改数字不改代码 |
+| `knowledge/rules/` | ★ 规则集真源（形态 / 参数 / 规则 / 出处 / 容差 / 版本），判定与派生都读它 |
 | `mcp_server/` | MCP 服务（tools / config / resources / prompts / server） |
 | `services/` | 业务源码（solver / builder / rule_checker / extracta / skillbridge / pdf / spec_library / case_library / json_utils / validation） |
 | `Tools/` | CLI 脚本（自检 / e2e / 启停 / 归集 / 归档） |

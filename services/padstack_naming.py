@@ -1,6 +1,6 @@
 """焊盘命名（纯函数，零 services 依赖）。
 
-从 geometry_solver 与 convention_engine 抽出（票 #20）：命名规则是「代码里的格式化
+从 geometry_solver 抽出（票 #20；旧 convention_engine 的命名逻辑一并迁入规则库）：命名规则是「代码里的格式化
 生成器」——模板在规则库数据里，格式化/反解在这里（ADR-0002 D6）。放在独立模块是
 为了让派生侧（padstack_derive）与求解器共用同一份实现，不产生 import 环。
 

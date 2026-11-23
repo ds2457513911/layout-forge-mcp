@@ -89,7 +89,7 @@ services/footprint_builder.py 编排层（顺序、依赖、单位换算、结�
 | `Tools/debug/` | 排障脚本（2026-10-09 从 layout-check-mcp 迁入）。★ 项目根是**上三级** | `Tools/debug/README.md` |
 | `knowledge/specs/` | ★ **spec 库**（2026-10-09 新增）：已解析器件的参数 JSON，同封装零读图复用 | `knowledge/specs/README.md` |
 | `knowledge/cases/` | ★ **检测案例库**（2026-10-12 新增）：指纹 + 报告摘要 + 人工裁定 + 教训，检查前 `find_case` 同族预警 | `knowledge/README.md` |
-| `knowledge/rules/` | ★ **规则阈值外置**（2026-10-12 新增）：`checker_rules.json`，改数字立即生效 | `knowledge/README.md` |
+| `knowledge/rules/` | ★ **规则集真源**（ADR-0002）：形态 / 参数 / 规则 / 出处 / 容差 / 版本，判定与派生都只读这一份；旧 `checker_rules.json` 冻结为历史出处 | `knowledge/rules/README.md` |
 | `knowledge/migrations/` | ★ **规则迁移映射表**（票 #19）：`rules_v1.json`，旧阈值/旧规则 → 新参数/新规则的唯一归属；人读版由 `Tools/render_migration_table.py` 生成 | `knowledge/migrations/README.md` |
 | `docs/` | ★ **作业流程 SOP** + 调研与攻坚清单（决策依据都在这）；`边界契约.md` 是「哪类事实归哪一层」的唯一权威 | `docs/README.md` |
 | `Tools/deploy/` | ★ **一键部署**（新机器双击 `deploy.bat` 即可：装环境 / 注册 MCP / 装 Skill / 配 SkillBridge / 验收） | `Tools/deploy/README.md` |
@@ -643,7 +643,7 @@ python Tools/selfcheck_skill_syntax.py -v     # 顺便打印每条表达式
 python Tools/selfcheck_geometry.py            # 参数→几何求解器：239 项（含金标准逐值对拍 + 尺寸口径 + 视图防线）
 ```
 
-`selfcheck_geometry.py` 的基准全部可追溯：[规范] 建库规范 xlsx、[规则] `DEFAULT_RULES`、
+`selfcheck_geometry.py` 的基准全部可追溯：[规范] 建库规范 xlsx、[规则] `services/rule_checker.py::load_rules()`（读 `knowledge/rules/tolerances.json`）、
 [金标] `Tools\log\checklist_report_*.json` 实测值、[规格] 规格书 p5。
 改求解器后**必须跑它** —— 它会挡住这三类曾真实发生过的回归：
 "Place_Bound 按焊盘算""丝印按本体算""pin 编号方向反了"。

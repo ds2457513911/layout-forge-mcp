@@ -23,7 +23,7 @@
 | 聚合 | `Tools/mine_conventions.py --reaggregate`（调语法/阈值后秒级重算，不必重跑收割） | `knowledge/conventions.json`（带支持度）+ `docs/conventions_report.md` |
 | 列守卫 | 聚合时对归档 dump 做 27 列全普查（2026-10-13 起） | "未消费且未豁免"的非空列显名进报告——新字段/schema 漂移必须人工裁定，不可能静默丢失 |
 | 裁定 | 支持度不收敛的参数分组裁定（环宽 0.3 标准/0.2 紧凑、NP 豁免、命名变体） | 裁定写进 miner 的 `ADJUDICATED` 常量 + `save_case` 案例 |
-| 接线 | builder `convention_engine.apply_conventions` 派生 / checker 2.7-2.10 校验 / 出厂自检 `verify_built_footprint` | 一份约定三处消费（drillChar 例外：设计级钻头表字符，report-only 不强制） |
+| 接线 | 派生侧 `padstack_derive.derive_padstacks` / 判定侧 checker 2.7-2.10（经 `rule_engine` 读规则库）/ 出厂自检 `footprint_selfcheck.verify_built_footprint` | 数字只存在 `knowledge/rules/` 一处，判定与派生同源（drillChar 例外：设计级钻头表字符，report-only 不强制） |
 
 ### C1 数值对拍漏斗（严格按层推进，不得跳层）
 
@@ -50,7 +50,7 @@
 ### C3 第 2 层裁定纪律
 
 1. **先分"机器可修"与"惯例类"**：
-   - 机器可修（改 `rule_checker.py` / `checker_rules.json`）：规则逻辑错、
+   - 机器可修（改 `rule_checker.py` / `knowledge/rules/` 的参数与容差）：规则逻辑错、
      缺 NA 口径（如 chip/≤3 脚无丝印→NA、npth/pth 机械件无 assembly→NA、
      place_bound 零面积点→NA）、阈值需容差。
    - 惯例类（不改代码，写案例）：库历史命名/命名不编码 etch/外扩离散等，

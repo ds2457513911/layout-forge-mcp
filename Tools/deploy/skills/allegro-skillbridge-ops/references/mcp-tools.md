@@ -118,8 +118,9 @@ exact/family/keyword 三档）——把案例里的 `lessons` / `findings` 作�
 findings 每条 {"rule_id","issue","verdict":"false_positive|true_positive|needs_human","reason"}，
 lessons 写教训。**裁定一次、全族受益**。真源 `knowledge/cases/`。
 
-规则阈值外置 `knowledge/rules/checker_rules.json`：改数字立即生效（不用重启 MCP），
-判定逻辑仍在 `rule_checker.py`。
+规则阈值与构造约定收在 `knowledge/rules/`（`parameters.json` / `rules.json` / `tolerances.json`）：
+改数字立即生效（不用重启 MCP），判定与派生共用这一份；旧 `checker_rules.json` 与
+`conventions.json` 只作历史出处，无代码读取。
 
 ## 读规格书的工具（2026-10-13 起，2026-11-19 扩到六件）
 

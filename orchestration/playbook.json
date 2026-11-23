@@ -17,7 +17,7 @@
     "invariants": [
       "每条规则必须同时有 detect 与 consequence，缺一不许进表",
       "与 knowledge/cases 用 rule_id 互指，不复制内容",
-      "不引用自检项号：两个自检脚本没有稳定项号，机器可读的只有总数（239/222/35）"
+      "不引用自检项号：两个自检脚本没有稳定项号，机器可读的只有总数（239/222/42）"
     ],
     "generated_by": "cache/scratch/build_playbook.py（ast 抽取 _item 调用点）+ 人工核对后果类别"
   },
@@ -330,7 +330,7 @@
         {
           "line": 740,
           "status": "WARN",
-          "rule": "convention_engine 异常，规则跳过"
+          "rule": "规则库不可用，规则跳过"
         },
         {
           "line": 752,

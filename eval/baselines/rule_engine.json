@@ -3,7 +3,7 @@
   "frozen_at": "2026-11-20",
   "frozen_from": "HEAD:services/rule_checker.py（改造前的 2.2）+ knowledge/rules/checker_rules.json",
   "corpus": "C:\\Users\\ds245\\Documents\\Work_Bmorn\\Layout\\Data\\PCB_Footprint",
-  "legacy_rules_sha256": "d56eccdef14c6043ca833b2a535b54ff1792f76606b65817fedcc53686b79844",
+  "legacy_rules_sha256": "425b029b78b6e57afd7d42ac87346f8c2a2e716094e36eb0a3523553971b3c3e",
   "note": "fixtures 里的 pins 是真实 .dra 的紧凑读数（只留 ETCH/TOP + 阻焊 + DRILL 尺寸）；status22 是改造前旧代码在同一份夹具上跑出的原话，形态归属按 DRILL 孔形独立映射。",
   "fixtures": [
     {

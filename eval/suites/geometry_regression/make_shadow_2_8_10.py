@@ -82,7 +82,7 @@ def main(argv=None):
                 errors_detail.append({"file": p.name, "stage": "extracta",
                                       "reason": data["error"]})
             else:
-                new = compact(RC.check_pad_size(data, None, RC.DEFAULT_RULES))
+                new = compact(RC.check_pad_size(data, None, RC.load_rules()))
                 row["new"] = new
                 old_row = old_rows.get(p.name) or {}
                 if "error" in old_row:

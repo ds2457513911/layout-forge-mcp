@@ -1,6 +1,6 @@
 # knowledge/rules/ —— 封装规则集（唯一真源）
 
-> 建立：2026-10-12 ｜ 最后更新：2026-11-23（票 #20：派生侧接入——规则里可写 `derive`，引擎正向产出 padstack 的层集/各层尺寸/命名/旋转，逐值带决策记录，无派生规则报 SKIP；求解器不再内联阻焊/钢网/命名的约定值。票 #18：2.8/2.9/2.10 三条判定也迁到本目录；命名走尺寸反推，环宽有 warn 带，规则可声明 report_id / exempt。票 #21：规则集版本 + 覆盖率进报告；票 #19：三形态收成一个参数组）
+> 建立：2026-10-12 ｜ 最后更新：2026-11-23（票 #22：旧阈值文件收编为 `tolerances.json`、旧判定开关与 `convention_engine` 删除、检查与建封装只读本库；票 #20：派生侧接入——规则里可写 `derive`，引擎正向产出 padstack 的层集/各层尺寸/命名/旋转，逐值带决策记录，无派生规则报 SKIP；求解器不再内联阻焊/钢网/命名的约定值。票 #18：2.8/2.9/2.10 三条判定也迁到本目录；命名走尺寸反推，环宽有 warn 带，规则可声明 report_id / exempt。票 #21：规则集版本 + 覆盖率进报告；票 #19：三形态收成一个参数组）
 > 维护者：`services/rule_engine.py`（加载 + 判定入口）
 
 ## 这个目录是什么
@@ -53,15 +53,16 @@ finding 里带 `rule_set_hash` 与 `rule_set_version`，报告首屏同时打印
 - 判定/派生的三态：`PASS` / 违反（状态由 severity 映射给出）/ `SKIP`；
   SKIP 必须写明缺什么（`缺 form：` / `缺参数：` / `缺规则：` / `输入 UNKNOWN：`），不许拿 SKIP 冒充通过。
 
-## 与 `conventions.json` 的分工
+## 与 `conventions.json` 的关系（票 #22 收口）
 
-| | `rules/` 四类库 | `../conventions.json` |
+| | `rules/` 四类库 + `tolerances.json` | `../conventions.json` |
 |--|--|--|
-| 内容 | 判定规则（形态怎么切、参数多少、违反算什么） | **构造约定**的裁定值（TH 环宽/钢网/命名语法/drill figure，带支持度） |
+| 角色 | **运行时唯一真源**：形态怎么切、参数多少、违反算什么、判定容差多少 | 挖掘与裁定的**历史来源**（TH 环宽/钢网/命名语法/drill figure，带支持度） |
 | 来源 | ADR-0002 + 253 件金标准对拍 + 裁定记录 | 2026-10-13 第 0 层挖掘 + 裁定 |
-| 消费 | `rule_engine` 两侧：判定（assert）→ `rule_checker` 2.2/2.8/2.9/2.10；派生（derive）→ `padstack_derive`（建封装前产出 padstack 计划）+ `geometry_solver`（中间态取阻焊/钢网值） | `convention_engine`（出厂自检 + 口径注释）；2.8/2.9/2.10 的检查路径已改走 `rules/`，旧函数只在回滚开关下使用；票 #20 起 `padstack_derive` 不再从它取数 |
+| 消费 | 判定（assert）→ `rule_checker`；派生（derive）→ `padstack_derive`；中间态取阻焊/钢网值 → `geometry_solver` | **无运行时消费方**（票 #22 删除 `convention_engine` 后逐键核对源码） |
 
-TH 构造类数值仍以 `conventions.json` 为准；四类库里凡引用它的参数把 `SRC-CONV-ADJUDICATED` 记在 `source` 上——**同一份约定不许有两个数字**。
+四类库里凡源自旧裁定的参数把 `SRC-CONV-ADJUDICATED` 记在 `source` 上——**同一份约定只留一个数字**：
+数字进了 `rules/`，`conventions.json` 只保留出处与支持度，改数只改 `rules/`。
 
 ### 阻焊外扩已收成一条参数（票 #19）
 
@@ -74,13 +75,13 @@ TH 构造类数值仍以 `conventions.json` 为准；四类库里凡引用它的
 
 | 字段 | 回答什么 | 谁在消费 |
 |--|--|--|
-| `value` | 挖掘时语料里**最常见的取值**（展示与 `support` 的口径） | 覆盖率报告、`convention_engine.th_oblong_params()` 的兼容视图、R6.11 |
+| `value` | 挖掘时语料里**最常见的取值**（展示与 `support` 的口径） | 覆盖率报告、R6.11 |
 | `derive_value` | **建库时该乘进去的单值**；缺省回落 `value` | 派生侧（`rule_engine.resolve_derive`）与求解器的中间态（`geometry_solver.mask_expand_for_spec`） |
 
 SMD 的 0.08 是语料典型值、0.05 是建库口径——改造前已建封装按 0.05 建，票 #20 的验收要求「派生输出与改造前逐字段相等」，
 所以派生侧取 `derive_value`（0.05），`value` 保持 0.08 不动。**改前先确认改的是哪一个**：改 `value` 只影响展示/兼容视图，改 `derive_value` 才改派生尺寸。
 
-`conventions.json` 的 `adjudicated.th_oblong_plated.mask_expand_side_mm` 只作为出处记录保留，代码不再从它取值。
+`conventions.json` 的 `adjudicated.th_oblong_plated.mask_expand_side_mm` 只作为出处记录保留；票 #22 起**整个文件无代码读取**。
 `geometry_solver.solve_padstack()` 的 `sm` 已改由 `mask_expand_for_spec()` 从本库取（按读数判形态 → `resolve_parameter`），
 不再是 `rules["pad"]["soldermask_expand_mm"]` 的旧字面；`rules` 参数保留只为兼容历史调用方。
 
@@ -128,18 +129,29 @@ SMD 的 0.08 是语料典型值、0.05 是建库口径——改造前已建封�
 `direction: assert`，只有 assert 侧（没有派生规则）的规则才标方向。
 
 **输入 UNKNOWN 一律 SKIP**：judge 缺观测时返回 `SKIP`，检查器把该条记成 `NA`，
-不判 PASS。回滚演练：设 `LAYOUT_FORGE_LEGACY_JUDGE=1`，或撤掉本票新增的 5 条规则
-（检查器检测到迁移规则缺失）时，改走 `services/legacy_judge.py`（内部调用旧
-`convention_engine` 函数），同一输入状态一致；该适配器在票 #22 删除。253 件影子基线在
-`eval/baselines/shadow_2_8_10_253.json`，旧侧 `(id,status)` 在
-`eval/baselines/shadow_2_8_10_old_d87e172.json`，重跑用
-`eval/suites/geometry_regression/make_shadow_2_8_10.py`。
+不判 PASS。票 #22 起**没有旧判定回退路径**（`LAYOUT_FORGE_LEGACY_JUDGE` 与
+`services/legacy_judge.py` 已删除）：规则缺了只能 SKIP，绝不 PASS。
 
-## `checker_rules.json`（已冻结）
+影子闸门有两层，差异必须为 0：
+- 判定平移（票 #18）：`eval/baselines/shadow_2_8_10_253.json`，旧侧 `(id,status)` 在
+  `eval/baselines/shadow_2_8_10_old_d87e172.json`，重跑用 `make_shadow_2_8_10.py`；
+- **全量**（票 #22）：`eval/baselines/shadow_full_253.json` 存整份 `items` 的
+  `(id,status)` 序列，旧侧 `shadow_full_253_old_fa92057.json`，重跑用
+  `make_shadow_full_253.py --baseline <旧快照>`；`check_rule_shift.py` R7.9 守它。
+  253 件里 235 件可比差异 0；18 件 extracta 不可读（`errors_detail` 逐条写原因，
+  属既有语料缺陷，不计入 judged）。R7.9 还会用当前代码实跑一遍再比。
 
-2026-11-20 起只读：它是迁移期旧阈值文件。2.2 阻焊外扩与 2.8/2.9/2.10 已改由四类库判定，
-其余规则的数字阈值暂时仍从这里读。**不许再往里加键**；新规则一律进四类库。
-文件哈希记录在 `eval/baselines/rule_engine.json` 的 `legacy_rules_sha256`（R6 会比对）。
+## `checker_rules.json`（历史出处，无代码读取）
+
+票 #22 起它是纯历史文件：24 个叶子键里 19 个有消费方的收编进 `tolerances.json`（
+`TOL-*`，逐值相同），3 个阻焊键由 `PARAM-MASK-EXPAND` 接管，`pad.min_spacing_mm`
+无消费方。**运行时代码（`services/`、`mcp_server/`）不再打开它**（R6.6 用 AST 断言
+open/Path/read 调用），也不许再往里加键。文件 sha256 记录在 `eval/baselines/rule_engine.json`
+的 `legacy_rules_sha256`（R6 比对当前锚点；票 #22 只改 `_meta` 标注冻结，24 个阈值数值一个未改，其中 4 处文本形态规范化为最小写法 `0.2` / `0.1`，数值相等）。
+
+容差表 `tolerances.json` 的形状：`{id: TOL-<SECTION>-<KEY>, section, key, value, kind, source, since}`，
+加载后摊成 `{section: {key: value}}`（与旧文件同形），消费方通过 `rule_checker.load_rules()` 取用。
+改阈值 = 改 `tolerances.json` + 跑 R6/R7；**不再有「改数字不改代码」的第二个入口**。唯一留在代码里的判定常量是 5.2 的覆盖容差 `_COVERAGE_TOLERANCE_MM = 0.1`——旧阈值表没有这个键，票 #22 不凭空新增容差条目，故按构造常量保留并登记在迁移台账 `DEC-22-06`。
 
 ## 迁移映射表（票 #19）
 
@@ -154,8 +166,8 @@ SMD 的 0.08 是语料典型值、0.05 是建库口径——改造前已建封�
 - 回滚配方：JSON 顶层的 `rollback_recipe` 可执行——把 `PARAM-MASK-EXPAND` 反向展开回三个扁平参数并把
   `RULE-MASK-EXPAND.use` 改回旧 id。R6.14 会真跑一遍，确认回滚后三形态视图与合并库逐字段相等、
   基线夹具的 2.2 状态逐件相同。票 #20 的两条 `RULE-DERIVE-*` 也引用这个合并参数，**回滚时必须一并删除**
-  （配方里已登记；否则参数展开后规则指向不存在的参数，整库被拒）。代码侧配套步骤
-  （convention_engine 回读 `conventions.json`）不在配方里，
+  （配方里已登记；否则参数展开后规则指向不存在的参数，整库被拒）。派生侧配套步骤
+  （`padstack_derive` 读派生值）不在配方里，
   完整回滚 = 执行配方 + `git revert` 票 #19 / #20 的提交，写在该条 `note` 里。
 
 ## 加一个对象的手续

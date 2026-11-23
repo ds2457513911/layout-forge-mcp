@@ -18,7 +18,7 @@
       "id": "SRC-LEGACY-RULES",
       "kind": "config",
       "ref": "knowledge/rules/checker_rules.json",
-      "note": "旧阈值文件（冻结只读）：soldermask_expand_typical/min/max 三个值"
+      "note": "旧阈值文件（冻结只读，票 #22 后无代码读取）：24 个叶子键里 19 个判定容差已收编进 tolerances.json；3 个阻焊单边键由 PARAM-MASK-EXPAND 接管；pad.min_spacing_mm 与 assembly.size_tolerance_mm 无消费方。文件本身只作历史出处与 sha256 锚点。"
     },
     {
       "id": "SRC-ADR-0002",

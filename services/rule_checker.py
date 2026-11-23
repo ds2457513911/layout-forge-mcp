@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-rule_checker.py —— 基于 Excel 规范的数值规则检查 (v9)
+rule_checker.py —— 基于 Excel 规范的数值规则检查 (v10)
+
+v10 改动（票 #22）：判定容差改由 knowledge/rules/tolerances.json 提供
+（load_rules()），删除内置 DEFAULT_RULES 与旧 checker_rules.json 读取路径——
+一个数字只有一个出处；库坏即拒绝检查，不再静默回退内置默认。
 
 v9 改动（本次）：
   - 2.1 焊盘尺寸一致性：value 改为 dict，含 padstack 命名值 vs 实测值
@@ -26,71 +30,64 @@ from __future__ import annotations
 import json
 import logging
 import math
-import os
 import re
 from typing import Any, Dict, List, Optional
 
-from services import paths as P
 from services import rule_engine
 
 logger = logging.getLogger("layout-forge")
 
 
-DEFAULT_RULES: Dict[str, Any] = {
-    "naming": {
-        "prefix": "NB_",
-        "prefix_case_sensitive": True,
-        "no_dot": True,
-    },
-    "pad": {
-        "size_tolerance_mm": 0.05,
-        "min_spacing_mm": 0.20,
-        "soldermask_expand_typical_mm": 0.08,
-        "soldermask_expand_min_mm": 0.05,
-        "soldermask_expand_max_mm": 0.13,
-        "pastemask_equal_pad": True,
-        "overlap_tolerance_mm2": 0.05,
-    },
-    "origin": {
-        "center_tolerance_mm": 0.5,          # IC / chip 类（2026-10-12 金标准校准）
-        "connector_tolerance_mm": 20.0,      # 连接器（允许大幅偏移）
-    },
-    "place_bound": {
-        "ic_expand_mm": 0.35,
-        "chip_expand_mm": 0.15,
-        "connector_expand_mm": 0.85,
-        "expand_tolerance_mm": 0.05,
-        # 宽松判定用范围（找不到类型时兜底）
-        "min_expand_mm": 0.05,
-        "max_expand_mm": 3.0,
-        # 外框退化守卫（2026-10-12 金标准对拍实锤：Assembly 外框识别
-        # 退化时外扩可达 10mm+，必须转 NA 而不是 WARN/FAIL）
-        "degenerate_outline_mm": 1.0,
-        "max_plausible_expand_mm": 3.0,
-    },
-    "silkscreen": {
-        "line_width_min_mm": 0.10,
-        "to_pad_clearance_mm": 0.20,
-        "overlap_inset_mm": 0.10,            # 端点须深入焊盘 >0.1mm 才算真重叠
-    },
-    "assembly": {
-        "size_tolerance_mm": 0.05,
-    },
-}
-
-
 # ============================================================
-# 规则参数外置（knowledge/rules/checker_rules.json）
+# 判定容差（票 #22：真源是 knowledge/rules/tolerances.json）
 # ============================================================
-#: ★ 阈值类参数的外置真源（2026-10-12 起）。只放**数字/开关**，
-#:   规则的判定逻辑（怎么比、比什么）仍在代码里 —— 改逻辑必须改代码。
-RULES_JSON = os.path.join(P.PROJECT_ROOT, "knowledge", "rules", "checker_rules.json")
+#: 判定代码会直接取用的容差键 —— 缺一件就拒绝检查（见 load_rules）。
+#: 这份清单是「判定逻辑依赖哪些数字」的登记；numbers 仍只写在 tolerances.json。
+_REQUIRED_TOLERANCES = (
+    ("naming", "prefix"), ("naming", "prefix_case_sensitive"), ("naming", "no_dot"),
+    ("pad", "size_tolerance_mm"), ("pad", "pastemask_equal_pad"),
+    ("pad", "overlap_tolerance_mm2"),
+    ("origin", "center_tolerance_mm"), ("origin", "connector_tolerance_mm"),
+    ("place_bound", "ic_expand_mm"), ("place_bound", "chip_expand_mm"),
+    ("place_bound", "connector_expand_mm"), ("place_bound", "expand_tolerance_mm"),
+    ("place_bound", "min_expand_mm"), ("place_bound", "max_expand_mm"),
+    ("place_bound", "degenerate_outline_mm"), ("place_bound", "max_plausible_expand_mm"),
+    ("silkscreen", "line_width_min_mm"), ("silkscreen", "to_pad_clearance_mm"),
+    ("silkscreen", "overlap_inset_mm"),
+)
 
 
-def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
-    """递归合并：override 里的标量/新键覆盖 base，嵌套 dict 继续下钻。"""
+#: 5.2 的覆盖容差：旧阈值文件里没有这个键，票 #22 不凭空新增容差条目，
+#: 因此它是代码里的构造常量（不是可调阈值）；改动走代码评审。
+_COVERAGE_TOLERANCE_MM = 0.1
+
+
+def load_rules() -> Dict[str, Any]:
+    """
+    读规则库的判定容差，返回旧形状的嵌套 dict：{section: {key: value}}。
+
+    ★ 每次检查现读（库只有几 KB，代价可忽略）——改 JSON 立即生效，
+      不用重启 MCP。
+    ★ 规则库坏了就抛 rule_engine.RuleLibraryError（不再回退内置默认）：
+      宁可拒绝出检查结论，也不能拿一份与真源不一致的数字判封装。
+
+    改容差 = 改 knowledge/rules/tolerances.json 的 TOL-* 条目；
+    本文件只放判定逻辑（怎么比），不放数字。
+    """
+    m = rule_engine.load_library().tolerances_map
+    missing = [f"{sec}.{key}" for sec, key in _REQUIRED_TOLERANCES
+               if key not in (m.get(sec) or {})]
+    if missing:
+        raise rule_engine.RuleLibraryError(
+            "规则库缺少判定容差：" + "、".join(missing)
+            + "（补进 knowledge/rules/tolerances.json；缺一件都不判，绝不回退内置默认）")
+    return m
+
+
+def _deep_merge(base: Dict[str, Any], over: Dict[str, Any]) -> Dict[str, Any]:
+    """把 over 深合并到 base，返回新 dict（不修改入参）。"""
     out = dict(base)
-    for k, v in (override or {}).items():
+    for k, v in (over or {}).items():
         if isinstance(v, dict) and isinstance(out.get(k), dict):
             out[k] = _deep_merge(out[k], v)
         else:
@@ -98,30 +95,15 @@ def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any
     return out
 
 
-def load_external_rules(path: Optional[str] = None) -> Dict[str, Any]:
+def resolve_rules(rules: Optional[Dict] = None) -> Dict[str, Any]:
     """
-    读外置规则 JSON（深合并到 DEFAULT_RULES）。
+    判定用容差表：规则库全量 ⊕ 调用方覆盖（旧 custom_rules 语义）。
 
-    ★ 每次 check 都现读（几 KB 的文件，代价可忽略）——
-      改 JSON **立即生效，不用重启 MCP**。
-
-    :return: 合并后的完整规则 dict；文件缺失 / JSON 损坏 → 原样返回 DEFAULT_RULES
-             （★ 宁可用内置默认也不带病运行，损坏原因会打日志）
+    ★ 调用方只写想改的键即可（如 {"pad": {"size_tolerance_mm": 0.1}}），
+      未给的键沿用规则库当前值；不再要求传整份表。
+    ★ 规则库坏/缺必需键仍由 load_rules() 抛 RuleLibraryError。
     """
-    p = os.path.abspath(path or RULES_JSON)
-    if not os.path.isfile(p):
-        return dict(DEFAULT_RULES)
-    try:
-        with open(p, encoding="utf-8") as f:
-            data = json.load(f)
-    except (OSError, json.JSONDecodeError) as e:
-        logger.warning("外置规则读取失败，回退内置默认：%s（%s）", p, e)
-        return dict(DEFAULT_RULES)
-    if not isinstance(data, dict):
-        logger.warning("外置规则顶层不是 dict，回退内置默认：%s", p)
-        return dict(DEFAULT_RULES)
-    data.pop("_meta", None)  # 注释性元数据不参与合并
-    return _deep_merge(DEFAULT_RULES, data)
+    return _deep_merge(load_rules(), rules or {})
 
 
 # ============================================================
@@ -373,10 +355,10 @@ def _item(
 def check_naming(data: Dict, rules: Dict) -> List[Dict]:
     items = []
     name = data.get("symbol_name", "")
-    cfg = rules.get("naming", {})
+    cfg = rules["naming"]
 
-    prefix = cfg.get("prefix", "NB_")
-    case_sensitive = cfg.get("prefix_case_sensitive", True)
+    prefix = cfg["prefix"]
+    case_sensitive = cfg["prefix_case_sensitive"]
 
     if case_sensitive:
         has_prefix = name.startswith(prefix)
@@ -408,7 +390,7 @@ def check_naming(data: Dict, rules: Dict) -> List[Dict]:
         source="default",
     ))
 
-    if cfg.get("no_dot", True):
+    if cfg["no_dot"]:
         has_dot = "." in name
         items.append(_item(
             "1.2", "小数点用 d 代替",
@@ -629,10 +611,15 @@ def _finding_item(rid: str, title: str, findings: List[Dict[str, Any]],
     return item
 
 
-def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List[Dict]:
+def check_pad_size(
+    data: Dict,
+    theoretical: Optional[Dict],
+    rules: Optional[Dict] = None,
+) -> List[Dict]:
+    rules = resolve_rules(rules)
     items = []
-    cfg = rules.get("pad", {})
-    tol = cfg.get("size_tolerance_mm", 0.05)
+    cfg = rules["pad"]
+    tol = cfg["size_tolerance_mm"]
 
     pins = data.get("pins", [])
     if not pins:
@@ -811,7 +798,7 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
         })
 
     # ---------- 2.3 钢网与焊盘等大 ----------
-    if cfg.get("pastemask_equal_pad", True):
+    if cfg["pastemask_equal_pad"]:
         pt_ok = True
         pt_detail = []
         sample_pad_dim = None
@@ -962,92 +949,71 @@ def check_pad_size(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List
         # ---- 2.8 / 2.9 / 2.10 构造约定符合性（票 #18：判定平移）----
         # 2.8 环宽 / 2.9 padstack 命名 / 2.10 钢网策略全部由 knowledge/rules
         # 驱动；历史报告编号由规则的 report_id 映射回 2.8/2.9/2.10。
-        _migrated = ("RULE-ANNULAR-RING", "RULE-PADSTACK-NAMING",
-                     "RULE-PASTE-TOP-PRESENT", "RULE-PASTE-TOP-EQ-PAD",
-                     "RULE-PASTE-BOTTOM-ABSENT")
-        _missing_migrated = [r for r in _migrated if r not in lib.rules_by_id]
-        if os.environ.get("LAYOUT_FORGE_LEGACY_JUDGE") == "1" or _missing_migrated:
-            # 回滚：显式开关，或「撤掉新库」后规则缺失，走旧约定适配器。
-            # 默认完整库路径不 import 旧判定；只在本票迁移的 5 条规则不全时触发，
-            # 不会掩盖其他坏库（坏库加载即抛）。
-            from services.legacy_judge import evaluate_conventions
-            legacy_items, legacy_27 = evaluate_conventions(pins)
-            items.extend(legacy_items)
-            if legacy_27:
-                items.append(_item(
-                    "2.7", "TH 钻孔 holeType", "FAIL",
-                    value=f"{len(legacy_27)} 处违反约定",
-                    rule="oblong 槽孔必须 OVAL_SLOT（'OBLONG_DRILL 非法，静默回落 "
-                         "CIRCLE_DRILL → Editor 显示 Thru Pin）",
-                    detail=" | ".join(legacy_27[:3]),
-                    expected="holeType=OVAL SLOT", source="default",
-                ))
-        else:
-            conv: Dict[str, List[Dict[str, Any]]] = {"2.8": [], "2.9": [], "2.10": []}
-            _27_fails: List[str] = []
-            for _pin in pins:
-                _subj = _pin_rule_subject(_pin)
-                _form = rule_engine.match_form(lib, _subj)
-                _fid = _form.get("id") if _form else None
-                _pin_name = str(_pin.get("name") or "")
-                # 旧约定引擎在 2.7 硬失败（孔零 / holeType 错）时
-                # 提前 return，环宽与钢网都不判；这里保留同一短路口径，避免
-                # 把「无法判」变成 PASS/NA 之外的新状态。
-                _violations = _th_oblong_violations(_pin)
-                _27_fails.extend(
-                    f"pin{_pin.get('number')}: {m}" for m in _violations)
-                if _fid == "FORM-MASK-TH-OBLONG" and not _violations:
-                    # 观测拿不到时仍调 judge：缺键必须落成 SKIP，不许当成 PASS。
-                    _ring = _ring_observed(_pin) or {}
-                    conv["2.8"].append(rule_engine.judge(
-                        lib, "RULE-ANNULAR-RING", _subj, _ring))
-                    # NP 的豁免由规则库 exempt 数据决定；检查器不再硬编码跳过，
-                    # 否则规则库只驱动了一半。
-                    _top = _paste_side(_pin, "TOP")
+        conv: Dict[str, List[Dict[str, Any]]] = {"2.8": [], "2.9": [], "2.10": []}
+        _27_fails: List[str] = []
+        for _pin in pins:
+            _subj = _pin_rule_subject(_pin)
+            _form = rule_engine.match_form(lib, _subj)
+            _fid = _form.get("id") if _form else None
+            _pin_name = str(_pin.get("name") or "")
+            # 旧约定引擎在 2.7 硬失败（孔零 / holeType 错）时
+            # 提前 return，环宽与钢网都不判；这里保留同一短路口径，避免
+            # 把「无法判」变成 PASS/NA 之外的新状态。
+            _violations = _th_oblong_violations(_pin)
+            _27_fails.extend(
+                f"pin{_pin.get('number')}: {m}" for m in _violations)
+            if _fid == "FORM-MASK-TH-OBLONG" and not _violations:
+                # 观测拿不到时仍调 judge：缺键必须落成 SKIP，不许当成 PASS。
+                _ring = _ring_observed(_pin) or {}
+                conv["2.8"].append(rule_engine.judge(
+                    lib, "RULE-ANNULAR-RING", _subj, _ring))
+                # NP 的豁免由规则库 exempt 数据决定；检查器不再硬编码跳过，
+                # 否则规则库只驱动了一半。
+                _top = _paste_side(_pin, "TOP")
+                conv["2.10"].append(rule_engine.judge(
+                    lib, "RULE-PASTE-TOP-PRESENT", _subj,
+                    {"paste_top_present": 1 if _top else 0}))
+                if _top is not None:
+                    _etch = _get_etch_pad(_pin) or {}
+                    _ts = _top.get("size") or [0, 0]
+                    _es = _etch.get("size") or [0, 0]
                     conv["2.10"].append(rule_engine.judge(
-                        lib, "RULE-PASTE-TOP-PRESENT", _subj,
-                        {"paste_top_present": 1 if _top else 0}))
-                    if _top is not None:
-                        _etch = _get_etch_pad(_pin) or {}
-                        _ts = _top.get("size") or [0, 0]
-                        _es = _etch.get("size") or [0, 0]
-                        conv["2.10"].append(rule_engine.judge(
-                            lib, "RULE-PASTE-TOP-EQ-PAD", _subj,
-                            {"paste_top_dx": abs(_ts[0] - _es[0]),
-                             "paste_top_dy": abs(_ts[1] - _es[1])}))
-                    _bot = _paste_side(_pin, "BOTTOM")
-                    conv["2.10"].append(rule_engine.judge(
-                        lib, "RULE-PASTE-BOTTOM-ABSENT", _subj,
-                        {"paste_bottom_present": 1 if _bot else 0}))
-                # 旧 2.9 只查 figure_name 能认出的长圆/圆孔；空名/空 figure_name
-                # 的件旧路径直接放行，这里保留同一口径（hole_type 仍用于选形态）。
-                _fig = str((_get_pad_by_layer(_pin, "DRILL") or {}).get("figure_name") or "").upper()
-                if (_pin_name.strip()
-                        and _fid in ("FORM-MASK-TH-OBLONG", "FORM-MASK-TH-CIRCLE")
-                        and ("OBLONG" in _fig or "CIRCLE" in _fig)):
-                    _nobs = _naming_observed(_pin, _fid) or {}
-                    conv["2.9"].append(rule_engine.judge(
-                        lib, "RULE-PADSTACK-NAMING", _subj, _nobs))
+                        lib, "RULE-PASTE-TOP-EQ-PAD", _subj,
+                        {"paste_top_dx": abs(_ts[0] - _es[0]),
+                         "paste_top_dy": abs(_ts[1] - _es[1])}))
+                _bot = _paste_side(_pin, "BOTTOM")
+                conv["2.10"].append(rule_engine.judge(
+                    lib, "RULE-PASTE-BOTTOM-ABSENT", _subj,
+                    {"paste_bottom_present": 1 if _bot else 0}))
+            # 旧 2.9 只查 figure_name 能认出的长圆/圆孔；空名/空 figure_name
+            # 的件旧路径直接放行，这里保留同一口径（hole_type 仍用于选形态）。
+            _fig = str((_get_pad_by_layer(_pin, "DRILL") or {}).get("figure_name") or "").upper()
+            if (_pin_name.strip()
+                    and _fid in ("FORM-MASK-TH-OBLONG", "FORM-MASK-TH-CIRCLE")
+                    and ("OBLONG" in _fig or "CIRCLE" in _fig)):
+                _nobs = _naming_observed(_pin, _fid) or {}
+                conv["2.9"].append(rule_engine.judge(
+                    lib, "RULE-PADSTACK-NAMING", _subj, _nobs))
 
-            items.append(_finding_item(
-                "2.8", "TH 环宽约定", conv["2.8"], lib, ["RULE-ANNULAR-RING"]))
-            items.append(_finding_item(
-                "2.10", "TH 钢网策略", conv["2.10"], lib,
-                ["RULE-PASTE-TOP-PRESENT", "RULE-PASTE-TOP-EQ-PAD",
-                 "RULE-PASTE-BOTTOM-ABSENT"]))
+        items.append(_finding_item(
+            "2.8", "TH 环宽约定", conv["2.8"], lib, ["RULE-ANNULAR-RING"]))
+        items.append(_finding_item(
+            "2.10", "TH 钢网策略", conv["2.10"], lib,
+            ["RULE-PASTE-TOP-PRESENT", "RULE-PASTE-TOP-EQ-PAD",
+             "RULE-PASTE-BOTTOM-ABSENT"]))
 
-            if _27_fails:
-                items.append(_item(
-                    "2.7", "TH 钻孔 holeType", "FAIL",
-                    value=f"{len(_27_fails)} 处违反约定",
-                    rule="oblong 槽孔必须 OVAL_SLOT（'OBLONG_DRILL 非法，静默回落 "
-                         "CIRCLE_DRILL → Editor 显示 Thru Pin）",
-                    detail=" | ".join(_27_fails[:3]),
-                    expected="holeType=OVAL SLOT", source="default",
-                ))
-            items.append(_finding_item(
-                "2.9", "TH padstack 命名语法", conv["2.9"], lib,
-                ["RULE-PADSTACK-NAMING"]))
+        if _27_fails:
+            items.append(_item(
+                "2.7", "TH 钻孔 holeType", "FAIL",
+                value=f"{len(_27_fails)} 处违反约定",
+                rule="oblong 槽孔必须 OVAL_SLOT（'OBLONG_DRILL 非法，静默回落 "
+                     "CIRCLE_DRILL → Editor 显示 Thru Pin）",
+                detail=" | ".join(_27_fails[:3]),
+                expected="holeType=OVAL SLOT", source="default",
+            ))
+        items.append(_finding_item(
+            "2.9", "TH padstack 命名语法", conv["2.9"], lib,
+            ["RULE-PADSTACK-NAMING"]))
     else:
         items.append(_item(
             "2.7", "TH 焊盘层完整性", "NA",
@@ -1123,8 +1089,7 @@ def check_pitch(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List[Di
     # 3.3 焊盘不重叠：真实几何重叠检测
     # 2026-10-12 金标准校准：bbox 面积重叠 < overlap_tolerance_mm2 视为
     # 擦边（bbox 是保守矩形，相邻贴紧焊盘常互相 grazes），不算 FAIL
-    ov_tol = float(rules.get("pad", {}).get(
-        "overlap_tolerance_mm2", 0.05))
+    ov_tol = float(rules["pad"]["overlap_tolerance_mm2"])
     overlap_found = False
     overlap_detail = ""
     overlap_area = 0.0
@@ -1191,11 +1156,11 @@ def check_pitch(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List[Di
 
     # 3.4 原点居中（按元件类型区分容差）
     comp_type = _classify_component(data.get("symbol_name", ""))
-    origin_cfg = rules.get("origin", {})
+    origin_cfg = rules["origin"]
     if comp_type == "connector":
-        origin_tol = origin_cfg.get("connector_tolerance_mm", 20.0)
+        origin_tol = origin_cfg["connector_tolerance_mm"]
     else:
-        origin_tol = origin_cfg.get("center_tolerance_mm", 0.05)
+        origin_tol = origin_cfg["center_tolerance_mm"]
 
     center = None
     source_center = None
@@ -1258,7 +1223,7 @@ def check_pitch(data: Dict, theoretical: Optional[Dict], rules: Dict) -> List[Di
 # ============================================================
 def check_place_bound(data: Dict, rules: Dict) -> List[Dict]:
     items = []
-    cfg = rules.get("place_bound", {})
+    cfg = rules["place_bound"]
     layers = data.get("layers", {})
     pins = data.get("pins", [])
     asm = layers.get("assembly_top") or []
@@ -1310,7 +1275,7 @@ def check_place_bound(data: Dict, rules: Dict) -> List[Dict]:
     # 2026-10-12 金标准校准：金标准惯例允许 place_bound 比焊盘 bbox 小
     # ≤0.1mm（dfn1006 等「上方缺 0.05~0.08mm」成片假 FAIL），加容差：
     # 把 pins bbox 向内缩 cov_tol 后仍须被 pb 完全包含
-    cov_tol = float(cfg.get("coverage_tolerance_mm", 0.1))
+    cov_tol = _COVERAGE_TOLERANCE_MM
     contains = (
         pb_bbox[0][0] <= pins_bbox[0][0] + cov_tol and
         pb_bbox[0][1] <= pins_bbox[0][1] + cov_tol and
@@ -1371,7 +1336,7 @@ def check_place_bound(data: Dict, rules: Dict) -> List[Dict]:
     # ---------- ★ 退化外框守卫（2026-10-12 金标准对拍实锤） ----------
     # Assembly 外框识别退化（如 RJ45 识别成 0.5×0.5 的小元素）时，
     # 外扩会被算成 5~12mm 的鬼数 —— 转 NA，别拿它判 WARN/FAIL。
-    degenerate = float(cfg.get("degenerate_outline_mm", 1.0))
+    degenerate = float(cfg["degenerate_outline_mm"])
     if min(device_size[0], device_size[1]) < degenerate:
         items.append(_item(
             "5.2", "Place_Bound 外扩量",
@@ -1396,7 +1361,7 @@ def check_place_bound(data: Dict, rules: Dict) -> List[Dict]:
     expand_y = (pb_size[1] - device_size[1]) / 2
 
     # 外扩超出物理合理范围 → 大概率外框还是识别错了（宁可 NA 不误报）
-    max_plausible = float(cfg.get("max_plausible_expand_mm", 3.0))
+    max_plausible = float(cfg["max_plausible_expand_mm"])
     if (max(expand_x, expand_y) > max_plausible):
         items.append(_item(
             "5.2", "Place_Bound 外扩量",
@@ -1416,26 +1381,26 @@ def check_place_bound(data: Dict, rules: Dict) -> List[Dict]:
 
     # 按元件类型选规则
     comp_type = _classify_component(data.get("symbol_name", ""))
-    ic_tol = cfg.get("expand_tolerance_mm", 0.05)
+    ic_tol = cfg["expand_tolerance_mm"]
 
     if comp_type == "ic":
-        expected_val = cfg.get("ic_expand_mm", 0.35)
+        expected_val = cfg["ic_expand_mm"]
         ok = abs(expand_x - expected_val) <= ic_tol and abs(expand_y - expected_val) <= ic_tol
         rule_str = f"IC 类：相对器件本体单边外扩 {expected_val}mm ±{ic_tol}"
         expected_str = f"单边 {expected_val} ± {ic_tol}"
     elif comp_type == "chip":
-        expected_val = cfg.get("chip_expand_mm", 0.15)
+        expected_val = cfg["chip_expand_mm"]
         ok = abs(expand_x - expected_val) <= ic_tol and abs(expand_y - expected_val) <= ic_tol
         rule_str = f"Chip 类：相对器件本体单边外扩 {expected_val}mm ±{ic_tol}"
         expected_str = f"单边 {expected_val} ± {ic_tol}"
     elif comp_type == "connector":
-        expected_val = cfg.get("connector_expand_mm", 0.85)
+        expected_val = cfg["connector_expand_mm"]
         ok = 0.5 <= expand_x <= 2.5 and 0.5 <= expand_y <= 2.5
         rule_str = f"连接器：相对器件本体单边外扩 [0.5, 2.5]mm（推荐 {expected_val}）"
         expected_str = "单边 [0.5, 2.5]"
     else:
-        min_e = cfg.get("min_expand_mm", 0.05)
-        max_e = cfg.get("max_expand_mm", 3.0)
+        min_e = cfg["min_expand_mm"]
+        max_e = cfg["max_expand_mm"]
         ok = min_e <= expand_x <= max_e and min_e <= expand_y <= max_e
         rule_str = f"未知类型：外扩量在 [{min_e}, {max_e}]mm"
         expected_str = f"单边 [{min_e}, {max_e}]"
@@ -1547,7 +1512,7 @@ def check_silkscreen(data: Dict, rules: Dict) -> List[Dict]:
     silk = data.get("layers", {}).get("silkscreen_top") or []
     pins = data.get("pins", [])
     comp_type = _classify_component(data.get("symbol_name", ""))
-    inset = float(rules.get("silkscreen", {}).get("overlap_inset_mm", 0.10))
+    inset = float(rules["silkscreen"]["overlap_inset_mm"])
 
     # 6.4：chip 类（0201/0402 等无极性件）与 ≤3 脚小件（二极管/LED/DFN
     # 2L/SOT-23-3）金标准惯例不画丝印或丝印有无不一 → NA；其余保持 FAIL
@@ -1723,7 +1688,7 @@ def run_numeric_checks(
             "warned": [],
         }
 
-    rules = rules or load_external_rules()
+    rules = resolve_rules(rules)
 
     # 元件类型
     comp_type = _classify_component(footprint_data.get("symbol_name", ""))

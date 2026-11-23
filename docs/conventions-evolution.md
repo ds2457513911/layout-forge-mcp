@@ -7,12 +7,12 @@
 ## 这份文档管什么
 
 - 管**规则层** `knowledge/conventions.json` 的升级：从图纸事实到带支持度的构造约定。
-- 不管**参数层** `knowledge/specs/`（建完封装随手存档）、**经验层** `knowledge/cases/`（人工裁定沉淀）、**阈值层** `knowledge/rules/checker_rules.json`（手改即生效）。
+- 不管**参数层** `knowledge/specs/`（建完封装随手存档）、**经验层** `knowledge/cases/`（人工裁定沉淀）、**阈值层** `knowledge/rules/`（判定容差与参数，手改即生效）。
 - 三处真源分工：机器真源 `knowledge/conventions.json`；人读报告 `docs/conventions_report.md`（脚本生成，别手改）；逐件事实 `Tools/log/conventions_padstacks.json`（`--reaggregate` 可秒级重算）。
 
 ## 为什么不能「边用边学」
 
-1. **约定是建/检双向真源**：`apply_conventions`（正变换）与 checker 2.8/2.9/2.10（逆变换，票 #18 起经 `rule_engine` 读 `knowledge/rules/`）读同一份，改错两侧一起错。
+1. **约定是建/检双向真源**：`padstack_derive`（建封装侧派生）与 checker 2.8/2.9/2.10（检查侧判定）都读规则库 `knowledge/rules/`，改错两侧一起错；`conventions.json` 自票 #22 起只作出处记录。
 2. **单次运行只有一件料**（n=1）：现有约定靠 16~26 件支持度才成立，一件不能改约定。
 3. **自证循环**：把「检查通过」当成「约定正确」，就会把错误封装学成规则。
 4. **正在查的那件本身可能画错**：在线学等于让错误样本投票。
@@ -49,7 +49,7 @@
 
 ### 4 接线
 
-- 新键只有数字还不够，必须有人读它。消费点三处：`services/convention_engine.py`（builder 正变换、出厂自检 `verify_built_footprint`）、`services/rule_checker.py`（2.8/2.9/2.10 逆变换入口，票 #18 起转由 `rule_engine` + `knowledge/rules/` 判定）、回滚路径 `services/legacy_judge.py`。
+- 新键只有数字还不够，必须有人读它。消费点两处：`services/padstack_derive.py`（建封装前派生 padstack）、`services/rule_checker.py`（2.8/2.9/2.10 判定，经 `rule_engine` 读规则库；出厂自检在 `services/footprint_selfcheck.py`，会起 extracta）。票 #22 起**没有回滚路径**，旧模块已删除。
 - 在 `Tools/selfcheck_conventions.py` 的 `WIRING` 里登记「键 → 源码消费点正则」；暂时接不了的进 `KNOWN_UNWIRED` 显式欠账。
 - 不登记就是假学习：存了、没人用。
 

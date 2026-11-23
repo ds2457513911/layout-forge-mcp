@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """R7 · 判定侧其余三条平移 + 影子比对（票 #18）
 
-判据（R7.1–R7.8）：
+判据（R7.1–R7.9）：
 
   R7.1 规则库对象 —— 2.8/2.9/2.10 的规则、参数、severity 全部在
        knowledge/rules 里，规则带 report_id（历史编号映射），finding 带
@@ -19,8 +19,11 @@
   R7.7 253 件影子 —— eval/baselines/shadow_2_8_10_253.json 记录 253 件、
        逐件比 id+status 差异 0；rows/diffs/errors 交叉重算，影子哈希对应当前库；
        仓内生成器 eval/suites/geometry_regression/make_shadow_2_8_10.py 可重跑。
-  R7.8 回滚演练 —— 撤掉本票新增规则（或 LAYOUT_FORGE_LEGACY_JUDGE=1）时退回
-       旧路径，同一夹具的 2.8/2.9/2.10 状态与新路径一致。
+  R7.8 缺规则演练 —— 撤掉本票新增规则时 2.8/2.9/2.10 只能 NA（缺规则 SKIP），
+       绝不 PASS；完整库上至少一项非 NA（对拍，证明不是全空）。
+  R7.9 全量影子 —— eval/baselines/shadow_full_253.json：253 件跑整份 items 的
+       (id,status) 序列差异 0；18 件语料不可读逐条登记原因；仓里的生成器可重跑，
+       本条还会用当前代码实跑一遍；**缺语料直接红**（闸门的意义就是真跑，不降级）。
 
 跑法（项目根，离线、不需要 Allegro）：
   python eval/suites/geometry_regression/check_rule_shift.py
@@ -33,6 +36,7 @@ import copy
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -286,7 +290,7 @@ def check_checker_wiring(c: Checker) -> None:
     from services import rule_checker as RC
 
     payload = {"pins": [_th_pin()]}
-    items = RC.check_pad_size(payload, None, RC.DEFAULT_RULES)
+    items = RC.check_pad_size(payload, None, RC.load_rules())
     for rid in ("2.8", "2.9", "2.10"):
         it = _item(items, rid)
         c.check(it["status"] == "PASS", f"R7.5 检查器 {rid} PASS",
@@ -299,23 +303,23 @@ def check_checker_wiring(c: Checker) -> None:
 
     # 2.8 WARN / FAIL 与 2.10 WARN 的历史状态
     warn_pin = _th_pin(pad=(1.5, 2.2), hole=(0.8998, 1.5998))
-    w = _item(RC.check_pad_size({"pins": [warn_pin]}, None, RC.DEFAULT_RULES), "2.8")
+    w = _item(RC.check_pad_size({"pins": [warn_pin]}, None, RC.load_rules()), "2.8")
     c.check(w["status"] == "WARN", "R7.5 检查器 2.8 WARN 可复现",
             f"{w['status']} {w.get('detail')}")
     fail_pin = _th_pin(pad=(1.1, 1.8), hole=(0.9, 1.6),
                        name="POB1D6X0D9HOB1D8X1D1")
-    f = _item(RC.check_pad_size({"pins": [fail_pin]}, None, RC.DEFAULT_RULES), "2.8")
+    f = _item(RC.check_pad_size({"pins": [fail_pin]}, None, RC.load_rules()), "2.8")
     c.check(f["status"] == "FAIL", "R7.5 检查器 2.8 FAIL 可复现",
             f"{f['status']} {f.get('detail')}")
     no_top = _th_pin(paste_top=False)
-    t = _item(RC.check_pad_size({"pins": [no_top]}, None, RC.DEFAULT_RULES), "2.10")
+    t = _item(RC.check_pad_size({"pins": [no_top]}, None, RC.load_rules()), "2.10")
     c.check(t["status"] == "WARN", "R7.5 检查器 2.10 缺顶面钢网 WARN",
             f"{t['status']} {t.get('detail')}")
 
     # 旧路径在 2.7 硬失败（孔零）时提前 return，环宽/钢网都不判；新路径
     # 必须保留同一短路口径，不能因为跳过 judge 就把 2.10 变成 WARN。
     zero = _th_pin(hole=(0, 0), paste_top=False)
-    zero_items = RC.check_pad_size({"pins": [zero]}, None, RC.DEFAULT_RULES)
+    zero_items = RC.check_pad_size({"pins": [zero]}, None, RC.load_rules())
     z27 = [i for i in zero_items if i.get("id") == "2.7"]
     c.check(any(i.get("status") == "FAIL" for i in z27),
             "R7.5 孔零仍记 2.7 FAIL",
@@ -331,14 +335,14 @@ def check_checker_wiring(c: Checker) -> None:
     for _pd in unknown_pin["pads"]:
         if _pd["layer"] == "ETCH/TOP":
             _pd["size"] = []
-    u = _item(RC.check_pad_size({"pins": [unknown_pin]}, None, RC.DEFAULT_RULES), "2.8")
+    u = _item(RC.check_pad_size({"pins": [unknown_pin]}, None, RC.load_rules()), "2.8")
     c.check(u["status"] == "NA" and "输入 UNKNOWN" in str(u.get("detail", "")),
             "R7.5 观测缺失 2.8 记 NA 且写 UNKNOWN",
             f"{u['status']} {u.get('detail')}")
 
     # NP 的钢网豁免由规则库 exempt 决定，不再由检查器 if not np 硬跳过。
     np_pin = _th_pin(name="NPOB1D6X0D9HOB2D2X1D5", paste_top=False)
-    np_items = RC.check_pad_size({"pins": [np_pin]}, None, RC.DEFAULT_RULES)
+    np_items = RC.check_pad_size({"pins": [np_pin]}, None, RC.load_rules())
     for rid in ("2.8", "2.10"):
         ni = _item(np_items, rid)
         c.check(ni["status"] == "PASS", f"R7.5 NP {rid} 由库 exempt 判 PASS",
@@ -346,13 +350,13 @@ def check_checker_wiring(c: Checker) -> None:
 
     # 顶面钢网存在但无尺寸：旧路径按 [0,0] 比焊盘 → WARN，新路径同样 WARN。
     bad_ts = _th_pin(paste_size=(0, 0))
-    bt = _item(RC.check_pad_size({"pins": [bad_ts]}, None, RC.DEFAULT_RULES), "2.10")
+    bt = _item(RC.check_pad_size({"pins": [bad_ts]}, None, RC.load_rules()), "2.10")
     c.check(bt["status"] == "WARN", "R7.5 钢网尺寸缺失仍按 0 比焊盘 WARN",
             f"{bt['status']} {bt.get('detail')}")
 
     # 空 padstack 名：旧路径直接放行，新路径保留。
     empty_name = _th_pin(name="")
-    en = _item(RC.check_pad_size({"pins": [empty_name]}, None, RC.DEFAULT_RULES), "2.9")
+    en = _item(RC.check_pad_size({"pins": [empty_name]}, None, RC.load_rules()), "2.9")
     c.check(en["status"] == "PASS", "R7.5 空名 2.9 保持旧 PASS 口径",
             f"{en['status']} {en.get('detail')}")
 
@@ -380,10 +384,31 @@ def check_checker_wiring(c: Checker) -> None:
     md_derive = _md(derive_item)
     c.check("derive" not in md_derive, "R7.5 报告不标 derive-only 方向")
 
-    # 源码不再直接调用旧判定函数（legacy 演练模块除外）
+    # 票 #22：旧判定函数与旧构造引擎已下线，源码里既不许调用也不许残留模块
     src = (ROOT / "services" / "rule_checker.py").read_text(encoding="utf-8")
     c.check("check_pin_conventions" not in src and "check_padstack_naming" not in src,
             "R7.5 检查器不再调用旧判定函数")
+    for mod in ("legacy_judge.py", "convention_engine.py"):
+        c.check(not (ROOT / "services" / mod).exists(),
+                f"R7.5 旧模块文件已删除：{mod}")
+    import ast as _ast
+    offenders = []
+    for p in sorted((ROOT / "services").glob("*.py")):
+        try:
+            tree = _ast.parse(p.read_text(encoding="utf-8"))
+        except SyntaxError as exc:
+            offenders.append(f"{p.name}: SyntaxError {exc}")
+            continue
+        for n in _ast.walk(tree):
+            names = []
+            if isinstance(n, _ast.Import):
+                names = [a.name for a in n.names]
+            elif isinstance(n, _ast.ImportFrom):
+                names = [n.module or ""] + [a.name for a in n.names]
+            if any("legacy_judge" in s or "convention_engine" in s for s in names):
+                offenders.append(p.name)
+                break
+    c.check(not offenders, "R7.5 服务层无 import 旧模块的残留", str(offenders))
 
 
 # ---------------------------------------------------------------- R7.6
@@ -452,7 +477,8 @@ def _library_without_issue18(td: Path) -> None:
                    "PARAM-NAMING-TH-CIRCLE", "PARAM-PASTE-TOP-PRESENT",
                    "PARAM-PASTE-TOP-DIFF", "PARAM-PASTE-BOTTOM-PRESENT"}
     for name in ("forms.json", "parameters.json", "rules.json",
-                 "sources.json", "_severity.json", "library.json"):
+                 "sources.json", "_severity.json", "library.json",
+                 "tolerances.json"):
         text = (RULES_DIR / name).read_text(encoding="utf-8")
         if name == "library.json":
             # library.json 是版本元信息，不是对象数组，原样复制。
@@ -471,8 +497,7 @@ def check_rollback(c: Checker) -> None:
 
     payload = {"pins": [_th_pin(), _th_pin(pad=(1.1, 1.8), hole=(0.9, 1.6),
                                            name="POB1D6X0D9HOB1D8X1D1", number="2")]}
-    os.environ.pop("LAYOUT_FORGE_LEGACY_JUDGE", None)
-    engine_items = RC.check_pad_size(payload, None, RC.DEFAULT_RULES)
+    engine_items = RC.check_pad_size(payload, None, RC.load_rules())
     engine = {rid: _item(engine_items, rid)["status"] for rid in ("2.8", "2.9", "2.10")}
     try:
         with tempfile.TemporaryDirectory() as td:
@@ -485,16 +510,115 @@ def check_rollback(c: Checker) -> None:
                     and "RULE-PASTE-TOP-PRESENT" not in shrunk.rules_by_id,
                     "R7.8 回滚夹具已撤掉本票新增规则")
             os.environ["LAYOUT_FORGE_RULES_DIR"] = str(tdp)
-            # 不设 LAYOUT_FORGE_LEGACY_JUDGE：撤掉迁移规则后应自动退回旧路径。
-            os.environ.pop("LAYOUT_FORGE_LEGACY_JUDGE", None)
-            legacy_items = RC.check_pad_size(payload, None, RC.DEFAULT_RULES)
-            legacy = {rid: _item(legacy_items, rid)["status"]
+            RE.reset_cache()
+            # 票 #22 起没有旧判定回退路径：规则缺了只能 SKIP（聚合成 NA），绝不能 PASS。
+            shrunk_items = RC.check_pad_size(payload, None, RC.load_rules())
+            shrunk = {rid: _item(shrunk_items, rid)["status"]
                       for rid in ("2.8", "2.9", "2.10")}
+            gap = [it for it in shrunk_items
+                   if it.get("status") == "NA" and "缺规则" in (it.get("detail") or "")]
     finally:
-        os.environ.pop("LAYOUT_FORGE_LEGACY_JUDGE", None)
         os.environ.pop("LAYOUT_FORGE_RULES_DIR", None)
-    c.check(engine == legacy, "R7.8 回滚演练：撤掉新规则后旧路径状态一致",
-            f"新 {engine} vs 旧 {legacy}")
+        RE.reset_cache()
+    c.check(all(v == "NA" for v in shrunk.values()),
+            "R7.8 撤掉规则后 2.8/2.9/2.10 只能 NA（缺规则不判 PASS）",
+            f"{shrunk} gap={len(gap)}")
+    c.check(len(gap) == 3 and all(it.get("status") == "NA" for it in gap),
+            "R7.8 NA 的原因写明缺规则", str([it.get("detail") for it in gap]))
+    c.check(any(v != "NA" for v in engine.values()),
+            "R7.8 对照：完整库里至少一项有判定", str(engine))
+
+
+# ---------------------------------------------------------------- R7.9
+FULL_SHADOW = ROOT / "eval" / "baselines" / "shadow_full_253.json"
+FULL_SHADOW_OLD = (ROOT / "eval" / "baselines" /
+                   "shadow_full_253_old_fa92057.json")
+
+
+def check_full_shadow(c: Checker, RE) -> None:
+    """#22 全量闸门：切主路径后整份 items 与旧代码逐件逐项一致。"""
+    for p in (FULL_SHADOW, FULL_SHADOW_OLD):
+        if not p.exists():
+            c.check(False, f"R7.9 全量影子基线存在：{p.name}", str(p))
+            return
+    try:
+        doc = json.loads(FULL_SHADOW.read_text(encoding="utf-8"))
+        old = json.loads(FULL_SHADOW_OLD.read_text(encoding="utf-8"))
+    except Exception as exc:                               # noqa: BLE001
+        c.check(False, "R7.9 全量影子基线可解析", f"{type(exc).__name__}: {exc}")
+        return
+    summ = doc.get("summary") or {}
+    rows = doc.get("rows") or []
+    diffs = doc.get("diffs") or []
+    errs = doc.get("errors_detail") or []
+    c.check(doc.get("schema") == "layout-forge/shadow@2" and doc.get("scope") == "full",
+            "R7.9 全量影子 schema/scope 声明", f"{doc.get('schema')}/{doc.get('scope')}")
+    c.check(summ.get("files") == 253 and len(rows) == 253,
+            "R7.9 覆盖 253 件", f"files={summ.get('files')} rows={len(rows)}")
+    c.check(summ.get("judged") == 235, "R7.9 可比 235 件", str(summ.get("judged")))
+    c.check(summ.get("errors") == 18 and len(errs) == 18,
+            "R7.9 不可读 18 件且都有明细",
+            f"summary={summ.get('errors')} detail={len(errs)}")
+    c.check(all(e.get("reason") for e in errs), "R7.9 每个 error 写明原因")
+    c.check(summ.get("diff") == 0 and not diffs and not any(r.get("diff") for r in rows),
+            "R7.9 整份 items 的 (id,status) 序列逐件逐项差异 0",
+            f"summary={summ.get('diff')} diffs={len(diffs)}")
+    # 比的是「旧代码 vs 切主路径后」两套实现：基线哈希必须与当前库不同，否则闸门空转。
+    lib = RE.load_library(RULES_DIR)
+    c.check(doc.get("rule_set_hash") == lib.fingerprint,
+            "R7.9 影子哈希对应当前规则库",
+            f"{doc.get('rule_set_hash')} vs {lib.fingerprint}")
+    c.check(doc.get("baseline_rule_set_hash")
+            and doc.get("baseline_rule_set_hash") != doc.get("rule_set_hash"),
+            "R7.9 影子确实跨了库版本（旧基线哈希 != 当前哈希）",
+            f"{doc.get('baseline_rule_set_hash')} vs {doc.get('rule_set_hash')}")
+    c.check(doc.get("baseline_rule_set_hash") == old.get("rule_set_hash"),
+            "R7.9 基线哈希与被比对的旧快照一致",
+            f"{doc.get('baseline_rule_set_hash')} vs {old.get('rule_set_hash')}")
+    # 状态分布与旧快照逐键相同：差异为 0 的独立证据（不只看 runner 自己算的 diff）。
+    c.check(summ.get("status") == (old.get("summary") or {}).get("status"),
+            "R7.9 状态分布与旧快照逐键一致（253 件）",
+            f"diff keys={set((summ.get('status') or {})) ^ set(((old.get('summary') or {}).get('status') or {}))}")
+
+    # 实跑闸门：不只信仓里的快照 —— 用当前代码重跑 253 件再比一遍。
+    # 语料在仓外的 Data/PCB_Footprint（253 件 .dra）；缺语料直接红，不做静态降级。
+    runner = ROOT / "eval" / "suites" / "geometry_regression" / "make_shadow_full_253.py"
+    with tempfile.TemporaryDirectory() as td:
+        outp = os.path.join(td, "shadow_live.json")
+        env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
+        try:
+            proc = subprocess.run(
+                [sys.executable, str(runner), "--baseline", str(FULL_SHADOW_OLD), "--out", outp],
+                cwd=str(ROOT), capture_output=True, text=True, encoding="utf-8",
+                errors="replace", env=env, timeout=900,
+            )
+        except subprocess.TimeoutExpired:
+            c.check(False, "R7.9 实跑闸门：900s 内未跑完", "TimeoutExpired")
+            return
+        if proc.returncode == 2:
+            # 本闸门的意义就是「用当前代码真跑一遍」；语料缺失时静默降级等于空转。
+            c.check(False, "R7.9 实跑闸门需要 253 件语料（Data/PCB_Footprint 或 LAYOUT_FORGE_GOLDEN_DIR）",
+                    (proc.stderr or proc.stdout)[-300:])
+        else:
+            live = {}
+            if os.path.exists(outp):
+                live = json.loads(Path(outp).read_text(encoding="utf-8"))
+            lsumm = live.get("summary") or {}
+            c.check(proc.returncode == 0 and lsumm.get("diff") == 0
+                    and not (live.get("diffs") or []),
+                    "R7.9 实跑闸门：当前代码重跑 253 件差异 0",
+                    f"exit={proc.returncode} files={lsumm.get('files')} "
+                    f"judged={lsumm.get('judged')} errors={lsumm.get('errors')} "
+                    f"diff={lsumm.get('diff')}")
+            # 防「语料整片坏 → judged=0、diff=0 也绿」：覆盖率必须与静态基线一致。
+            c.check(lsumm.get("files") == 253 and lsumm.get("judged") == 235
+                    and lsumm.get("errors") == 18,
+                    "R7.9 实跑覆盖完整（253 件 / 235 可比 / 18 不可读）",
+                    f"files={lsumm.get('files')} judged={lsumm.get('judged')} "
+                    f"errors={lsumm.get('errors')}")
+            c.check(live.get("rule_set_hash") == lib.fingerprint,
+                    "R7.9 实跑结果的库哈希对应当前规则库",
+                    f"{live.get('rule_set_hash')} vs {lib.fingerprint}")
 
 
 def main() -> int:
@@ -519,6 +643,7 @@ def main() -> int:
         check_unknown(c, RE, lib)
         check_shadow(c, RE)
         check_rollback(c)
+        check_full_shadow(c, RE)
     except Exception as exc:                               # noqa: BLE001
         c.check(False, "R7 运行未抛异常", f"{type(exc).__name__}: {exc}")
 

@@ -66,7 +66,7 @@ class R:
 # ============================================================
 # [A] 数据管道契约
 # ============================================================
-# 约定消费所需的 DRILL 行字段（与 rule_checker 2.7c / convention_engine 对齐）
+# 约定消费所需的 DRILL 行字段（与 rule_checker 2.7c / padstack_derive 对齐）
 REQUIRED_DRILL_FIELDS = ("hole_type", "figure_name", "size", "layer")
 EXPECTED_HOLE_TYPE = "OVAL SLOT"        # 金标准 th_oblong 唯一口径
 EXPECTED_FIGURE = "OBLONG_Y"
@@ -171,33 +171,35 @@ def section_a(r: R) -> None:
 # ============================================================
 # 受管键 → 必须命中的消费点。★ 新增 conventions.json 键时必须先在这里登记，
 # 并在对应源码真正消费——登记了没消费（B2）或消费了没登记（B1）都算 FAIL。
+# 票 #22 起消费点全部收敛到规则库：数据在 knowledge/rules/*.json，
+# 判定走 rule_checker + rule_engine，派生走 padstack_derive。
 WIRING = {
     "th_oblong.slot_type": [
-        ("services/convention_engine.py", r"OVAL_SLOT"),
+        ("services/padstack_derive.py", r"OBLONG_DRILL"),
         ("services/rule_checker.py", r"holeType"),
     ],
     "th_oblong.annular_ring_mm(standard)": [
-        ("services/convention_engine.py", r"ring_standard"),
-        ("services/rule_checker.py", r"2\.8"),
+        ("knowledge/rules/parameters.json", r"PARAM-ANNULAR-RING"),
+        ("services/rule_checker.py", r"RULE-ANNULAR-RING"),
     ],
     "th_oblong.mask_expand_side_mm": [
-        ("services/convention_engine.py", r"mask_expand_side"),
+        ("services/padstack_derive.py", r"mask_expand"),
     ],
     "th_oblong.paste_top": [
-        ("services/convention_engine.py", r"paste_top_eq_pad|paste_top"),
+        ("services/rule_checker.py", r"RULE-PASTE-TOP"),
         ("services/rule_checker.py", r"2\.10"),
     ],
     "th_oblong.naming(P{孔}H{盘})": [
-        ("services/convention_engine.py", r"naming_match_th"),
+        ("services/padstack_naming.py", r"naming"),
         ("services/rule_engine.py", r"_naming_match"),
         ("services/rule_checker.py", r"2\.9"),
-        ("services/legacy_judge.py", r"check_padstack_naming"),
+        ("knowledge/rules/parameters.json", r"PARAM-NAMING"),
     ],
     "th_oblong.rotation": [
-        ("services/convention_engine.py", r"pin\[\"rotation\"\] = 90|rotation.*90"),
+        ("services/padstack_derive.py", r"rotation"),
     ],
     "adjudicated.th_oblong_plated": [
-        ("services/convention_engine.py", r"th_oblong_plated"),
+        ("knowledge/rules/parameters.json", r"SRC-CONV-ADJUDICATED"),
     ],
     "th_oblong.holeType校验(2.7c)": [
         ("services/rule_checker.py", r"2\.7c|TH 钻孔 holeType"),

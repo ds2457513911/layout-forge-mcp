@@ -24,7 +24,7 @@ metadata:
   # ★ 三声明（Phase 3 §7）：部署前校验用，改动本文件时同步更新
   mcp_min_commit: "a5bd61f"
   verified_with: "layout-forge-mcp @ a5bd61f / 2026-10-15：eval/check_eval.py 五套全绿、behavior 5/5"
-  eval_baseline: "eval/baselines/tool_contract.json + geometry_regression.json（239/222/35/253 件） + spec_reading.json（92.5%）"
+  eval_baseline: "eval/baselines/tool_contract.json + geometry_regression.json（239/222/42/253 件） + spec_reading.json（92.5%）"
 requires-mcp-servers:
   - name: layout-forge-mcp
     package: "local"
@@ -593,7 +593,7 @@ pin 编号方向必须看 datasheet TOP VIEW（凭直觉会把反了的封装判
 1. **重连 MCP / 重启客户端** —— 服务进程缓存启动时的代码，不重连不生效
    （本项目 `mcp_server/config.py` **没有** `MCP_VERSION` 字段，无法靠版本号判断）
    ★ **只有改 `services/`、`mcp_server/` 才需要重连**；改 `knowledge/`
-   （rules/checker_rules.json、specs、cases）是**每次调用现读盘**，立即生效
+   （rules/ 参数、容差、specs、cases）是**每次调用现读盘**，立即生效
 2. 判据：重连后工具总数应与本机源码的 `@mcp.tool` 定义数一致（部署冒烟 D2 已同源比较，不再有硬编码期望值）；或直接调一个新加的工具（如 `find_case` / `get_run_stats`）
    看是否报"未知工具"
 3. 改动较大时跑两套离线自检：`Tools/selfcheck_geometry.py`（239 项）+
@@ -626,6 +626,6 @@ pin 编号方向必须看 datasheet TOP VIEW（凭直觉会把反了的封装判
    报告示例 / 模式 C 四层漏斗 / 客户端配置）。两条纪律：
    - **新增一条硬规则时，先判断它属于"每次都用"还是"偶尔查"** —— 后者进 references，
      并在上方索引表和触发处都写指针；否则正文会重新膨胀回 800+ 行。
-   - **`references/` 里的数值和命令与代码同源**（如 `conventions.json`、`checker_rules.json`）：
+   - **`references/` 里的数值和命令与代码同源**（如 `knowledge/rules/parameters.json`、`knowledge/rules/tolerances.json`）：
      改代码导致口径变化时，同轮改对应 reference，否则模型按旧口径办事而没人发现。
      `--verify-skills` 只比 hash 不读语义，救不了这种「三处一致但都过期」。

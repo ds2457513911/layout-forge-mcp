@@ -74,8 +74,8 @@
    **后果**：这类 spec 的指纹里 `pad_x/pad_y = None`（`find_spec` 按"未知=不参与"处理，
    仍能按 mount / pin_count / body 命中；`notes` 里人工记录的 2.10×1.10 不参与计算）。
    **两个候选修法（未做，需先定口径）**：
-   (a) 让 `fingerprint()` 在缺 `pad` 时借 `convention_engine.derive_th_oblong_padstack()`
-       从孔尺寸派生焊盘（复用约定引擎；代价：`spec_library` 新增对约定库的依赖，
+   (a) 让 `fingerprint()` 在缺 `pad` 时借 `padstack_derive` 的规则派生
+       从孔尺寸算出焊盘（复用规则库；代价：`spec_library` 新增对约定库的依赖，
        且要处理 spec 侧"板面帧"与引擎侧"本地竖向帧"的换算）；
    (b) 规定 spec **必须**显式写 `pad.size`（与 10-13 约定冲突，会把派生值抄回 spec —— 不推荐）。
    **当前处置**：`_index.json` 与 JSON 内 `fingerprint` 已按 (a) 之前的现状重建（`pad = null`），

@@ -4,7 +4,7 @@ eval/suites/geometry_regression/check_geometry_regression.py —— L5 评测（
 
 ## 为什么要有这一套
 
-项目里**早就有** 239 项几何自检、222 项 SKILL 语法自检、39 项约定链路自检、
+项目里**早就有** 239 项几何自检、222 项 SKILL 语法自检、42 项约定链路自检、
 253 件金标准批量对拍（票 #16 起又加了 19 项 padstack 决策入口对拍） —— 但它们一直是"**跑一下看看**"：
 没人记得住上一次的分数，少跑一项、少跑一件、把某段自检注释掉，**没有任何东西会红**。
 本套件把分数**冻结成基线**，并在每次改动后重跑比对：分数掉了就是回归。
@@ -24,8 +24,8 @@ eval/suites/geometry_regression/check_geometry_regression.py —— L5 评测（
 | 跑分 | R3 | `Tools/selfcheck_conventions.py` 失败 0 且总数 == 基线 | 无 |
 | 跑分 | R4 | `Tools/benchmark_golden.py`（253 件）：件数 == 基线、**提取失败 ≤ 基线**、FAIL 件数 ≤ 基线、exact ≥ 基线（**读 `benchmark_summary.csv`，不解析控制台**） | 无 |
 | 跑分 | R5 | `eval/suites/geometry_regression/check_derive.py`（票 #16）：**决策入口只依赖纯模块** + 8 份 spec 的求解输出 / 派生输出与 `eval/baselines/padstack_derive.json` 逐字段相等 | 无 |
-| 跑分 | R6 | `eval/suites/geometry_regression/check_rule_engine.py`（票 #17）：规则库整体加载 + 整库哈希 + 同输入逐字节相同；坏库六类必须整体失败并报位置；阻焊规则三形态 PASS/WARN/SKIP；改库即改判定；13 件真实夹具的 2.2 状态与旧判定一致；旧阈值文件 sha256 未变 | 无 |
-| 跑分 | R7 | `eval/suites/geometry_regression/check_rule_shift.py`（票 #18）：环宽三档/NP 豁免/命名反推/钢网三策略；检查器历史 id 2.8/2.9/2.10 带方向与规则集哈希且不再调用旧判定；输入 UNKNOWN 记 SKIP；253 件影子 id+status 差异 0；`LAYOUT_FORGE_LEGACY_JUDGE=1` 回滚对拍一致 | 无 |
+| 跑分 | R6 | `eval/suites/geometry_regression/check_rule_engine.py`（票 #17/#19/#21/#22）：规则库整体加载 + 整库哈希 + 同输入逐字节相同；坏库六类必须整体失败并报位置；阻焊规则三形态 PASS/WARN/SKIP；改库即改判定；13 件真实夹具的 2.2 状态与旧判定一致；旧阈值文件 sha256 未变且无代码读取（AST）；容差 19 条逐值对旧文件、5 个死键不收录 | 无 |
+| 跑分 | R7 | `eval/suites/geometry_regression/check_rule_shift.py`（票 #18/#22）：环宽三档/NP 豁免/命名反推/钢网三策略；检查器历史 id 2.8/2.9/2.10 带方向与规则集哈希；旧模块已删除且无 import；输入 UNKNOWN 记 SKIP；撤规则只能 NA（无回退）；2.8/2.9/2.10 影子 253 件差异 0；**R7.9 全量 253 件整份 items 逐项差异 0** | 无 |
 
 R4 的语义是「**不比基线差**」而不是「必须全 0」：金标准库里本来就有一批提取不出
 （`extracta pins.txt 输出为空`），硬要求 0 会让闸门永远红着 ＝ 等于没有闸门。

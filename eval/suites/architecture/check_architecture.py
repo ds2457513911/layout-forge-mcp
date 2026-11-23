@@ -57,9 +57,7 @@ CORE_MODULES = [
     "services/geometry_solver.py",
     "services/skill_snippets.py",
     "services/rule_checker.py",
-    "services/convention_engine.py",
     # 票 #18：旧判定回滚适配器（票 #22 删除）；只在回滚开关/规则缺失时被调用。
-    "services/legacy_judge.py",
     # 票 #16：padstack 形态决策入口（与执行器 footprint_builder 分开后必须能离线调用）
     "services/padstack_derive.py",
     # 票 #17：规则库加载器 + 判定/派生纯函数入口（吃知识库 JSON，零 I/O 外部依赖）
@@ -117,7 +115,7 @@ REGISTERED_DIRS = [
 DOC_EXEMPT_DIRS = {
     "eval/suites/architecture": "断言套件本身，规则见本文件 docstring + eval/README.md 五套件表",
     "eval/suites/tool_contract": "同 architecture：由 eval/README.md 的五套件表覆盖（判据写在脚本 docstring）",
-    "eval/suites/geometry_regression": "同 architecture：把 253 件对拍、三套既有自检与票 #16 的决策入口对拍变成分数，判据（G1–G6/R1–R6）写在脚本 docstring + eval/README.md",
+    "eval/suites/geometry_regression": "同 architecture：把 253 件对拍、三套既有自检与票 #16 的决策入口对拍变成分数，判据（G1–G6/R1–R7）写在脚本 docstring + eval/README.md",
 }
 
 #: A6：代码根（只在这几个子树里找「未登记的代码目录」，避免扫 1,242 个日志文件）
@@ -306,9 +304,25 @@ def check():
         if not py.is_file():
             add("A3", "warn", f"内核清单里的文件不存在：{rel}", rel)
             continue
-        for top, full, line, _names in (_imports(py) or []):
+        # `if __name__ == "__main__"` 里的导入只在命令行演示时执行，不进 import 期，
+        # 不算内核依赖（rule_checker.py 的 CLI 演示就读 .dra，属工具入口）。
+        _tree = ast.parse(py.read_text(encoding="utf-8"))
+        _main_ranges = [(n.lineno, n.end_lineno or n.lineno) for n in ast.walk(_tree)
+                        if isinstance(n, ast.If) and "__main__" in ast.dump(n.test)]
+        for top, full, line, names in (_imports(py) or []):
             if top in FORBIDDEN_CORE:
                 add("A3", "error", f"{rel}:{line} import {full} —— {FORBIDDEN_CORE[top]}", rel)
+            # A3 第二道：内核连「读取层 / 执行器」也不许碰。
+            # FORBIDDEN_CORE 只比顶层包名，`from services import extracta_reader`
+            # 的 top 是 "services"，会漏过去 —— 2026-11-23 评审抓到的正是这种。
+            _in_main = any(a <= line <= b for a, b in _main_ranges)
+            if not _in_main and (
+                    full.startswith(("services.extracta_reader", "services.footprint_extractor",
+                                     "services.skillbridge_reader", "services.skillbridge_writer"))
+                    or set(names) & {"extracta_reader", "footprint_extractor",
+                                     "skillbridge_reader", "skillbridge_writer"}):
+                add("A3", "error",
+                    f"{rel}:{line} import {full} —— 内核（纯函数）不得依赖读取层/执行器", rel)
 
     # A4 / A5 / W2：README 与文件清单
     for rel in REGISTERED_DIRS:

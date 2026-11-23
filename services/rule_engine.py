@@ -76,6 +76,7 @@ SCHEMA_FILE_VERSIONS: Dict[str, str] = {
     "rules": "layout-forge/rules/rules@1",
     "sources": "layout-forge/rules/sources@1",
     "severity": "layout-forge/rules/severity@1",
+    "tolerances": "layout-forge/rules/tolerances@1",
 }
 
 # 四类对象允许出现的字段：拼错的字段一律拒绝，不静默忽略（README 的硬要求）
@@ -89,6 +90,9 @@ KNOWN_FIELDS: Dict[str, set] = {
               "report_id", "exempt"},
     "sources": {"id", "kind", "ref", "note"},
     "severity": {"id", "severity", "consequence", "evidence", "note"},
+    # 票 #22：判定容差表（原 checker_rules.json 的全局阈值，收编后唯一真源）
+    "tolerances": {"id", "section", "key", "value", "kind", "source",
+                   "since", "note"},
 }
 
 # 四类对象 + severity 表的文件名（都是 {"items": [...]} 形状）
@@ -99,6 +103,7 @@ SCHEMA_FILES: Dict[str, str] = {
     "rules": "rules.json",
     "sources": "sources.json",
     "severity": "_severity.json",
+    "tolerances": "tolerances.json",
 }
 
 # 冻结的旧阈值文件：不是新库的一部分，出现在库目录里也不加载
@@ -196,11 +201,18 @@ class RuleLibrary:
         self.rules: List[Dict[str, Any]] = files["rules"]
         self.sources: List[Dict[str, Any]] = files["sources"]
         self.severity: List[Dict[str, Any]] = files["severity"]
+        self.tolerances: List[Dict[str, Any]] = files["tolerances"]
         self.forms_by_id: Dict[str, Dict[str, Any]] = {o["id"]: o for o in self.forms}
         self.parameters_by_id: Dict[str, Dict[str, Any]] = {o["id"]: o for o in self.parameters}
         self.rules_by_id: Dict[str, Dict[str, Any]] = {o["id"]: o for o in self.rules}
         self.sources_by_id: Dict[str, Dict[str, Any]] = {o["id"]: o for o in self.sources}
         self.severity_by_id: Dict[str, Dict[str, Any]] = {o["id"]: o for o in self.severity}
+        self.tolerances_by_id: Dict[str, Dict[str, Any]] = {
+            o["id"]: o for o in self.tolerances}
+        # 消费方（检查器/求解器）拿到的嵌套视图：{section: {key: value}}，
+        # 与旧 checker_rules.json 的形状一致，取值代码不用改。
+        self.tolerances_map: Dict[str, Dict[str, Any]] = _tolerances_to_map(
+            self.tolerances)
 
     def dump(self) -> Dict[str, Any]:
         """整库的确定性视图（报告 / 哈希 / 对拍都用它）。"""
@@ -212,6 +224,7 @@ class RuleLibrary:
             "rules": self.rules,
             "sources": self.sources,
             "severity": self.severity,
+            "tolerances": self.tolerances,
         }
 
     def __repr__(self) -> str:                       # pragma: no cover - 调试用
@@ -905,6 +918,76 @@ def _validate_rules(rules: List[Dict[str, Any]], forms: List[Dict[str, Any]],
                     _require(errors, name, f"{p}.exempt", exempt, key, str)
 
 
+TOLERANCE_KINDS: Tuple[str, ...] = ("string", "bool", "int", "float")
+_TOL_PATH_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def _tolerances_to_map(items: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """容差条目 → 嵌套视图 {section: {key: value}}（消费方按老形状取值）。"""
+    out: Dict[str, Dict[str, Any]] = {}
+    for obj in items:
+        section, key = obj.get("section"), obj.get("key")
+        if isinstance(section, str) and isinstance(key, str):
+            out.setdefault(section, {})[key] = obj.get("value")
+    return out
+
+
+def _validate_tolerances(tolerances: List[Dict[str, Any]],
+                         sources: List[Dict[str, Any]],
+                         errors: List[Dict[str, str]]) -> None:
+    """容差表校验：类型与值域、出处必须已登记、同 (section,key) 只能定义一次。"""
+    name = SCHEMA_FILES["tolerances"]
+    src_ids = {s.get("id") for s in sources if isinstance(s.get("id"), str)}
+    seen: Dict[str, int] = {}
+    for i, tol in enumerate(tolerances):
+        p = f"items[{i}]"
+        for field in ("section", "key", "kind", "source", "since"):
+            _require(errors, name, p, tol, field, str)
+        for field in ("section", "key"):
+            val = tol.get(field)
+            if isinstance(val, str) and not _TOL_PATH_RE.match(val):
+                _err(errors, name, f"{p}.{field}",
+                     f"{field} 只能用小写字母/数字/下划线，实际 {val!r}")
+        kind = tol.get("kind")
+        if isinstance(kind, str) and kind not in TOLERANCE_KINDS:
+            _err(errors, name, f"{p}.kind",
+                 f"未知类型 {kind!r}（允许 {TOLERANCE_KINDS}）")
+        if "value" not in tol:
+            _err(errors, name, f"{p}.value", "缺必填字段 value")
+        else:
+            v = tol.get("value")
+            if kind == "string" and (not isinstance(v, str) or not v):
+                _err(errors, name, f"{p}.value",
+                     f"string 型必须是非空字符串，实际 {v!r}")
+            elif kind == "bool" and not isinstance(v, bool):
+                _err(errors, name, f"{p}.value", f"bool 型必须是布尔，实际 {v!r}")
+            elif kind == "int" and (isinstance(v, bool) or not isinstance(v, int)):
+                _err(errors, name, f"{p}.value", f"int 型必须是整数，实际 {v!r}")
+            elif kind == "float":
+                if isinstance(v, bool) or not isinstance(v, (int, float)):
+                    _err(errors, name, f"{p}.value",
+                         f"float 型必须是数字，实际 {v!r}")
+                elif not (v == v and abs(v) != float("inf")):
+                    _err(errors, name, f"{p}.value", f"float 型必须有限，实际 {v!r}")
+            if kind in ("int", "float") and isinstance(v, (int, float)) \
+                    and not isinstance(v, bool) and v <= 0:
+                _err(errors, name, f"{p}.value", f"容差必须为正数，实际 {v!r}")
+        src = tol.get("source")
+        if isinstance(src, str) and src not in src_ids:
+            _err(errors, name, f"{p}.source",
+                 f"出处 {src!r} 未登记在 sources.json")
+        since = tol.get("since")
+        if isinstance(since, str) and not LIBRARY_DATE_RE.match(since):
+            _err(errors, name, f"{p}.since", f"since 应为 YYYY-MM-DD，实际 {since!r}")
+        pair = f"{tol.get('section')}.{tol.get('key')}"
+        if pair in seen:
+            _err(errors, name, f"{p}.key",
+                 f"({tol.get('section')}, {tol.get('key')}) 重复定义"
+                 f"（首次出现在 items[{seen[pair]}]）")
+        else:
+            seen[pair] = i
+
+
 def _validate_sources(sources: List[Dict[str, Any]], errors: List[Dict[str, str]]) -> None:
     name = SCHEMA_FILES["sources"]
     for i, src in enumerate(sources):
@@ -1010,6 +1093,7 @@ def load_library(path: Optional[Any] = None) -> RuleLibrary:
         _validate_forms(files["forms"], errors)
         _validate_sources(files["sources"], errors)
         _validate_severity(files["severity"], errors)
+        _validate_tolerances(files["tolerances"], files["sources"], errors)
         _validate_parameters(files["parameters"], files["forms"], files["sources"], errors)
         _check_field_form_unique(files["parameters"], errors)
         _validate_rules(files["rules"], files["forms"], files["parameters"],
